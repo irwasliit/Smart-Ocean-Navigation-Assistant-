@@ -1,0 +1,146 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List
+from datetime import datetime
+
+from database import get_db
+from models import User, RouteAnalysis
+from schemas import RouteAnalysisCreate, RouteAnalysisResponse
+from .auth import get_current_user
+from services.route_service import RouteService
+from services.multi_agent_ai_service import multi_agent_service
+from services.usage_service import UsageService
+
+router = APIRouter()
+route_service = RouteService()
+# Multi-agent AI service is available globally
+
+@router.post("/analyze", response_model=RouteAnalysisResponse)
+async def analyze_route(
+    route: RouteAnalysisCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Analyze weather conditions along a route between two points"""
+    try:
+        # Enforce daily route analysis limit
+        UsageService.check_and_increment(db, current_user, feature="route")
+        # Calculate route path and sample points
+        route_data = await route_service.calculate_route(
+            start_lat=route.start_latitude,
+            start_lon=route.start_longitude,
+            end_lat=route.end_latitude,
+            end_lon=route.end_longitude
+        )
+        
+        # Get weather data for each point along the route
+        weather_analysis = await route_service.analyze_route_weather(route_data["sample_points"])
+        
+        # Generate AI risk assessment using comprehensive analysis
+        from services.multi_agent_ai_service import NavigationContext
+        from datetime import datetime
+        
+        # Create navigation context for route optimization
+        context = NavigationContext(
+            vessel_type=route.vessel_type or 'general',
+            vessel_size='medium',
+            experience_level="intermediate",
+            cargo_type=None,
+            departure_port="Start",
+            destination_port="End", 
+            departure_time=datetime.now(),
+            urgency_level="normal"
+        )
+        
+        # Use route optimizer directly instead of comprehensive analysis
+        # since we have specific route and weather analysis data
+        if multi_agent_service.client and hasattr(multi_agent_service, 'route_optimizer'):
+            route_response = await multi_agent_service.route_optimizer.optimize_route(
+                route_data=route_data,
+                weather_analysis=weather_analysis,
+                context=context
+            )
+            risk_assessment = route_response.content
+        else:
+            # Fallback if AI service is not available
+            risk_assessment = f"""Route Analysis Summary:
+            Distance: {route_data.get('distance', 0)} km
+            Estimated Duration: {route_data.get('estimated_duration', 0)} hours
+            Weather Analysis: {len(weather_analysis.get('points', []))} points analyzed
+            Risk Level: Medium - Monitor weather conditions along the route
+            """
+        
+
+        
+        # Store analysis in database
+        db_analysis = RouteAnalysis(
+            user_id=current_user.id,
+            start_latitude=route.start_latitude,
+            start_longitude=route.start_longitude,
+            end_latitude=route.end_latitude,
+            end_longitude=route.end_longitude,
+            route_name=route.route_name,
+            analysis_data={
+                "route_data": route_data,
+                "weather_analysis": weather_analysis
+            },
+            risk_assessment=risk_assessment
+        )
+        db.add(db_analysis)
+        db.commit()
+        db.refresh(db_analysis)
+        
+        return db_analysis
+    except Exception as e:
+        import traceback
+        print(f"❌ Route analysis error: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Error analyzing route: {str(e)}")
+
+@router.get("/history", response_model=List[RouteAnalysisResponse])
+async def get_route_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's route analysis history"""
+    analyses = db.query(RouteAnalysis).filter(
+        RouteAnalysis.user_id == current_user.id
+    ).order_by(RouteAnalysis.created_at.desc()).all()
+    return analyses
+
+@router.get("/{analysis_id}", response_model=RouteAnalysisResponse)
+async def get_route_analysis(
+    analysis_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get specific route analysis by ID"""
+    analysis = db.query(RouteAnalysis).filter(
+        RouteAnalysis.id == analysis_id,
+        RouteAnalysis.user_id == current_user.id
+    ).first()
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Route analysis not found")
+    
+    return analysis
+
+@router.delete("/{analysis_id}")
+async def delete_route_analysis(
+    analysis_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a route analysis"""
+    analysis = db.query(RouteAnalysis).filter(
+        RouteAnalysis.id == analysis_id,
+        RouteAnalysis.user_id == current_user.id
+    ).first()
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Route analysis not found")
+    
+    db.delete(analysis)
+    db.commit()
+    
+    return {"message": "Route analysis deleted successfully"}

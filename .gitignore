@@ -1,0 +1,391 @@
+# IRWA Marine Project - Git Ignore# Dependencies# Python
+
+
+
+# ===== PYTHON IGNORES =====node_modules/__pycache__/
+
+# Byte-compiled / optimized / DLL files
+
+__pycache__/*/node_modules/*.py[cod]
+
+*.py[cod]
+
+*$py.classnpm-debug.log**$py.class
+
+
+
+# Virtual environments - NEVER COMMIT THESEyarn-debug.log**.so
+
+venv/
+
+.venv/yarn-error.log*.Python
+
+env/
+
+.env/build/
+
+ENV/
+
+env.bak/# Pythondevelop-eggs/
+
+venv.bak/
+
+__pycache__/dist/
+
+# Python packages
+
+*.egg-info/*.py[cod]downloads/
+
+dist/
+
+build/*$py.classeggs/
+
+.eggs/
+
+*.so.eggs/
+
+# ===== NODE.JS / FRONTEND IGNORES =====
+
+# Dependencies - NEVER COMMIT THESE.Pythonlib/
+
+node_modules/
+
+frontend/node_modules/build/lib64/
+
+*/node_modules/
+
+develop-eggs/parts/
+
+# Production builds
+
+frontend/dist/dist/sdist/
+
+frontend/build/
+
+build/downloads/var/
+
+dist/
+
+eggs/wheels/
+
+# Package manager files
+
+package-lock.json.eggs/*.egg-info/
+
+yarn.lock
+
+.pnpm-lock.yamllib/.installed.cfg
+
+
+
+# ===== ENVIRONMENT & CONFIG =====lib64/*.egg
+
+# Environment variables
+
+.envparts/MANIFEST
+
+.env.local
+
+.env.development.localsdist/
+
+.env.test.local
+
+.env.production.localvar/# Virtual Environment (commented out to include venv)
+
+
+
+# ===== DATABASE =====wheels/# venv/
+
+# SQLite databases
+
+*.dbpip-wheel-metadata/# env/
+
+*.sqlite
+
+*.sqlite3share/python-wheels/# ENV/
+
+database.db
+
+marine_assistant.db*.egg-info/# .venv/
+
+
+
+# ===== LOGS & TEMP FILES =====.installed.cfg# .env/
+
+# Log files
+
+*.log*.egg
+
+logs/
+
+npm-debug.log*MANIFEST# Environment variables
+
+yarn-debug.log*
+
+yarn-error.log*.env
+
+
+
+# Temporary files# Virtual Environment - EXCLUDE FROM GIT.env.local
+
+tmp/
+
+temp/venv/.env.development.local
+
+*.tmp
+
+*.tempenv/.env.test.local
+
+
+
+# ===== IDE & EDITOR =====ENV/.env.production.local
+
+# VS Code
+
+.vscode/venv.bak/
+
+*.code-workspace
+
+env.bak/# Node.js
+
+# PyCharm
+
+.idea/.venv/node_modules/
+
+*.iml
+
+npm-debug.log*
+
+# Other editors
+
+*.swp# Environment variablesyarn-debug.log*
+
+*.swo
+
+*~.envyarn-error.log*
+
+.vim/
+
+.env.local.pnpm-debug.log*
+
+# ===== OPERATING SYSTEM =====
+
+# macOS.env.development.local
+
+.DS_Store
+
+.DS_Store?.env.test.local# Frontend build files
+
+._*
+
+.Spotlight-V100.env.production.localfrontend/dist/
+
+.Trashes
+
+frontend/build/
+
+# Windows
+
+Thumbs.db# Databasefrontend/.vite/
+
+ehthumbs.db
+
+Desktop.ini*.db
+
+
+
+# Linux*.sqlite# IDE
+
+*~
+
+.nfs**.sqlite3.vscode/
+
+
+
+# ===== TESTING & COVERAGE =====database.db.idea/
+
+.coverage
+
+.pytest_cache/marine_weather.db*.swp
+
+htmlcov/
+
+.nyc_output*.swo
+
+coverage/
+
+# Logs*~
+
+# ===== CACHE & BUILD ARTIFACTS =====
+
+.cache/logs/
+
+.parcel-cache/
+
+.eslintcache*.log# OS
+
+*.tsbuildinfo
+
+npm-debug.log*.DS_Store
+
+# ===== BACKUP FILES =====
+
+*.bakyarn-debug.log*.DS_Store?
+
+*.backup
+
+*.origyarn-error.log*._*
+
+*.rej
+
+.Spotlight-V100
+
+# ===== PROJECT SPECIFIC =====
+
+# AI API Keys (should be in .env)# Runtime data.Trashes
+
+openai_key.txt
+
+api_keys.txtpids/ehthumbs.db
+
+
+
+# Local config overrides*.pidThumbs.db
+
+config.local.py
+
+settings.local.js*.seed
+
+
+
+# User uploaded files (if any)*.pid.lock# Logs
+
+uploads/
+
+media/logs/
+
+
+
+# ===== DEPLOYMENT =====# Coverage directory used by tools like istanbul*.log
+
+# Docker
+
+.dockerignorecoverage/
+
+
+
+# Deployment configs (sensitive)*.lcov# Database
+
+deploy.yml
+
+docker-compose.override.yml.nyc_output*.db
+
+*.sqlite
+
+# Frontend build outputs*.sqlite3
+
+frontend/dist/
+
+frontend/build/# Temporary files
+
+frontend/.vite/*.tmp
+
+dist/*.temp
+
+build/
+
+# Coverage reports
+
+# Temporary foldershtmlcov/
+
+tmp/.coverage
+
+temp/.coverage.*
+
+coverage.xml
+
+# Editor directories and files*.cover
+
+.vscode/.hypothesis/
+
+.idea/.pytest_cache/
+
+*.swp
+
+*.swo# mypy
+
+*~.mypy_cache/
+
+.dmypy.json
+
+# OS generated filesdmypy.json
+
+.DS_Store
+
+.DS_Store?# Jupyter Notebook
+
+._*.ipynb_checkpoints
+
+.Spotlight-V100
+
+.Trashes# pyenv
+
+ehthumbs.db.python-version
+
+Thumbs.db
+
+# celery beat schedule file
+
+# API Keys and sensitive filescelerybeat-schedule
+
+config/
+
+secrets/# SageMath parsed files
+
+*.pem*.sage.py
+
+*.key
+
+# Spyder project settings
+
+# Testing.spyderproject
+
+.pytest_cache/.spyproject
+
+htmlcov/
+
+.coverage# Rope project settings
+
+.coverage.*.ropeproject
+
+.cache
+
+nosetests.xml# mkdocs documentation
+
+coverage.xml/site
+
+*.cover
+
+*.py,cover# API keys and secrets
+
+.hypothesis/config/secrets.yaml
+
+secrets/
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Backup files
+*.bak
+*.backup

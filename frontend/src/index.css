@@ -1,0 +1,521 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Enhanced Marine Weather Assistant Styles */
+:root {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color: #1f2937;
+  background-color: #ffffff;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* Enhanced Marine Color Palette */
+  --marine-primary: #0f172a;
+  --marine-secondary: #1e40af;
+  --marine-accent: #0ea5e9;
+  --marine-light: #06b6d4;
+  --marine-success: #10b981;
+  --marine-warning: #f59e0b;
+  --marine-danger: #ef4444;
+  --marine-info: #3b82f6;
+  
+  /* Ocean Wave Colors */
+  --ocean-deep: #0c4a6e;
+  --ocean-medium: #0369a1;
+  --ocean-light: #0284c7;
+  --ocean-foam: #0891b2;
+  
+  /* Maritime Gradients */
+  --gradient-ocean: linear-gradient(135deg, var(--ocean-deep) 0%, var(--ocean-medium) 50%, var(--ocean-light) 100%);
+  --gradient-sunset: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fbbf24 100%);
+  --gradient-storm: linear-gradient(135deg, #374151 0%, #4b5563 50%, #6b7280 100%);
+  --gradient-calm: linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: #f9fafb;
+  color: #1f2937;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Marine theme colors */
+.marine-gradient {
+  background: linear-gradient(135deg, #1e40af 0%, #0ea5e9 50%, #06b6d4 100%);
+}
+
+.marine-text {
+  color: #1e40af;
+}
+
+.marine-bg {
+  background-color: #1e40af;
+}
+
+/* Loading spinner */
+.spinner {
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #1e40af;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+
+/* Map and Modal Z-index fixes */
+.leaflet-container {
+  z-index: 1 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 700 !important;
+}
+
+.leaflet-popup {
+  z-index: 800 !important;
+}
+
+.leaflet-control-container {
+  z-index: 1000 !important;
+}
+
+/* Custom popup styles */
+.custom-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.custom-popup .leaflet-popup-content {
+  margin: 0;
+  padding: 0;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  backdrop-filter: blur(4px);
+}
+
+/* Prevent body scroll when modal is open */
+.modal-open {
+  overflow: hidden;
+}
+
+/* Enhanced Animations */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-10px) rotate(1deg); }
+  50% { transform: translateY(-5px) rotate(0deg); }
+  75% { transform: translateY(-15px) rotate(-1deg); }
+}
+
+@keyframes oceanFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes buoy {
+  0%, 100% { transform: translateY(0px) rotateZ(0deg); }
+  25% { transform: translateY(-3px) rotateZ(1deg); }
+  50% { transform: translateY(-1px) rotateZ(0deg); }
+  75% { transform: translateY(-4px) rotateZ(-1deg); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+@keyframes slideInFromOcean {
+  0% { transform: translateX(-100%) rotate(-5deg); opacity: 0; }
+  100% { transform: translateX(0) rotate(0deg); opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  0% { transform: translateY(30px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(14, 165, 233, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(14, 165, 233, 0.6), 0 0 30px rgba(14, 165, 233, 0.4); }
+}
+
+@keyframes weatherFlow {
+  0% { transform: translateX(-10px); }
+  50% { transform: translateX(10px); }
+  100% { transform: translateX(-10px); }
+}
+
+@keyframes compassSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Maritime-specific animations */
+.wave-animation {
+  animation: wave 3s ease-in-out infinite;
+}
+
+.ocean-flow {
+  background-size: 200% 200%;
+  animation: oceanFlow 8s ease infinite;
+}
+
+.buoy-float {
+  animation: buoy 4s ease-in-out infinite;
+}
+
+.ripple-effect::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background: rgba(14, 165, 233, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: ripple 2s infinite;
+}
+
+.slide-in-ocean {
+  animation: slideInFromOcean 0.8s ease-out;
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+.weather-flow {
+  animation: weatherFlow 6s ease-in-out infinite;
+}
+
+.compass-spin {
+  animation: compassSpin 20s linear infinite;
+}
+
+/* Weather card animations */
+.weather-card {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.weather-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Map container */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 0.5rem;
+}
+
+/* Toast notifications */
+.toast-success {
+  background-color: #10b981 !important;
+  color: white !important;
+}
+
+.toast-error {
+  background-color: #ef4444 !important;
+  color: white !important;
+}
+
+/* AI chat bubble */
+.chat-bubble-user {
+  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  color: white;
+}
+
+.chat-bubble-ai {
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+  color: #374151;
+}
+
+/* Enhanced Maritime Components */
+.maritime-card {
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(14, 165, 233, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.maritime-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: var(--gradient-ocean);
+  transition: left 0.5s ease;
+}
+
+.maritime-card:hover::before {
+  left: 0;
+}
+
+.maritime-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(14, 165, 233, 0.15);
+  border-color: rgba(14, 165, 233, 0.3);
+}
+
+.ocean-button {
+  background: var(--gradient-ocean);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+}
+
+.ocean-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  transform: translate(-50%, -50%);
+}
+
+.ocean-button:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.ocean-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.4);
+}
+
+.ocean-button:active {
+  transform: translateY(0);
+}
+
+/* Weather Status Indicators */
+.weather-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.weather-calm {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.weather-moderate {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+}
+
+.weather-rough {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.weather-severe {
+  background: linear-gradient(135deg, #7c2d12, #991b1b);
+  color: white;
+  animation: glowPulse 1.5s ease-in-out infinite;
+}
+
+/* Interactive Elements */
+.tooltip {
+  position: relative;
+  cursor: help;
+}
+
+.tooltip::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  border: 5px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.tooltip:hover::before,
+.tooltip:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+/* Loading States */
+.loading-wave {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  background: var(--gradient-ocean);
+  border-radius: 50%;
+  animation: wave 1.5s ease-in-out infinite;
+}
+
+.loading-dots::after {
+  content: '';
+  display: inline-block;
+  animation: ellipsis 1.5s infinite;
+}
+
+@keyframes ellipsis {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+  100% { content: ''; }
+}
+
+/* Maritime Background Patterns */
+.ocean-pattern {
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(14, 165, 233, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 40% 80%, rgba(8, 145, 178, 0.1) 0%, transparent 50%);
+  background-attachment: fixed;
+}
+
+.wave-pattern {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(14, 165, 233, 0.05) 10px,
+    rgba(14, 165, 233, 0.05) 20px
+  );
+}
+
+/* Enhanced Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: linear-gradient(to bottom, #f1f5f9, #e2e8f0);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gradient-ocean);
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gradient-calm);
+}
+
+/* Responsive design helpers */
+@media (max-width: 768px) {
+  .container-mobile {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .maritime-card {
+    border-radius: 12px;
+  }
+  
+  .maritime-card:hover {
+    transform: translateY(-4px) scale(1.01);
+  }
+  
+  .ocean-button {
+    padding: 10px 20px;
+    border-radius: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .maritime-card {
+    border-radius: 8px;
+    margin: 0.5rem 0;
+  }
+  
+  .ocean-button {
+    padding: 8px 16px;
+    font-size: 0.875rem;
+  }
+}

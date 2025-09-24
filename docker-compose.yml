@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: weather-backend
+    env_file:
+      - ./env.example
+      - ./.env
+    environment:
+      - CORS_ALLOW_ORIGINS=*
+    ports:
+      - "8000:8000"
+    networks:
+      - appnet
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: weather-frontend
+    environment:
+      - VITE_BACKEND_URL=http://backend:8000
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge
+
+
