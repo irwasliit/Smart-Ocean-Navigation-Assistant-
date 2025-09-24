@@ -56,7 +56,9 @@ def start_server():
             "main:app", 
             "--host", "0.0.0.0", 
             "--port", "8000", 
-            "--reload"
+            "--reload",
+            "--timeout-keep-alive", "150",
+            "--timeout-graceful-shutdown", "150"
         ])
     except KeyboardInterrupt:
         print("\n👋 Server stopped by user")

@@ -216,7 +216,9 @@ const Alerts = () => {
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="font-medium text-gray-900 flex items-center">
                             <span className="mr-2">📍</span>
-                            {location?.name || 'Unknown Location'}
+                            {location?.name || (location?.latitude && location?.longitude ? 
+                              `Location ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 
+                              'Location Not Available')}
                           </h3>
                           <div className="flex space-x-2">
                             <button

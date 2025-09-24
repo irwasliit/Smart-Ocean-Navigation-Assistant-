@@ -65,7 +65,7 @@ class WeatherService:
             return {
                 "latitude": latitude,
                 "longitude": longitude,
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.utcnow().isoformat(),
                 "temperature": current.get("temperature_2m"),
                 "humidity": current.get("relative_humidity_2m"),
                 "wind_speed": current.get("wind_speed_10m"),
@@ -130,7 +130,7 @@ class WeatherService:
                 day_data = {
                     "latitude": latitude,
                     "longitude": longitude,
-                    "timestamp": datetime.utcnow() + timedelta(days=i),
+                    "timestamp": (datetime.utcnow() + timedelta(days=i)).isoformat(),
                     "temperature": (daily.get("temperature_2m_max", [0])[i] + daily.get("temperature_2m_min", [0])[i]) / 2,
                     "wind_speed": daily.get("wind_speed_10m_max", [0])[i],
                     "wind_direction": daily.get("wind_direction_10m_dominant", [0])[i],
@@ -323,7 +323,7 @@ class WeatherService:
         return {
             "latitude": latitude,
             "longitude": longitude,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.utcnow().isoformat(),
             "temperature": 20.0,
             "humidity": 70.0,
             "wind_speed": 10.0,
@@ -348,8 +348,8 @@ class WeatherService:
                 "content": "Gale warning in effect for coastal waters. Winds 30-40 knots expected.",
                 "location_coverage": {"latitude": latitude, "longitude": longitude} if latitude and longitude else None,
                 "severity": "moderate",
-                "valid_from": datetime.utcnow(),
-                "valid_until": datetime.utcnow() + timedelta(hours=24)
+                "valid_from": datetime.utcnow().isoformat(),
+                "valid_until": (datetime.utcnow() + timedelta(hours=24)).isoformat()
             }
         ]
     

@@ -306,12 +306,18 @@ class LocationSearchService:
             elif result['score'] > unique_results[key]['score']:
                 unique_results[key] = result
         
-        # Sort by score and coordinate availability
-        def sort_key(x):
-            has_coords = x.get('latitude', 0) != 0 or x.get('longitude', 0) != 0
-            return (has_coords, x['score'])
+        # Filter out results without coordinates and sort by score
+        valid_results = []
+        for result in unique_results.values():
+            has_coords = result.get('latitude', 0) != 0 or result.get('longitude', 0) != 0
+            if has_coords:
+                # Ensure coordinates are properly set
+                result['lat'] = result.get('latitude', 0)  # Add lat field for compatibility
+                result['lon'] = result.get('longitude', 0)  # Add lon field for compatibility
+                valid_results.append(result)
         
-        sorted_results = sorted(unique_results.values(), key=sort_key, reverse=True)
+        # Sort by score - all results now have coordinates
+        sorted_results = sorted(valid_results, key=lambda x: x['score'], reverse=True)
         return sorted_results[:limit]
     
     async def _search_nominatim(self, query: str, limit: int = 5) -> List[Dict]:
@@ -335,6 +341,34 @@ class LocationSearchService:
             for item in data:
                 display_name = item.get('display_name', '')
                 name = item.get('name', '')
+                lat = float(item.get('lat', 0))
+                lon = float(item.get('lon', 0))
+                
+                # Handle cases where name is "Unknown Location" or contains "unknown"
+                if not name or name.lower().strip() in ['unknown location', 'unknown'] or 'unknown' in name.lower():
+                    # Try to extract a meaningful name from display_name or use coordinates
+                    if display_name:
+                        # Split display_name and find the first meaningful part
+                        parts = display_name.split(',')
+                        meaningful_parts = [part.strip() for part in parts if part.strip() and 
+                                         not part.strip().lower().startswith('unknown') and
+                                         not part.strip().lower() == 'unknown location']
+                        if meaningful_parts:
+                            name = meaningful_parts[0]
+                        else:
+                            name = f"Location {lat:.4f}, {lon:.4f}"
+                    else:
+                        name = f"Location {lat:.4f}, {lon:.4f}"
+                
+                # Clean up display_name to remove unknown parts
+                if display_name:
+                    clean_parts = display_name.split(',')
+                    clean_parts = [part.strip() for part in clean_parts if part.strip() and 
+                                 not part.strip().lower().startswith('unknown') and
+                                 not part.strip().lower() == 'unknown location']
+                    display_name = ', '.join(clean_parts) if clean_parts else f"Coordinates: {lat:.6f}, {lon:.6f}"
+                else:
+                    display_name = f"Coordinates: {lat:.6f}, {lon:.6f}"
                 
                 # Extract location type
                 location_type = 'place'
@@ -348,17 +382,21 @@ class LocationSearchService:
                 # Calculate relevance score
                 score = self._calculate_similarity(query.lower(), name.lower())
                 
-                results.append({
-                    'name': name,
-                    'display_name': display_name,
-                    'type': location_type,
-                    'score': score,
-                    'query': query,
-                    'latitude': float(item.get('lat', 0)),
-                    'longitude': float(item.get('lon', 0)),
-                    'osm_id': item.get('osm_id'),
-                    'osm_type': item.get('osm_type')
-                })
+                # Only include results with valid coordinates
+                if lat != 0 and lon != 0:
+                    results.append({
+                        'name': name,
+                        'display_name': display_name,
+                        'type': location_type,
+                        'score': score,
+                        'query': query,
+                        'latitude': lat,
+                        'longitude': lon,
+                        'lat': lat,  # Add for compatibility
+                        'lon': lon,  # Add for compatibility
+                        'osm_id': item.get('osm_id'),
+                        'osm_type': item.get('osm_type')
+                    })
             
             return results
             
@@ -383,10 +421,26 @@ class LocationSearchService:
             
             if data:
                 item = data[0]
+                lat = float(item.get('lat', 0))
+                lon = float(item.get('lon', 0))
+                display_name = item.get('display_name', location_name)
+                
+                # Handle unknown locations by cleaning display_name or using coordinates
+                if not display_name or 'unknown' in display_name.lower():
+                    if display_name:
+                        # Clean up the display name
+                        parts = display_name.split(',')
+                        clean_parts = [part.strip() for part in parts if part.strip() and 
+                                     not part.strip().lower().startswith('unknown') and
+                                     not part.strip().lower() == 'unknown location']
+                        display_name = ', '.join(clean_parts) if clean_parts else f"Location {lat:.4f}, {lon:.4f}"
+                    else:
+                        display_name = f"Location {lat:.4f}, {lon:.4f}"
+                
                 return {
-                    'name': item.get('display_name', location_name),
-                    'lat': float(item.get('lat', 0)),
-                    'lon': float(item.get('lon', 0)),
+                    'name': display_name,
+                    'lat': lat,
+                    'lon': lon,
                     'address': item.get('address', {}),
                     'osm_id': item.get('osm_id')
                 }

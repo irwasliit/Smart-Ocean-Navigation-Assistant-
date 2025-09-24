@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Location Search Test</title>
+    <script>
+        // Simple test to verify search API endpoint
+        async function testLocationSearch() {
+            console.log('Testing location search API...');
+            
+            const testQueries = [
+                'Colombo Sri Lanka',
+                'New York',
+                'Remote Ocean',
+                'Unknown Location Test'
+            ];
+            
+            for (const query of testQueries) {
+                try {
+                    console.log(`\n🔍 Testing query: "${query}"`);
+                    const response = await fetch(`http://localhost:8000/api/weather/search-locations?q=${encodeURIComponent(query)}`);
+                    const data = await response.json();
+                    
+                    console.log(`Found ${data.results?.length || 0} results:`);
+                    
+                    (data.results || []).slice(0, 2).forEach((result, i) => {
+                        console.log(`  ${i+1}. Name: ${result.name}`);
+                        console.log(`     Display: ${result.display_name}`);
+                        console.log(`     Coords: ${result.lat || result.latitude}, ${result.lon || result.longitude}`);
+                        console.log(`     Has coordinates: ${!!(result.lat && result.lon) || !!(result.latitude && result.longitude)}`);
+                        
+                        // Check for issues
+                        if (!result.lat && !result.latitude) {
+                            console.log('     ❌ ERROR: No latitude found');
+                        }
+                        if (!result.lon && !result.longitude) {
+                            console.log('     ❌ ERROR: No longitude found');
+                        }
+                        if (result.name?.toLowerCase().includes('unknown')) {
+                            console.log('     ⚠️  WARNING: Name contains "unknown"');
+                        }
+                        if (!result.name) {
+                            console.log('     ⚠️  WARNING: No name provided');
+                        }
+                    });
+                } catch (error) {
+                    console.error(`Error testing "${query}":`, error);
+                }
+            }
+            
+            console.log('\n✅ Location search test completed');
+        }
+        
+        // Test coordinate lookup
+        async function testCoordinateLookup() {
+            console.log('\n🌍 Testing coordinate lookup...');
+            
+            const testCoords = [
+                { name: 'Colombo Sri Lanka', lat: 6.9271, lon: 79.8612 },
+                { name: 'New York', lat: 40.7128, lon: -74.0060 }
+            ];
+            
+            for (const coord of testCoords) {
+                try {
+                    console.log(`\n📍 Testing coordinates for ${coord.name}:`);
+                    const response = await fetch(`http://localhost:8000/api/weather/location-coordinates?name=${encodeURIComponent(coord.name)}`);
+                    const data = await response.json();
+                    
+                    console.log(`  Name: ${data.name}`);
+                    console.log(`  Coords: ${data.lat}, ${data.lon}`);
+                    console.log(`  Has valid coords: ${!!(data.lat && data.lon)}`);
+                    
+                    if (data.name?.toLowerCase().includes('unknown')) {
+                        console.log('  ⚠️  WARNING: Name contains "unknown"');
+                    }
+                } catch (error) {
+                    console.error(`Error testing coordinates for ${coord.name}:`, error);
+                }
+            }
+        }
+        
+        window.onload = async function() {
+            await testLocationSearch();
+            await testCoordinateLookup();
+        };
+    </script>
+</head>
+<body>
+    <h1>Location Search Test</h1>
+    <p>Open the browser console to see test results.</p>
+    <p>This page tests the location search API endpoints to verify:</p>
+    <ul>
+        <li>All search results include valid coordinates</li>
+        <li>No "Unknown Location" names are returned</li>
+        <li>Coordinate lookup works properly</li>
+    </ul>
+</body>
+</html>

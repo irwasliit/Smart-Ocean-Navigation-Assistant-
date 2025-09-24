@@ -98,7 +98,47 @@ const WeatherMapLocationSearch = ({ onLocationSelect, placeholder = "Search mari
           params: { q: query }
         });
         console.log('WeatherMap: Search response:', response.data);
-        const searchResults = response.data.results || [];
+        const searchResults = (response.data.results || []).map(result => {
+          // Improve location names - ensure we have meaningful names
+          let improvedName = result.name;
+          
+          // If name is empty, unknown, or just coordinates, try to create a better name
+          if (!improvedName || 
+              improvedName.toLowerCase().includes('unknown') ||
+              improvedName.match(/^Location \d+\.\d+, \d+\.\d+$/)) {
+            
+            if (result.display_name) {
+              // Extract meaningful parts from display_name
+              const parts = result.display_name.split(',').map(p => p.trim());
+              const meaningfulParts = parts.filter(part => 
+                part && 
+                !part.toLowerCase().includes('unknown') &&
+                !part.match(/^\d+\.\d+$/) && // Not just coordinates
+                part.length > 1
+              );
+              
+              if (meaningfulParts.length > 0) {
+                // Use the first meaningful part, or combine first two if they're short
+                improvedName = meaningfulParts.length > 1 && meaningfulParts[0].length < 10 ? 
+                  `${meaningfulParts[0]}, ${meaningfulParts[1]}` : 
+                  meaningfulParts[0];
+              } else if (result.lat && result.lon) {
+                // Fallback to coordinates only if no meaningful name found
+                improvedName = `Location ${result.lat.toFixed(4)}, ${result.lon.toFixed(4)}`;
+              }
+            } else if (result.lat && result.lon) {
+              // Final fallback to coordinates
+              improvedName = `Location ${result.lat.toFixed(4)}, ${result.lon.toFixed(4)}`;
+            }
+          }
+          
+          return {
+            ...result,
+            name: improvedName,
+            originalName: result.name // Keep original for debugging
+          };
+        });
+        
         setResults(searchResults);
         
         // Open dropdown if we have results
@@ -192,9 +232,59 @@ const WeatherMapLocationSearch = ({ onLocationSelect, placeholder = "Search mari
         return;
       }
       
-      // Fallback: if no coordinates, show error
-      console.error('WeatherMap: No coordinates found for location:', location);
-      toast.error('Location coordinates not available');
+      // Fallback: if no coordinates, try to get them from API
+      console.log('WeatherMap: No coordinates found, trying to fetch from API...');
+      try {
+        const response = await axios.get(`/api/weather/location-coordinates`, {
+          params: { name: location.name || location.display_name },
+          timeout: 10000
+        });
+        
+        if (response.data && response.data.lat && response.data.lon) {
+          // Create proper location name
+          let displayName = location.name || response.data.name;
+          if (!displayName || displayName.toLowerCase().includes('unknown')) {
+            // Create a better name from display_name or use coordinates
+            if (response.data.name && !response.data.name.toLowerCase().includes('unknown')) {
+              displayName = response.data.name;
+            } else if (location.display_name) {
+              const addressParts = location.display_name.split(',')
+                .map(part => part.trim())
+                .filter(part => part && !part.toLowerCase().includes('unknown'));
+              displayName = addressParts.length > 0 ? addressParts[0] : `Location ${response.data.lat.toFixed(4)}, ${response.data.lon.toFixed(4)}`;
+            } else {
+              displayName = `Location ${response.data.lat.toFixed(4)}, ${response.data.lon.toFixed(4)}`;
+            }
+          }
+          
+          const coordinates = {
+            lat: response.data.lat,
+            lng: response.data.lon,
+            lon: response.data.lon,
+            name: displayName,
+            display_name: response.data.name || displayName,
+            country: location.country,
+            type: location.type
+          };
+          
+          // Close dropdown and update state
+          closeDropdown();
+          setResults([]);
+          setQuery('');
+          setSelectedLocation(coordinates);
+          
+          // Call the parent component's location select handler
+          await onLocationSelect(coordinates);
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error('WeatherMap: Error fetching coordinates:', error);
+      }
+      
+      // Final fallback: show error
+      console.error('WeatherMap: No coordinates available for location:', location);
+      toast.error('Unable to find coordinates for this location. Please try a different search.');
       setLoading(false);
     } catch (error) {
       console.error('WeatherMap: Error selecting location:', error);
@@ -332,41 +422,7 @@ const WeatherMapLocationSearch = ({ onLocationSelect, placeholder = "Search mari
         </div>
         <input
           type="text"
-          value={selectedLocation ? (() => {
-            // Completely replace "Unknown Location" with meaningful address for input display
-            let displayName = selectedLocation.name;
-            
-            if (!displayName || 
-                displayName === 'Unknown Location' || 
-                displayName.toLowerCase().includes('unknown') ||
-                displayName.trim() === '') {
-              
-              if (selectedLocation.display_name) {
-                // Split address and filter out "Unknown Location" parts
-                const addressParts = selectedLocation.display_name.split(',')
-                  .map(part => part.trim())
-                  .filter(part => 
-                    part && 
-                    part !== 'Unknown Location' && 
-                    !part.toLowerCase().includes('unknown') &&
-                    part.trim() !== ''
-                  );
-                
-                if (addressParts.length > 0) {
-                  // Use meaningful address parts
-                  displayName = addressParts.length > 1 ? 
-                    `${addressParts[0]}, ${addressParts[1]}` : 
-                    addressParts[0];
-                } else {
-                  displayName = `Location ${selectedLocation.lat?.toFixed(4)}, ${selectedLocation.lon?.toFixed(4)}`;
-                }
-              } else {
-                displayName = `Location ${selectedLocation.lat?.toFixed(4)}, ${selectedLocation.lon?.toFixed(4)}`;
-              }
-            }
-            
-            return displayName;
-          })() : query}
+          value={selectedLocation ? selectedLocation.name : query}
           onChange={(e) => {
             setQuery(e.target.value);
             if (e.target.value.length >= 2) {
@@ -509,43 +565,7 @@ const WeatherMapLocationSearch = ({ onLocationSelect, placeholder = "Search mari
                           whiteSpace: 'nowrap',
                           margin: 0
                         }}>
-                          {(() => {
-                            // Completely replace "Unknown Location" with meaningful address
-                            let displayName = result.name;
-                            
-                            // Check if name contains "Unknown" or is empty/null
-                            if (!displayName || 
-                                displayName === 'Unknown Location' || 
-                                displayName.toLowerCase().includes('unknown') ||
-                                displayName.trim() === '') {
-                              
-                              if (result.display_name) {
-                                // Split address and filter out "Unknown Location" parts
-                                const addressParts = result.display_name.split(',')
-                                  .map(part => part.trim())
-                                  .filter(part => 
-                                    part && 
-                                    part !== 'Unknown Location' && 
-                                    !part.toLowerCase().includes('unknown') &&
-                                    part.trim() !== ''
-                                  );
-                                
-                                if (addressParts.length > 0) {
-                                  // Use first meaningful address part, or combine first two if available
-                                  displayName = addressParts.length > 1 ? 
-                                    `${addressParts[0]}, ${addressParts[1]}` : 
-                                    addressParts[0];
-                                } else {
-                                  // Fallback to coordinates
-                                  displayName = `Location ${result.lat?.toFixed(4)}, ${result.lon?.toFixed(4)}`;
-                                }
-                              } else {
-                                displayName = `Location ${result.lat?.toFixed(4)}, ${result.lon?.toFixed(4)}`;
-                              }
-                            }
-                            
-                            return displayName;
-                          })()}
+                          {result.name}
                         </p>
                         <span style={{
                           display: 'inline-flex',

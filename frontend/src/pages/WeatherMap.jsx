@@ -116,25 +116,44 @@ const WeatherMap = () => {
           let locationName = '';
           let formattedAddress = '';
           
-          // For named places (like ports, landmarks)
-          if (name && !name.match(/^\d/)) {
+          // For named places (like ports, landmarks) - but exclude if it contains "unknown"
+          if (name && !name.match(/^\d/) && !name.toLowerCase().includes('unknown')) {
             locationName = name;
             formattedAddress = data.display_name;
           } else {
-            // For regular addresses
-            const placeName = city || town || village || suburb || 'Unknown Location';
+            // For regular addresses - avoid "Unknown Location"
+            const placeName = city || town || village || suburb;
             const region = county || state || '';
             const countryName = country || '';
             
-            locationName = placeName;
-            if (region && region !== placeName) {
-              locationName += `, ${region}`;
+            // If no meaningful place name found, use coordinates instead of "Unknown Location"
+            if (!placeName || placeName.toLowerCase().includes('unknown')) {
+              locationName = `Location ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+              formattedAddress = `Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            } else {
+              locationName = placeName;
+              if (region && region !== placeName && !region.toLowerCase().includes('unknown')) {
+                locationName += `, ${region}`;
+              }
+              if (countryName && countryName !== region && !countryName.toLowerCase().includes('unknown')) {
+                locationName += `, ${countryName}`;
+              }
+              
+              // Clean up display name by removing "Unknown Location" parts
+              if (data.display_name) {
+                const cleanParts = data.display_name.split(',')
+                  .map(part => part.trim())
+                  .filter(part => 
+                    part && 
+                    !part.toLowerCase().includes('unknown location') && 
+                    !part.toLowerCase().includes('unknown') &&
+                    part.trim() !== ''
+                  );
+                formattedAddress = cleanParts.length > 0 ? cleanParts.join(', ') : `Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+              } else {
+                formattedAddress = locationName;
+              }
             }
-            if (countryName && countryName !== region) {
-              locationName += `, ${countryName}`;
-            }
-            
-            formattedAddress = data.display_name || locationName;
           }
           
           const details = {
@@ -246,6 +265,29 @@ const WeatherMap = () => {
     return null;
   };
 
+  const useInRoutePlanner = () => {
+    if (!selectedLocation || !locationDetails) {
+      toast.error('Please select a location first');
+      return;
+    }
+
+    const locationData = {
+      lat: selectedLocation.lat,
+      lng: selectedLocation.lng,
+      name: locationDetails.name || `Location ${selectedLocation.lat.toFixed(4)}, ${selectedLocation.lng.toFixed(4)}`,
+      type: 'location'
+    };
+
+    // Store in localStorage for the route planner to pick up
+    localStorage.setItem('routeLocation', JSON.stringify(locationData));
+    
+    // Open route planner in new tab with URL parameters as backup
+    const routeUrl = `/route-analysis?lat=${selectedLocation.lat}&lng=${selectedLocation.lng}&name=${encodeURIComponent(locationData.name)}&type=location`;
+    window.open(routeUrl, '_blank');
+    
+    toast.success(`📍 Location sent to Route Planner: ${locationData.name}`);
+  };
+
   const sendChatMessage = async () => {
     const message = chatInput.trim();
     if (!message) return;
@@ -309,7 +351,7 @@ const WeatherMap = () => {
           fetchHazardAlerts(coordinates.lat, coordinates.lng)
         ]);
         
-        toast.success(`📍 Location selected: ${coordinates.name || coordinates.display_name || 'Unknown Location'}`);
+        toast.success(`📍 Location selected: ${coordinates.name || coordinates.display_name || `Location ${coordinates.lat.toFixed(4)}, ${coordinates.lng.toFixed(4)}`}`);
       } catch (error) {
         console.error('Error fetching location data:', error);
         toast.error('Failed to load location data');
@@ -590,7 +632,9 @@ const WeatherMap = () => {
                   <div className="space-y-2 mb-4">
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-500">Location Name</span>
-                      <span className="text-sm font-medium text-gray-500">{locationDetails.name || 'Unknown Location'}</span>
+                      <span className="text-sm font-medium text-gray-500">
+                        {locationDetails.name || `Location ${selectedLocation?.lat?.toFixed(4)}, ${selectedLocation?.lng?.toFixed(4)}`}
+                      </span>
                     </div>
                     {locationDetails.country && (
                       <div className="flex justify-between">
@@ -615,14 +659,25 @@ const WeatherMap = () => {
                   </div>
                 )}
 
-                <button
-                  onClick={() => setShowAddLocation(true)}
-                  className="ocean-button w-full flex items-center justify-center"
-                >
-                  <PlusIcon className="h-4 w-4 mr-2" />
-                  <span className="mr-1">⚓</span>
-                  Save Location
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShowAddLocation(true)}
+                    className="ocean-button w-full flex items-center justify-center"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    <span className="mr-1">⚓</span>
+                    Save Location
+                  </button>
+                  
+                  <button
+                    onClick={useInRoutePlanner}
+                    className="w-full flex items-center justify-center px-4 py-2 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:from-green-600 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                  >
+                    <span className="mr-2">🧭</span>
+                    Use in Route Planner
+                    <span className="ml-2">🚢</span>
+                  </button>
+                </div>
               </div>
             )}
 

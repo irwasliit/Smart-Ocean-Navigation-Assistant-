@@ -25,12 +25,14 @@ async def analyze_route(
     try:
         # Enforce daily route analysis limit
         UsageService.check_and_increment(db, current_user, feature="route")
-        # Calculate route path and sample points
+        # Calculate route path and sample points with vessel specifications
+        vessel_speed = route.cruising_speed_knots if route.cruising_speed_knots else 15
         route_data = await route_service.calculate_route(
             start_lat=route.start_latitude,
             start_lon=route.start_longitude,
             end_lat=route.end_latitude,
-            end_lon=route.end_longitude
+            end_lon=route.end_longitude,
+            vessel_speed_knots=vessel_speed
         )
         
         # Get weather data for each point along the route
@@ -48,22 +50,39 @@ async def analyze_route(
             cargo_type=None,
             departure_port="Start",
             destination_port="End", 
-            departure_time=datetime.now(),
+            departure_time=datetime.now().isoformat(),  # Convert to string
             urgency_level="normal"
         )
         
-        # Use route optimizer directly instead of comprehensive analysis
-        # since we have specific route and weather analysis data
-        if multi_agent_service.client and hasattr(multi_agent_service, 'route_optimizer'):
-            route_response = await multi_agent_service.route_optimizer.optimize_route(
-                route_data=route_data,
-                weather_analysis=weather_analysis,
-                context=context
-            )
-            risk_assessment = route_response.content
-        else:
-            # Fallback if AI service is not available
-            risk_assessment = f"""Route Analysis Summary:
+        # Use route optimizer with timeout and fallback
+        try:
+            import asyncio
+            if multi_agent_service.client and hasattr(multi_agent_service, 'route_optimizer'):
+                # Add timeout to prevent hanging
+                route_response = await asyncio.wait_for(
+                    multi_agent_service.route_optimizer.optimize_route(
+                        route_data=route_data,
+                        weather_analysis=weather_analysis,
+                        context=context
+                    ),
+                    timeout=120.0  # 120 second timeout for AI processing
+                )
+                risk_assessment = route_response.content
+            else:
+                raise Exception("AI service not available")
+        except asyncio.TimeoutError as e:
+            print(f"⚠️ AI analysis timeout after 120s: {str(e)}, using fallback")
+            # Fallback analysis without AI
+            risk_assessment = f"""Route Analysis Summary (AI Timeout):
+            Distance: {route_data.get('distance', 0)} km
+            Estimated Duration: {route_data.get('estimated_duration', 0)} hours
+            Weather Analysis: {len(weather_analysis.get('points', []))} points analyzed
+            Risk Level: Medium - Monitor weather conditions along the route
+            """
+        except Exception as e:
+            print(f"⚠️ AI analysis error: {str(e)}, using fallback")
+            # Fallback analysis for any other error
+            risk_assessment = f"""Route Analysis Summary (Error Fallback):
             Distance: {route_data.get('distance', 0)} km
             Estimated Duration: {route_data.get('estimated_duration', 0)} hours
             Weather Analysis: {len(weather_analysis.get('points', []))} points analyzed

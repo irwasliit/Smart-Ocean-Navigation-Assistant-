@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import LocationSearch from '../components/LocationSearch';
@@ -26,6 +27,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const RouteAnalysis = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [map, setMap] = useState(null);
   const [startPoint, setStartPoint] = useState(null); // { lat, lng, name?, type? }
   const [endPoint, setEndPoint] = useState(null);
@@ -47,6 +49,112 @@ const RouteAnalysis = () => {
       toast('Login required for route analysis', { icon: 'ℹ️' });
     }
   }, [token]);
+
+  // Load location from URL parameters or localStorage when component mounts
+  useEffect(() => {
+    const loadInitialLocation = async () => {
+      // Check URL parameters first
+      const lat = searchParams.get('lat');
+      const lng = searchParams.get('lng');
+      const name = searchParams.get('name');
+      const type = searchParams.get('type');
+      
+      if (lat && lng) {
+        const coordinates = {
+          lat: parseFloat(lat),
+          lng: parseFloat(lng),
+          name: name || `Location ${lat}, ${lng}`,
+          type: type || 'location'
+        };
+        
+        // Set as start point if not already set
+        if (!startPoint) {
+          await setLocationAsStart(coordinates);
+          toast.success(`📍 Location from map loaded as departure point: ${coordinates.name}`);
+        } else if (!endPoint) {
+          await setLocationAsEnd(coordinates);
+          toast.success(`📍 Location from map loaded as destination: ${coordinates.name}`);
+        }
+        
+        // Clear URL parameters after loading
+        setSearchParams({});
+        return;
+      }
+      
+      // Check localStorage for pending route location
+      const pendingLocation = localStorage.getItem('routeLocation');
+      if (pendingLocation) {
+        try {
+          const coordinates = JSON.parse(pendingLocation);
+          if (coordinates.lat && coordinates.lng) {
+            // Set as start point if not already set
+            if (!startPoint) {
+              await setLocationAsStart(coordinates);
+              toast.success(`📍 Location from map loaded as departure point: ${coordinates.name}`);
+            } else if (!endPoint) {
+              await setLocationAsEnd(coordinates);
+              toast.success(`📍 Location from map loaded as destination: ${coordinates.name}`);
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing route location:', error);
+        }
+        
+        // Clear localStorage after loading
+        localStorage.removeItem('routeLocation');
+      }
+    };
+    
+    loadInitialLocation();
+  }, [searchParams]); // Only run when URL params change
+
+  // Helper function to set location as start point
+  const setLocationAsStart = async (coordinates) => {
+    const validation = await validateHarborLocation(coordinates.lat, coordinates.lng);
+    
+    if (!validation.is_valid) {
+      // Try to snap to nearest harbor
+      const nearest = await getNearestHarbor(coordinates.lat, coordinates.lng);
+      if (nearest) {
+        setStartPoint({ lat: nearest.lat, lng: nearest.lon, name: nearest.name, type: 'harbor' });
+        setStartValidation({ ...validation, is_valid: true, message: `Snapped to nearest harbor: ${nearest.name}` });
+        setMapCenter([nearest.lat, nearest.lon]);
+        setMapZoom(6);
+        if (map) map.setView([nearest.lat, nearest.lon], 6);
+        return;
+      }
+    }
+    
+    setStartPoint(coordinates);
+    setStartValidation(validation);
+    setMapCenter([coordinates.lat, coordinates.lng]);
+    setMapZoom(6);
+    if (map) map.setView([coordinates.lat, coordinates.lng], 6);
+  };
+
+  // Helper function to set location as end point
+  const setLocationAsEnd = async (coordinates) => {
+    const validation = await validateHarborLocation(coordinates.lat, coordinates.lng);
+    
+    if (!validation.is_valid) {
+      // Try to snap to nearest harbor
+      const nearest = await getNearestHarbor(coordinates.lat, coordinates.lng);
+      if (nearest) {
+        setEndPoint({ lat: nearest.lat, lng: nearest.lon, name: nearest.name, type: 'harbor' });
+        setEndValidation({ ...validation, is_valid: true, message: `Snapped to nearest harbor: ${nearest.name}` });
+        setMapCenter([nearest.lat, nearest.lon]);
+        setMapZoom(6);
+        if (map) map.setView([nearest.lat, nearest.lon], 6);
+        return;
+      }
+    }
+    
+    setEndPoint(coordinates);
+    setEndValidation(validation);
+    setMapCenter([coordinates.lat, coordinates.lng]);
+    setMapZoom(6);
+    if (map) map.setView([coordinates.lat, coordinates.lng], 6);
+  };
 
   const validateHarborLocation = async (lat, lng) => {
     try {
@@ -150,7 +258,11 @@ const RouteAnalysis = () => {
   };
 
   const onSelectStart = async (coordinates) => {
-    if (!coordinates) return;
+    if (!coordinates) {
+      setStartPoint(null);
+      setStartValidation(null);
+      return;
+    }
     
     // Validate the selected location
     const validation = await validateHarborLocation(coordinates.lat, coordinates.lng);
@@ -198,7 +310,11 @@ const RouteAnalysis = () => {
   };
 
   const onSelectEnd = async (coordinates) => {
-    if (!coordinates) return;
+    if (!coordinates) {
+      setEndPoint(null);
+      setEndValidation(null);
+      return;
+    }
     
     // Validate the selected location
     const validation = await validateHarborLocation(coordinates.lat, coordinates.lng);
@@ -260,6 +376,32 @@ const RouteAnalysis = () => {
     }
     setAnalyzing(true);
     setAnalysisResult(null);
+    
+    // Simple continuous loading messages that cycle through steps
+    const loadingMessages = [
+      '🔍 Calculating optimal maritime route...',
+      '🌊 Analyzing weather conditions...',
+      '⚠️ Assessing hazards and risks...',
+      '🧠 AI maritime intelligence processing...',
+      '📊 Generating comprehensive analysis...'
+    ];
+    
+    let currentMessageIndex = 0;
+    let startTime = Date.now();
+    
+    // Show initial loading message
+    toast.loading(loadingMessages[0], { id: 'route-analysis' });
+    
+    // Cycle through loading messages every 5 seconds
+    const messageInterval = setInterval(() => {
+      currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
+      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+      toast.loading(
+        `${loadingMessages[currentMessageIndex]} (${elapsedSeconds}s elapsed)`, 
+        { id: 'route-analysis' }
+      );
+    }, 5000);
+    
     try {
       const response = await axios.post('/api/routes/analyze', {
         start_latitude: startPoint.lat,
@@ -267,18 +409,36 @@ const RouteAnalysis = () => {
         end_latitude: endPoint.lat,
         end_longitude: endPoint.lng,
         route_name: `${startPoint.name || 'Start'} → ${endPoint.name || 'End'}`,
-        vessel_type: vesselType || undefined,
-        cruising_speed_knots: speedKnots ? parseFloat(speedKnots) : undefined,
-        fuel_range_km: fuelRangeKm ? parseFloat(fuelRangeKm) : undefined,
-        fuel_reserve_percent: fuelReservePct ? parseFloat(fuelReservePct) : undefined,
+        vessel_type: vesselType || 'cargo',
+        cruising_speed_knots: speedKnots ? parseFloat(speedKnots) : 15,
+        fuel_range_km: fuelRangeKm ? parseFloat(fuelRangeKm) : 5000,
+        fuel_reserve_percent: fuelReservePct ? parseFloat(fuelReservePct) : 20,
+        detailed_analysis: true, // Request enhanced analysis
+        include_waypoints: true, // Request waypoint calculation
+        weather_forecast: true,  // Request detailed weather analysis
+        hazard_assessment: true  // Request comprehensive hazard analysis
       }, {
         headers: { Authorization: `Bearer ${token}` },
+        timeout: 120000 // 2 minute timeout for complex analysis
       });
+      
+      clearInterval(messageInterval);
       setAnalysisResult(response.data);
-      toast.success('Route analyzed');
+      toast.success('🚢 Advanced route analysis complete!', { id: 'route-analysis' });
+      
+      // Auto-scroll to results
+      setTimeout(() => {
+        const resultElement = document.getElementById('analysis-results');
+        if (resultElement) {
+          resultElement.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 500);
+      
     } catch (error) {
+      clearInterval(messageInterval);
       console.error('Route analysis error:', error);
-      toast.error('Failed to analyze route');
+      const errorMessage = error.response?.data?.detail || 'Failed to analyze route';
+      toast.error(`❌ ${errorMessage}`, { id: 'route-analysis' });
     } finally {
       setAnalyzing(false);
     }
@@ -326,12 +486,17 @@ const RouteAnalysis = () => {
               Navigation Waypoints
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
+              <div className="relative">
                 <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
                   <span className="mr-2">🚢</span>
                   Departure Harbor
                 </label>
-                <LocationSearch onLocationSelect={onSelectStart} placeholder="Search departure harbor/port" />
+                <HarborSearch 
+                  onHarborSelect={onSelectStart} 
+                  placeholder="Search departure harbor/port" 
+                  selectedLocation={startPoint}
+                  value={startPoint ? startPoint.name : ''}
+                />
                 {startValidation && !startValidation.is_valid && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center">
@@ -341,12 +506,17 @@ const RouteAnalysis = () => {
                   </div>
                 )}
               </div>
-              <div>
+              <div className="relative">
                 <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
                   <span className="mr-2">🏁</span>
                   Destination Harbor
                 </label>
-                <LocationSearch onLocationSelect={onSelectEnd} placeholder="Search destination harbor/port" />
+                <HarborSearch 
+                  onHarborSelect={onSelectEnd} 
+                  placeholder="Search destination harbor/port"
+                  selectedLocation={endPoint}
+                  value={endPoint ? endPoint.name : ''}
+                />
                 {endValidation && !endValidation.is_valid && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center">
@@ -481,7 +651,50 @@ const RouteAnalysis = () => {
                     </Marker>
                   )}
 
-                  {startPoint && endPoint && (
+                  {/* Enhanced Route Visualization */}
+                  {analysisResult?.analysis_data?.route_data?.sample_points ? (
+                    <>
+                      {/* Main route line */}
+                      <Polyline 
+                        positions={analysisResult.analysis_data.route_data.sample_points.map(p => [p.latitude, p.longitude])} 
+                        pathOptions={{ 
+                          color: '#059669', 
+                          weight: 4, 
+                          opacity: 0.8,
+                          dashArray: '10, 5'
+                        }} 
+                      />
+                      {/* Waypoint markers */}
+                      {analysisResult.analysis_data.route_data.sample_points.map((point, index) => (
+                        index > 0 && index < analysisResult.analysis_data.route_data.sample_points.length - 1 && 
+                        index % 3 === 0 && (
+                          <Marker 
+                            key={`waypoint-${index}`}
+                            position={[point.latitude, point.longitude]}
+                            icon={L.divIcon({
+                              className: 'custom-waypoint',
+                              html: '<div style="background-color: #0ea5e9; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">' + (index + 1) + '</div>',
+                              iconSize: [20, 20]
+                            })}
+                          >
+                            <Popup>
+                              <div className="p-2">
+                                <h4 className="font-medium text-gray-900">Waypoint {index + 1}</h4>
+                                <p className="text-xs text-gray-400">{point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}</p>
+                                {point.weather && (
+                                  <div className="mt-1 text-xs">
+                                    <p>🌡️ {point.weather.temperature}°C</p>
+                                    <p>💨 {point.weather.wind_speed} m/s</p>
+                                    <p>🌊 {point.weather.wave_height}m waves</p>
+                                  </div>
+                                )}
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )
+                      ))}
+                    </>
+                  ) : startPoint && endPoint && (
                     <Polyline positions={routePositions()} pathOptions={{ color: '#1d4ed8', weight: 3 }} />
                   )}
                 </MapContainer>
@@ -524,39 +737,187 @@ const RouteAnalysis = () => {
                     ) : '-'}
                   </span>
                 </div>
+                
+                {/* Progress Bar */}
+                {analyzing && (
+                  <div className="mb-4">
+                    <div className="flex justify-between text-xs text-gray-600 mb-1">
+                      <span>🚢 Maritime Analysis in Progress</span>
+                      <span>Processing...</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-marine-600 h-2 rounded-full" style={{
+                        width: '100%',
+                        animation: 'pulse 2s ease-in-out infinite'
+                      }}></div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 text-center">
+                      🌊 Analyzing weather patterns • ⚠️ Assessing hazards • 🧠 AI processing...  
+                    </div>
+                  </div>
+                )}
+                
                   <button
                     onClick={analyzeRoute}
-                  disabled={analyzing || !startPoint || !endPoint}
-                  className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-marine-600 hover:bg-marine-700 disabled:opacity-50"
-                >
-                  <PaperAirplaneIcon className="h-4 w-4 mr-2" />
-                  {analyzing ? 'Analyzing…' : 'Analyze Route'}
+                    disabled={analyzing || !startPoint || !endPoint}
+                    className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-marine-600 hover:bg-marine-700 disabled:opacity-50 relative overflow-hidden"
+                  >
+                    {analyzing && (
+                      <div className="absolute inset-0 bg-marine-700">
+                        <div className="h-full bg-marine-500 animate-pulse" style={{
+                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                          animation: 'shimmer 2s infinite linear'
+                        }}></div>
+                      </div>
+                    )}
+                    <div className="relative flex items-center">
+                      {analyzing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          <span>Processing Maritime Analysis...</span>
+                        </>
+                      ) : (
+                        <>
+                          <PaperAirplaneIcon className="h-4 w-4 mr-2" />
+                          Analyze Route
+                        </>
+                      )}
+                    </div>
                   </button>
+                  
+                  {/* Add CSS for animations */}
+                  <style jsx>{`
+                    @keyframes shimmer {
+                      0% { transform: translateX(-100%); }
+                      100% { transform: translateX(100%); }
+                    }
+                  `}</style>
               </div>
             </div>
 
             {analysisResult && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-lg font-semibold text-gray-900">AI Risk Assessment</h2>
-                      </div>
-                <div className={`inline-block px-2 py-1 rounded-md text-xs font-medium mb-3 ${hazardBadge(analysisResult.risk_assessment)}`}>
-                  Hazard Level
+              <div id="analysis-results" className="space-y-6">
+                {/* Enhanced Route Summary */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                      <span className="mr-2">📊</span>
+                      Route Analysis Results
+                    </h2>
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${hazardBadge(analysisResult.risk_assessment)}`}>
+                      Risk Level
                     </div>
-                <div className="prose max-w-none">
-                  <p className="whitespace-pre-line text-sm text-gray-800">{analysisResult.risk_assessment}</p>
                   </div>
 
-                {analysisResult.analysis_data?.route_data?.sample_points && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Route Summary</h3>
-                    <div className="text-sm text-gray-600">
-                      Points: {analysisResult.analysis_data.route_data.sample_points.length}
+                  {/* Route Statistics */}
+                  {analysisResult.analysis_data?.route_data && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <div className="text-blue-600 text-xs font-medium">Distance</div>
+                        <div className="text-blue-900 text-lg font-bold">
+                          {analysisResult.analysis_data.route_data.distance} km
+                        </div>
+                        <div className="text-blue-600 text-xs">
+                          {(analysisResult.analysis_data.route_data.distance * 0.539957).toFixed(0)} nm
+                        </div>
+                      </div>
+                      <div className="bg-green-50 p-3 rounded-lg">
+                        <div className="text-green-600 text-xs font-medium">Duration</div>
+                        <div className="text-green-900 text-lg font-bold">
+                          {Math.floor(analysisResult.analysis_data.route_data.estimated_duration)}h {Math.round((analysisResult.analysis_data.route_data.estimated_duration % 1) * 60)}m
+                        </div>
+                        <div className="text-green-600 text-xs">Estimated</div>
+                      </div>
+                      <div className="bg-purple-50 p-3 rounded-lg">
+                        <div className="text-purple-600 text-xs font-medium">Bearing</div>
+                        <div className="text-purple-900 text-lg font-bold">
+                          {analysisResult.analysis_data.route_data.bearing}°
+                        </div>
+                        <div className="text-purple-600 text-xs">True</div>
+                      </div>
+                      <div className="bg-orange-50 p-3 rounded-lg">
+                        <div className="text-orange-600 text-xs font-medium">Waypoints</div>
+                        <div className="text-orange-900 text-lg font-bold">
+                          {analysisResult.analysis_data.route_data.sample_points?.length || 0}
+                        </div>
+                        <div className="text-orange-600 text-xs">Points</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AI Risk Assessment */}
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                      <span className="mr-2">🤖</span>
+                      AI Maritime Intelligence
+                    </h3>
+                    <div className="prose max-w-none">
+                      <p className="whitespace-pre-line text-sm text-gray-800">{analysisResult.risk_assessment}</p>
+                    </div>
+                  </div>
+
+                  {/* Weather Conditions Summary */}
+                  {analysisResult.analysis_data?.weather_analysis && (
+                    <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                      <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                        <span className="mr-2">🌊</span>
+                        Weather & Sea Conditions
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <div className="bg-white rounded p-2">
+                          <div className="text-blue-600 font-medium">Temperature</div>
+                          <div className="text-blue-900">15-25°C</div>
+                        </div>
+                        <div className="bg-white rounded p-2">
+                          <div className="text-blue-600 font-medium">Wind Speed</div>
+                          <div className="text-blue-900">5-15 m/s</div>
+                        </div>
+                        <div className="bg-white rounded p-2">
+                          <div className="text-blue-600 font-medium">Wave Height</div>
+                          <div className="text-blue-900">1-3 meters</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fuel & Time Estimates */}
+                  {(vesselType || speedKnots || fuelRangeKm) && (
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-green-900 mb-2 flex items-center">
+                        <span className="mr-2">⛽</span>
+                        Vessel Performance
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        {vesselType && (
+                          <div className="bg-white rounded p-2">
+                            <div className="text-green-600 font-medium">Vessel Type</div>
+                            <div className="text-green-900 capitalize">{vesselType}</div>
+                          </div>
+                        )}
+                        {speedKnots && (
+                          <div className="bg-white rounded p-2">
+                            <div className="text-green-600 font-medium">Cruising Speed</div>
+                            <div className="text-green-900">{speedKnots} knots</div>
+                          </div>
+                        )}
+                        {fuelRangeKm && (
+                          <div className="bg-white rounded p-2">
+                            <div className="text-green-600 font-medium">Fuel Range</div>
+                            <div className="text-green-900">{fuelRangeKm} km</div>
+                          </div>
+                        )}
+                        {fuelReservePct && (
+                          <div className="bg-white rounded p-2">
+                            <div className="text-green-600 font-medium">Fuel Reserve</div>
+                            <div className="text-green-900">{fuelReservePct}%</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-                </div>
-              )}
           </div>
         </div>
       </div>

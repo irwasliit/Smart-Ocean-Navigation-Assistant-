@@ -82,7 +82,11 @@ const WeatherWidget = ({ weatherData, location, compact = false }) => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-800 mb-1">Current Weather</h3>
-            <p className="text-sm text-gray-600">{location?.name || 'Unknown Location'}</p>
+            <p className="text-sm text-gray-600">
+              {location?.name || (location?.latitude && location?.longitude ? 
+                `Location ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 
+                'Location Not Available')}
+            </p>
             <p className="text-xs text-gray-500">{currentTime.toLocaleTimeString()}</p>
           </div>
           <div className="text-5xl weather-flow">{getWeatherIcon(condition, temp)}</div>

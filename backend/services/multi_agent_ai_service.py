@@ -63,7 +63,7 @@ class NavigationContext:
     cargo_type: Optional[str]
     departure_port: str
     destination_port: str
-    departure_time: datetime
+    departure_time: str  # Changed from datetime to str
     urgency_level: str
 
 class WeatherAnalystAgent:
@@ -126,12 +126,12 @@ class WeatherAnalystAgent:
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are a senior marine meteorologist with 20+ years of experience in ocean weather analysis. Provide precise, actionable insights for marine navigation."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=800,
+                max_tokens=600,
                 temperature=0.3
             )
             
@@ -240,49 +240,36 @@ class RouteOptimizerAgent:
         # Calculate route risk score
         risk_score = self._calculate_route_risk(weather_analysis, context)
         
-        prompt = f"""
-        As a marine navigation expert, optimize this route:
+        # Create concise prompt to stay under token limit
+        weather_summary = self._create_weather_summary(weather_analysis)
         
-        Route Details:
-        - Total Distance: {total_distance} km
-        - Estimated Duration: {estimated_duration} hours
-        - Number of Waypoints: {len(route_points)}
-        - Departure: {context.departure_port}
-        - Destination: {context.destination_port}
-        - Departure Time: {context.departure_time}
-        
-        Vessel Information:
-        - Type: {context.vessel_type}
-        - Size: {context.vessel_size}
-        - Experience Level: {context.experience_level}
-        - Cargo: {context.cargo_type or 'None'}
-        - Urgency: {context.urgency_level}
-        
-        Weather Analysis:
-        {json.dumps(weather_analysis, indent=2)}
-        
-        Route Risk Score: {risk_score}/10
-        
-        Provide optimization recommendations:
-        1. Route safety assessment
-        2. Alternative waypoints if needed
-        3. Optimal departure time adjustments
-        4. Speed recommendations for different route segments
-        5. Contingency planning and safe harbors
-        6. Fuel efficiency considerations
-        7. Timeline optimization vs safety trade-offs
-        
-        Format as structured JSON with actionable recommendations.
-        """
+        prompt = f"""Maritime Route Analysis:
+
+ROUTE: {context.departure_port} → {context.destination_port}
+Distance: {total_distance:.0f}km ({total_distance * 0.54:.0f}nm)
+Duration: {estimated_duration:.1f}h
+Vessel: {context.vessel_type} ({context.vessel_size})
+Risk Level: {risk_score}/10
+
+WEATHER: {weather_summary}
+
+Provide concise maritime intelligence:
+1. Safety assessment & hazards
+2. Navigation recommendations  
+3. Optimal speed/timing
+4. Risk mitigation steps
+5. Emergency procedures
+
+Keep response under 500 words, focus on actionable guidance."""
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are a master mariner with expertise in route planning, weather routing, and maritime safety. Prioritize safety while optimizing efficiency."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=1000,
+                max_tokens=800,
                 temperature=0.4
             )
             
@@ -334,6 +321,25 @@ class RouteOptimizerAgent:
             base_risk += 1  # Might need to travel in worse conditions
         
         return min(10, base_risk + weather_risk)
+    
+    def _create_weather_summary(self, weather_analysis: Dict) -> str:
+        """Create concise weather summary to reduce token usage"""
+        points = weather_analysis.get('points', [])
+        if not points:
+            return "No weather data available"
+        
+        # Get average conditions
+        temps = [p.get('temperature', 20) for p in points if p.get('temperature')]
+        winds = [p.get('wind_speed', 10) for p in points if p.get('wind_speed')]
+        waves = [p.get('wave_height', 1) for p in points if p.get('wave_height')]
+        
+        avg_temp = sum(temps) / len(temps) if temps else 20
+        avg_wind = sum(winds) / len(winds) if winds else 10
+        avg_wave = sum(waves) / len(waves) if waves else 1
+        
+        severity = weather_analysis.get('severity_index', 5)
+        
+        return f"Temp: {avg_temp:.0f}°C, Wind: {avg_wind:.0f}kts, Waves: {avg_wave:.1f}m, Severity: {severity}/10"
 
 class HazardDetectorAgent:
     """Specialized agent for detecting and analyzing maritime hazards"""
@@ -384,12 +390,12 @@ class HazardDetectorAgent:
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are a maritime safety officer with expertise in hazard assessment and risk management. Focus on actionable safety information."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=1200,
+                max_tokens=600,
                 temperature=0.2
             )
             
@@ -570,12 +576,12 @@ class DisasterPredictorAgent:
             """
             
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are a senior disaster risk analyst with expertise in maritime safety and emergency preparedness. Provide thorough, evidence-based risk assessments while maintaining appropriate caution about prediction limitations."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=900,
+                max_tokens=600,
                 temperature=0.2
             )
             
@@ -908,7 +914,10 @@ class MultiAgentAIService:
         if self.openai_api_key:
             try:
                 logger.info("🔗 Attempting to initialize OpenAI client...")
-                self.client = openai.OpenAI(api_key=self.openai_api_key)
+                self.client = openai.OpenAI(
+                    api_key=self.openai_api_key,
+                    timeout=150.0  # 150 second timeout for OpenAI API calls
+                )
                 logger.info("✅ OpenAI client created successfully")
                 
                 # Test the connection
@@ -1130,7 +1139,7 @@ class MultiAgentAIService:
                         cargo_type=None,
                         departure_port="Start",
                         destination_port="End",
-                        departure_time=datetime.now(),
+                        departure_time=datetime.now().isoformat(),
                         urgency_level="normal"
                     )
                     route_response = await self.route_optimizer.optimize_route(

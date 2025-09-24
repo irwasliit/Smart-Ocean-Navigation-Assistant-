@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
@@ -8,16 +9,47 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 
-const HarborSearch = ({ onHarborSelect, placeholder = "Search for harbors and ports..." }) => {
-  const [query, setQuery] = useState('');
+// Add spinner animation style
+const spinnerAnimation = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+
+// Inject the animation into the document head
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = spinnerAnimation;
+  document.head.appendChild(styleElement);
+}
+
+const HarborSearch = ({ onHarborSelect, placeholder = "Search for harbors and ports...", value = '', selectedLocation = null }) => {
+  const [query, setQuery] = useState(value);
   const [results, setResults] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [selectedHarbor, setSelectedHarbor] = useState(null);
+  const [selectedHarbor, setSelectedHarbor] = useState(selectedLocation);
   const [validationResult, setValidationResult] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const searchRef = useRef(null);
   const resultsRef = useRef(null);
+
+  // Update query when value prop changes
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  // Update selected harbor when selectedLocation prop changes
+  useEffect(() => {
+    if (selectedLocation) {
+      setSelectedHarbor(selectedLocation);
+      if (selectedLocation.name) {
+        setQuery(selectedLocation.name);
+      }
+    }
+  }, [selectedLocation]);
 
   // Debounce search
   useEffect(() => {
@@ -33,18 +65,44 @@ const HarborSearch = ({ onHarborSelect, placeholder = "Search for harbors and po
     return () => clearTimeout(timeoutId);
   }, [query]);
 
+  // Calculate dropdown position
+  const updateDropdownPosition = () => {
+    if (searchRef.current) {
+      const rect = searchRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
+      if (searchRef.current && !searchRef.current.contains(event.target) && 
+          resultsRef.current && !resultsRef.current.contains(event.target)) {
         setIsOpen(false);
         setSelectedIndex(-1);
       }
     };
 
+    const handleResize = () => {
+      if (isOpen) {
+        updateDropdownPosition();
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleResize);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleResize);
+    };
+  }, [isOpen]);
 
   const searchHarbors = async (searchQuery) => {
     setLoading(true);
@@ -56,6 +114,7 @@ const HarborSearch = ({ onHarborSelect, placeholder = "Search for harbors and po
       });
       console.log('Harbor search response:', response.data);
       setResults(response.data.results || []);
+      updateDropdownPosition();
       setIsOpen(true);
       setSelectedIndex(-1);
     } catch (error) {
@@ -203,6 +262,10 @@ const HarborSearch = ({ onHarborSelect, placeholder = "Search for harbors and po
     setSelectedIndex(-1);
     setSelectedHarbor(null);
     setValidationResult(null);
+    // Notify parent component that selection was cleared
+    if (onHarborSelect) {
+      onHarborSelect(null);
+    }
   };
 
   const getHarborIcon = (type) => {
@@ -236,29 +299,66 @@ const HarborSearch = ({ onHarborSelect, placeholder = "Search for harbors and po
   };
 
   return (
-    <div className="relative w-full" ref={searchRef}>
+    <div ref={searchRef} style={{ 
+      position: 'relative', 
+      width: '100%',
+      zIndex: 9999999
+    }}>
       {/* Search Input */}
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <MapPinIcon className="h-5 w-5 text-gray-400" />
+      <div style={{ position: 'relative' }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          pointerEvents: 'none'
+        }}>
+          <MapPinIcon style={{ width: '20px', height: '20px', color: '#9ca3af' }} />
         </div>
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => query.length >= 2 && setIsOpen(true)}
-          className={`w-full pl-10 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-marine-500 focus:border-marine-500 text-sm ${
-            selectedHarbor ? 'border-green-500 bg-green-50' : 'border-gray-300'
-          }`}
+          onFocus={() => {
+            if (query.length >= 2) {
+              updateDropdownPosition();
+              setIsOpen(true);
+            }
+          }}
+          style={{
+            width: '100%',
+            paddingLeft: '40px',
+            paddingRight: query ? '40px' : '16px',
+            paddingTop: '12px',
+            paddingBottom: '12px',
+            border: selectedHarbor ? '1px solid #10b981' : '1px solid #d1d5db',
+            backgroundColor: selectedHarbor ? '#f0fdf4' : 'white',
+            borderRadius: '8px',
+            fontSize: '14px',
+            outline: 'none',
+            transition: 'border-color 0.2s, box-shadow 0.2s'
+          }}
           placeholder={placeholder}
         />
         {query && (
           <button
             onClick={clearSearch}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              right: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer'
+            }}
           >
-            <XMarkIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+            <XMarkIcon style={{ width: '20px', height: '20px', color: '#9ca3af' }} />
           </button>
         )}
       </div>
@@ -290,86 +390,150 @@ const HarborSearch = ({ onHarborSelect, placeholder = "Search for harbors and po
         </div>
       )}
 
-      {/* Loading Indicator */}
-      {loading && (
-        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 p-3 z-50">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-marine-500"></div>
-            <span className="ml-2 text-sm text-gray-600">
-              {query.length >= 2 ? 'Searching harbors...' : 'Validating location...'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Search Results */}
-      {isOpen && results.length > 0 && !loading && (
-        <div 
-          ref={resultsRef}
-          className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-80 overflow-y-auto z-50"
-        >
-          {results.map((result, index) => (
-            <div
-              key={`${result.name}-${index}`}
-              onClick={() => handleHarborSelect(result)}
-              className={`px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 hover:bg-gray-50 ${
-                selectedIndex === index ? 'bg-marine-50' : ''
-              }`}
-            >
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 mt-0.5">
-                  <span className="text-lg">{getHarborIcon(result.type)}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {result.name}
-                    </p>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getHarborTypeColor(result.type)}`}>
-                      {result.type}
-                    </span>
-                  </div>
-                  {result.display_name && (
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                      {result.display_name}
-                    </p>
-                  )}
-                  <div className="flex items-center mt-1">
-                    <MapPinIcon className="h-3 w-3 text-gray-400 mr-1" />
-                    <span className="text-xs text-gray-400">
-                      {result.lat.toFixed(4)}, {result.lon.toFixed(4)}
-                    </span>
-                    {result.source && (
-                      <span className="ml-2 text-xs text-gray-400">
-                        • {result.source}
-                      </span>
-                    )}
-                  </div>
-                </div>
+      {/* Portal-rendered dropdown */}
+      {(loading || (isOpen && results.length > 0)) && createPortal(
+        <div>
+          {/* Loading Indicator */}
+          {loading && (
+            <div style={{
+              position: 'fixed',
+              top: dropdownPosition.top + 4,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+              backgroundColor: 'white',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+              padding: '12px',
+              zIndex: 999999999
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ 
+                  width: '20px', 
+                  height: '20px', 
+                  border: '2px solid #e5e7eb', 
+                  borderTop: '2px solid #3b82f6',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
+                <span style={{ 
+                  marginLeft: '8px', 
+                  fontSize: '14px', 
+                  color: '#6b7280' 
+                }}>
+                  {query.length >= 2 ? 'Searching harbors...' : 'Validating location...'}
+                </span>
               </div>
             </div>
-          ))}
-          
-          {/* Footer */}
-          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center">
-              Use ↑↓ arrow keys to navigate, Enter to select, Esc to close
-            </p>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* No Results */}
-      {isOpen && results.length === 0 && !loading && query.length >= 2 && (
-        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 p-4">
-          <div className="text-center">
-            <MapPinIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">No harbors found</p>
-            <p className="text-xs text-gray-500 mt-1">
-              Try searching with different keywords or check spelling
-            </p>
-          </div>
-        </div>
+          {/* Search Results */}
+          {isOpen && results.length > 0 && !loading && (
+            <div 
+              ref={resultsRef}
+              style={{
+                position: 'fixed',
+                top: dropdownPosition.top + 4,
+                left: dropdownPosition.left,
+                width: dropdownPosition.width,
+                backgroundColor: 'white',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                maxHeight: '320px',
+                overflowY: 'auto',
+                zIndex: 999999999
+              }}
+            >
+              {results.map((result, index) => (
+                <div
+                  key={`${result.name}-${index}`}
+                  onClick={() => handleHarborSelect(result)}
+                  style={{
+                    padding: '12px 16px',
+                    cursor: 'pointer',
+                    borderBottom: index < results.length - 1 ? '1px solid #f3f4f6' : 'none',
+                    backgroundColor: selectedIndex === index ? '#f0f9ff' : 'transparent'
+                  }}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                      <span style={{ fontSize: '18px' }}>{getHarborIcon(result.type)}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <p style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {result.name}
+                        </p>
+                        <span style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          padding: '2px 8px', 
+                          borderRadius: '9999px', 
+                          fontSize: '12px', 
+                          fontWeight: '500',
+                          backgroundColor: '#e0e7ff',
+                          color: '#3730a3'
+                        }}>
+                          {result.type}
+                        </span>
+                      </div>
+                      {result.display_name && (
+                        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                          {result.display_name}
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px' }}>
+                        <MapPinIcon style={{ width: '12px', height: '12px', color: '#9ca3af', marginRight: '4px' }} />
+                        <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                          {result.lat.toFixed(4)}, {result.lon.toFixed(4)}
+                        </span>
+                        {result.source && (
+                          <span style={{ marginLeft: '8px', fontSize: '12px', color: '#9ca3af' }}>
+                            • {result.source}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Footer */}
+              <div style={{ padding: '8px 16px', backgroundColor: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
+                <p style={{ fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
+                  Use ↑↓ arrow keys to navigate, Enter to select, Esc to close
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* No Results in Portal */}
+          {isOpen && results.length === 0 && !loading && query.length >= 2 && (
+            <div style={{
+              position: 'fixed',
+              top: dropdownPosition.top + 4,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+              backgroundColor: 'white',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+              padding: '16px',
+              zIndex: 999999999
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <MapPinIcon style={{ width: '32px', height: '32px', color: '#9ca3af', margin: '0 auto 8px' }} />
+                <p style={{ fontSize: '14px', color: '#4b5563' }}>No harbors found</p>
+                <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                  Try searching with different keywords or check spelling
+                </p>
+              </div>
+            </div>
+          )}
+        </div>,
+        document.body
       )}
     </div>
   );
