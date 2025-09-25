@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from database import get_db
 from models import User
-from schemas import UserCreate, UserResponse, UserLogin, Token
+from schemas import UserCreate, UserResponse, UserLogin, Token, UserUpdate
 
 load_dotenv()
 
@@ -136,3 +136,39 @@ async def get_today_usage(current_user: User = Depends(get_current_user), db: Se
         "hazard_count": usage.hazard_count or 0,
         "date": usage.date.isoformat()
     }
+
+@router.put("/me", response_model=UserResponse)
+async def update_user_profile(
+    user_update: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update the current user's profile"""
+    
+    # Check if email is being changed and if it's already taken
+    if user_update.email and user_update.email != current_user.email:
+        existing_user = db.query(User).filter(User.email == user_update.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        current_user.email = user_update.email
+    
+    # Update full name if provided
+    if user_update.full_name is not None:
+        current_user.full_name = user_update.full_name
+    
+    # Update the updated_at timestamp
+    current_user.updated_at = datetime.utcnow()
+    
+    try:
+        db.commit()
+        db.refresh(current_user)
+        return current_user
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update profile"
+        )
