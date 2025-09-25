@@ -12,8 +12,8 @@ import json
 import requests
 from urllib.parse import urljoin, urlparse
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up minimal logging - Only errors and warnings
+logging.basicConfig(level=logging.WARNING, format='%(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class SimpleMaritimeNLPProcessor:

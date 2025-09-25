@@ -24,12 +24,12 @@ class SavedLocation(Base):
     __tablename__ = "saved_locations"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
+    latitude = Column(Float, nullable=False, index=True)
+    longitude = Column(Float, nullable=False, index=True)
     location_type = Column(String(50), default="single")  # single, route_start, route_end
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     
     # Relationships
     user = relationship("User", back_populates="saved_locations")
@@ -52,20 +52,20 @@ class WeatherData(Base):
     __tablename__ = "weather_data"
     
     id = Column(Integer, primary_key=True, index=True)
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
-    timestamp = Column(DateTime(timezone=True), nullable=False)
+    latitude = Column(Float, nullable=False, index=True)
+    longitude = Column(Float, nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
     temperature = Column(Float)
     humidity = Column(Float)
-    wind_speed = Column(Float)
+    wind_speed = Column(Float, index=True)
     wind_direction = Column(Float)
-    wave_height = Column(Float)
+    wave_height = Column(Float, index=True)
     wave_period = Column(Float)
     visibility = Column(Float)
     pressure = Column(Float)
-    weather_condition = Column(String(100))
+    weather_condition = Column(String(100), index=True)
     hazard_probabilities = Column(JSON)  # {"storm": 0.3, "fog": 0.1, "tsunami": 0.0}
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 class RouteAnalysis(Base):
     __tablename__ = "route_analyses"
@@ -85,14 +85,14 @@ class AlertHistory(Base):
     __tablename__ = "alert_history"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    location_id = Column(Integer, ForeignKey("saved_locations.id"), nullable=False)
-    alert_type = Column(String(100), nullable=False)
-    severity = Column(String(50))  # low, medium, high, critical
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    location_id = Column(Integer, ForeignKey("saved_locations.id"), nullable=False, index=True)
+    alert_type = Column(String(100), nullable=False, index=True)
+    severity = Column(String(50), index=True)  # low, medium, high, critical
     message = Column(Text, nullable=False)
     weather_data = Column(JSON)  # Weather conditions that triggered the alert
-    sent_at = Column(DateTime(timezone=True), server_default=func.now())
-    is_read = Column(Boolean, default=False)
+    sent_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    is_read = Column(Boolean, default=False, index=True)
 
 class ChatHistory(Base):
     __tablename__ = "chat_history"

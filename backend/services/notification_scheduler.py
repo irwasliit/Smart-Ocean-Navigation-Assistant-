@@ -9,7 +9,8 @@ from services.email_service import EmailService
 from services.multi_agent_ai_service import multi_agent_service
 import logging
 
-logging.basicConfig(level=logging.INFO)
+# Use WARNING level to reduce noise, only show important issues
+logging.basicConfig(level=logging.WARNING, format='%(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class WeatherNotificationScheduler:
@@ -35,7 +36,7 @@ class WeatherNotificationScheduler:
     async def start_scheduler(self):
         """Start the daily weather notification scheduler"""
         self.is_running = True
-        logger.info("Weather notification scheduler started")
+        print("Background scheduler started - checking alerts every 10 minutes")
         
         while self.is_running:
             try:

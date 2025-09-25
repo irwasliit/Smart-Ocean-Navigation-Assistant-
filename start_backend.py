@@ -58,7 +58,9 @@ def start_server():
             "--port", "8000", 
             "--reload",
             "--timeout-keep-alive", "150",
-            "--timeout-graceful-shutdown", "150"
+            "--timeout-graceful-shutdown", "150",
+            "--log-level", "info",
+            "--no-access-log"
         ])
     except KeyboardInterrupt:
         print("\n👋 Server stopped by user")

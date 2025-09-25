@@ -20,8 +20,8 @@ from dotenv import load_dotenv
 import logging
 import traceback
 
-# Configure detailed logging
-logging.basicConfig(level=logging.DEBUG)
+# Configure minimal logging - Only errors and warnings
+logging.basicConfig(level=logging.WARNING, format='%(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Import free AI alternatives
@@ -740,8 +740,103 @@ class CommunicationManagerAgent:
         self.client = openai_client
         self.agent_type = AgentType.COMMUNICATION_MANAGER
         
+    def _calculate_maritime_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> dict:
+        """Calculate accurate maritime distance using Haversine formula"""
+        import math
+        
+        # Convert latitude and longitude from degrees to radians
+        lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+        
+        # Haversine formula
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        
+        # Earth's radius in kilometers
+        r = 6371
+        distance_km = c * r
+        distance_nm = distance_km * 0.539957  # Convert to nautical miles
+        
+        return {
+            'km': round(distance_km, 2),
+            'nm': round(distance_nm, 2),
+            'miles': round(distance_km * 0.621371, 2)
+        }
+    
+    def _extract_locations_from_query(self, query: str) -> tuple:
+        """Extract two locations from distance calculation queries"""
+        import re
+        
+        # Common location database for maritime queries
+        locations = {
+            'chennai': (13.0827, 80.2707),
+            'chennai fort': (13.0827, 80.2707),
+            'colombo': (6.9271, 79.8612),
+            'colombo fort': (6.9271, 79.8612),
+            'mumbai': (19.0760, 72.8777),
+            'kochi': (9.9312, 76.2673),
+            'singapore': (1.3521, 103.8198),
+            'manila': (14.5995, 120.9842),
+            'hong kong': (22.3193, 114.1694),
+            'dubai': (25.2048, 55.2708),
+            'port said': (31.2653, 32.3019),
+            'suez': (29.9668, 32.5498),
+            'jaffna': (9.6615, 80.0255),
+            'trincomalee': (8.5874, 81.2152),
+            'galle': (6.0535, 80.2210),
+            'new york': (40.7128, -74.0060),
+            'london': (51.5074, -0.1278)
+        }
+        
+        query_lower = query.lower()
+        found_locations = []
+        
+        # Find locations mentioned in the query
+        for location_name, coords in locations.items():
+            if location_name in query_lower:
+                found_locations.append((location_name, coords))
+        
+        # If we found exactly 2 locations, return them
+        if len(found_locations) == 2:
+            return found_locations[0], found_locations[1]
+        
+        return None, None
+
     async def generate_user_response(self, user_query: str, agent_responses: List[AgentResponse], context: Optional[NavigationContext] = None, weather_data: Dict = None, location_name: str = None) -> AgentResponse:
         """Generate user-friendly response from agent analysis"""
+        
+        # Check if this is a distance calculation query
+        distance_keywords = ['distance', 'calculate', 'between', 'minimum distance', 'nautical miles', 'how far']
+        is_distance_query = any(keyword in user_query.lower() for keyword in distance_keywords)
+        
+        distance_info = ""
+        base_confidence = 0.5
+        
+        if is_distance_query:
+            loc1, loc2 = self._extract_locations_from_query(user_query)
+            if loc1 and loc2:
+                loc1_name, loc1_coords = loc1
+                loc2_name, loc2_coords = loc2
+                
+                distances = self._calculate_maritime_distance(
+                    loc1_coords[0], loc1_coords[1], 
+                    loc2_coords[0], loc2_coords[1]
+                )
+                
+                distance_info = f"""
+                
+MARITIME DISTANCE CALCULATION:
+📍 From: {loc1_name.title()} ({loc1_coords[0]}°N, {loc1_coords[1]}°E)
+📍 To: {loc2_name.title()} ({loc2_coords[0]}°N, {loc2_coords[1]}°E)
+📏 Great Circle Distance: {distances['nm']} nautical miles ({distances['km']} km)
+⏱️ Estimated sailing time: ~{distances['nm']//10}-{distances['nm']//8} hours at 8-10 knots
+🧭 This is the shortest sea route distance (great circle)
+                """
+                base_confidence = 0.9  # High confidence for distance calculations
+            else:
+                distance_info = "\n⚠️ Could not identify both locations for distance calculation. Please specify both departure and destination ports clearly."
+                base_confidence = 0.3
         
         # Compile information from all agents
         compiled_info = self._compile_agent_information(agent_responses)
@@ -778,7 +873,7 @@ class CommunicationManagerAgent:
         query_type = self._analyze_query_intent(user_query)
         
         prompt = f"""
-        As an expert marine navigation assistant with deep understanding of maritime operations, provide an intelligent response to this query:
+        As a professional maritime navigation expert, provide a precise, accurate response to this query:
         
         USER QUERY: "{user_query}"
         QUERY TYPE: {query_type}
@@ -786,23 +881,26 @@ class CommunicationManagerAgent:
         EXPERT ANALYSIS AVAILABLE:
         {json.dumps(compiled_info, indent=2, default=str)}
         {weather_info}
+        {distance_info}
         
         CONTEXT: {json.dumps(context.__dict__ if context else {}, indent=2, default=str)}
         
-        RESPONSE GUIDELINES:
-        ✅ Address the user's specific intent and provide direct answers
-        ✅ Use natural, conversational language while maintaining professionalism  
-        ✅ Highlight critical safety information with appropriate urgency
-        ✅ Provide specific, actionable recommendations with clear reasoning
-        ✅ Include relevant current weather data with practical interpretation
-        ✅ Acknowledge any data limitations or uncertainties honestly
-        ✅ Suggest logical next steps or follow-up questions when appropriate
-        ✅ Use maritime terminology appropriately but explain technical concepts
-        ✅ Structure information logically (current conditions → analysis → recommendations)
+        CRITICAL INSTRUCTIONS:
+        🎯 GIVE SPECIFIC, ACCURATE ANSWERS - No generic responses
+        📊 USE PROVIDED CALCULATIONS - Don't recalculate, use the exact distance data provided
+        🔢 BE PRECISE - Include exact numbers, coordinates, and measurements when available
+        ⚓ MARITIME FOCUS - Use proper nautical terminology and units (nautical miles, knots, etc.)
+        🚫 NO FLUFF - Skip generic safety advice unless specifically asked
+        ✅ DIRECT ANSWERS - Answer the exact question asked, then provide brief context
+        📍 LOCATION SPECIFIC - Use exact coordinates and location names provided
         
-        TONE: Helpful expert who balances thoroughness with clarity. Prioritize user safety while being encouraging and informative.
+        RESPONSE STRUCTURE:
+        1. Direct answer to the specific question
+        2. Key technical details/calculations 
+        3. Brief practical implications (only if relevant)
         
-        LENGTH: Comprehensive but concise (250-400 words depending on query complexity)
+        LENGTH: Concise and focused (150-250 words maximum)
+        TONE: Professional maritime expert - confident, precise, technical when needed
         """
         
         try:
@@ -818,16 +916,31 @@ class CommunicationManagerAgent:
             
             content = response.choices[0].message.content.strip()
             
-            # Calculate confidence based on source agent confidences
-            avg_confidence = sum(resp.confidence for resp in agent_responses) / len(agent_responses) if agent_responses else 0.5
+            # Enhanced confidence calculation
+            if agent_responses:
+                # Use average of agent confidences but boost if we have distance calculations
+                avg_confidence = sum(resp.confidence for resp in agent_responses) / len(agent_responses)
+                final_confidence = max(avg_confidence, base_confidence)
+            else:
+                # For direct queries without agent analysis, use intelligent confidence
+                if is_distance_query and distance_info and "Could not identify" not in distance_info:
+                    final_confidence = 0.95  # Very high confidence for successful distance calculations
+                elif weather_data:
+                    final_confidence = 0.85  # High confidence when we have real weather data
+                elif any(keyword in user_query.lower() for keyword in ['what is', 'how to', 'explain', 'define']):
+                    final_confidence = 0.80  # Good confidence for knowledge questions
+                else:
+                    final_confidence = 0.75  # Default confidence for general maritime queries
             
             return AgentResponse(
                 agent_type=self.agent_type,
                 content=content,
-                confidence=avg_confidence,
+                confidence=final_confidence,
                 metadata={
                     "source_agents": [resp.agent_type.value for resp in agent_responses],
-                    "user_query": user_query
+                    "user_query": user_query,
+                    "has_distance_calc": is_distance_query and distance_info != "",
+                    "has_weather_data": weather_data is not None
                 },
                 timestamp=datetime.now()
             )
@@ -906,28 +1019,22 @@ class MultiAgentAIService:
     """Main service coordinating multiple AI agents"""
     
     def __init__(self):
-        logger.info("🔄 Initializing MultiAgentAIService...")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        logger.info(f"🔑 OpenAI API Key found: {'Yes' if self.openai_api_key else 'No'}")
         
         # Try OpenAI first
         if self.openai_api_key:
             try:
-                logger.info("🔗 Attempting to initialize OpenAI client...")
                 self.client = openai.OpenAI(
                     api_key=self.openai_api_key,
                     timeout=150.0  # 150 second timeout for OpenAI API calls
                 )
-                logger.info("✅ OpenAI client created successfully")
                 
                 # Test the connection
-                logger.info("🧪 Testing OpenAI connection...")
                 test_response = self.client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[{"role": "user", "content": "test"}],
                     max_tokens=5
                 )
-                logger.info("✅ OpenAI API connection test successful!")
                 print("✅ OpenAI API working!")
                 self.ai_provider = "openai"
             except Exception as e:
@@ -1020,24 +1127,18 @@ class MultiAgentAIService:
     
     async def chat_response(self, user_query: str, context_data: Dict = None) -> AgentResponse:
         """Generate chat response for user queries"""
-        logger.info(f"💬 chat_response called with query: '{user_query[:50]}...'")
-        
         if not self.client:
             logger.error("❌ No OpenAI client available, returning fallback")
             return self._generate_fallback_response(user_query)
         
-        logger.info("✅ OpenAI client is available")
-        
         # Determine what analysis is needed based on the query
         query_lower = user_query.lower()
-        logger.info(f"🔍 Analyzing query for keywords...")
         
         agent_responses = []
         
         # Check if user is asking for weather and try to extract location
         weather_requested = any(word in query_lower for word in ['weather', 'wind', 'wave', 'storm', 'temperature', 'forecast', 'conditions'])
         if weather_requested:
-            logger.info("🌤️ Weather data requested, attempting to fetch real data...")
             location_match = None
             use_current_location = False
             
@@ -1045,7 +1146,6 @@ class MultiAgentAIService:
             if context_data and 'current_location' in context_data:
                 current_loc = context_data['current_location']
                 if 'latitude' in current_loc and 'longitude' in current_loc:
-                    logger.info(f"📍 Using current location coordinates: {current_loc['latitude']}, {current_loc['longitude']}")
                     use_current_location = True
             
             # If current location is not available or user specified a different location, try to extract from query
@@ -1064,7 +1164,6 @@ class MultiAgentAIService:
                     match = re.search(pattern, query_lower)
                     if match:
                         location_match = match.group(1).strip()
-                        logger.info(f"🎯 Extracted location from query: '{location_match}'")
                         break
             
             # If no location found in query, try to find standalone location names
@@ -1082,37 +1181,30 @@ class MultiAgentAIService:
                             location_match = f"{word} sri lanka"
                         else:
                             location_match = word
-                        logger.info(f"🎯 Found location keyword: '{location_match}'")
                         break
             
             # Fetch real weather data
             if use_current_location:
                 # Use current location coordinates
                 current_loc = context_data['current_location']
-                logger.info(f"🌐 Fetching weather data for current location: {current_loc['latitude']}, {current_loc['longitude']}")
                 weather_data = await self._fetch_real_weather_data(
                     lat=current_loc['latitude'], 
                     lon=current_loc['longitude']
                 )
                 if weather_data:
-                    logger.info("✅ Successfully fetched weather data for current location")
                     context_data = context_data or {}
                     context_data['weather_data'] = weather_data
                     context_data['location_name'] = "your current location"
                 else:
                     logger.warning("⚠️ Failed to fetch weather data for current location")
             elif location_match:
-                logger.info(f"🌐 Fetching real weather data for: {location_match}")
                 weather_data = await self._fetch_real_weather_data(location=location_match)
                 if weather_data:
-                    logger.info("✅ Successfully fetched real weather data")
                     context_data = context_data or {}
                     context_data['weather_data'] = weather_data
                     context_data['location_name'] = location_match
                 else:
                     logger.warning("⚠️ Failed to fetch real weather data")
-            else:
-                logger.info("ℹ️ No specific location found in weather query")
         
         # Skip connection test for faster response (client already initialized)
         
@@ -1154,7 +1246,6 @@ class MultiAgentAIService:
             
             # Check for disaster-related queries
             if any(word in query_lower for word in ['disaster', 'earthquake', 'tsunami', 'hurricane', 'typhoon', 'storm', 'prediction', 'previous', 'historical', 'warning']):
-                logger.info("🌪️ Disaster-related query detected, running disaster analysis...")
                 location_name = context_data.get('location_name', 'requested location')
                 current_loc = context_data.get('current_location', {})
                 lat = current_loc.get('latitude') if current_loc else None
@@ -1170,9 +1261,6 @@ class MultiAgentAIService:
         
         # Generate final response
         try:
-            logger.info(f"🎯 Generating final response using communication manager...")
-            logger.info(f"📊 Agent responses collected: {len(agent_responses)}")
-            
             # Pass weather data to communication manager if available
             weather_data = context_data.get('weather_data') if context_data else None
             location_name = context_data.get('location_name') if context_data else None
@@ -1180,7 +1268,6 @@ class MultiAgentAIService:
             final_response = await self.communication_manager.generate_user_response(
                 user_query, agent_responses, None, weather_data, location_name
             )
-            logger.info(f"✅ Final response generated - Confidence: {final_response.confidence:.2f}")
             return final_response
         except Exception as e:
             # If communication manager fails, return a fallback response
@@ -1230,18 +1317,13 @@ class MultiAgentAIService:
                 return await huggingface_service.process_message(message, context)
             elif self.ai_provider == "openai" and self.client:
                 # Use OpenAI (original method)
-                logger.info("🧠 Using OpenAI service")
-                logger.info("📞 Calling chat_response method...")
                 agent_response = await self.chat_response(message, context)
-                logger.info(f"✅ Received agent response - Confidence: {agent_response.confidence:.2f}")
-                logger.info(f"📝 Response content length: {len(agent_response.content)} chars")
                 
                 result = {
                     "response": agent_response.content,
                     "confidence": agent_response.confidence,
                     "context_data": agent_response.metadata
                 }
-                logger.info(f"📤 Returning result with confidence: {result.get('confidence')}")
                 return result
             else:
                 # Use enhanced fallback with real weather data
