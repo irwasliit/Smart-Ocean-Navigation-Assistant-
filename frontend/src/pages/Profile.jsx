@@ -15,7 +15,7 @@ import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
@@ -119,11 +119,21 @@ const Profile = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      toast.success('Profile updated successfully');
-      setIsEditing(false);
+      const response = await axios.put('/api/auth/me', formData);
+      
+      if (response.data) {
+        // Update the user context with new data
+        updateUser(response.data);
+        toast.success('Profile updated successfully');
+        setIsEditing(false);
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+      if (error.response?.data?.detail) {
+        toast.error(error.response.data.detail);
+      } else {
+        toast.error('Failed to update profile');
+      }
     } finally {
       setLoading(false);
     }

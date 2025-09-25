@@ -396,8 +396,16 @@ const RouteAnalysis = () => {
     const messageInterval = setInterval(() => {
       currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
       const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+      
+      let timeInfo = `${elapsedSeconds}s elapsed`;
+      if (elapsedSeconds > 120) {
+        timeInfo += ' - Using fallback analysis';
+      } else if (elapsedSeconds > 90) {
+        timeInfo += ' - Complex route, please wait';
+      }
+      
       toast.loading(
-        `${loadingMessages[currentMessageIndex]} (${elapsedSeconds}s elapsed)`, 
+        `${loadingMessages[currentMessageIndex]} (${timeInfo})`, 
         { id: 'route-analysis' }
       );
     }, 5000);
@@ -419,7 +427,7 @@ const RouteAnalysis = () => {
         hazard_assessment: true  // Request comprehensive hazard analysis
       }, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 120000 // 2 minute timeout for complex analysis
+        timeout: 180000 // 3 minute timeout to allow backend fallback processing
       });
       
       clearInterval(messageInterval);
@@ -437,8 +445,26 @@ const RouteAnalysis = () => {
     } catch (error) {
       clearInterval(messageInterval);
       console.error('Route analysis error:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to analyze route';
-      toast.error(`❌ ${errorMessage}`, { id: 'route-analysis' });
+      
+      // Handle different types of errors
+      if (error.code === 'ECONNABORTED' || error.code === 'TIMEOUT') {
+        toast.error('⏱️ Analysis timed out. Complex routes may take longer. Please try with shorter routes or check your connection.', { 
+          id: 'route-analysis',
+          duration: 8000 
+        });
+      } else if (error.response?.status === 500) {
+        const errorMessage = error.response?.data?.detail || 'Server error during analysis';
+        toast.error(`🔧 ${errorMessage}. Please try again or contact support.`, { 
+          id: 'route-analysis',
+          duration: 6000 
+        });
+      } else {
+        const errorMessage = error.response?.data?.detail || 'Failed to analyze route';
+        toast.error(`❌ ${errorMessage}`, { 
+          id: 'route-analysis',
+          duration: 5000 
+        });
+      }
     } finally {
       setAnalyzing(false);
     }
