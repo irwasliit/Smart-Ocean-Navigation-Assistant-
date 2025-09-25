@@ -137,6 +137,20 @@ const Alerts = () => {
     }
   };
 
+  const testEmailNotification = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post('/api/alerts/test-email');
+      toast.success('Test email sent successfully! Check your inbox.');
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      const errorMessage = error.response?.data?.detail || 'Failed to send test email';
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getSeverityColor = (severity) => {
     switch (severity) {
       case 'critical': return 'text-red-600 bg-red-100';
@@ -176,6 +190,32 @@ const Alerts = () => {
               Monitor and manage your maritime weather alerts
               <span className="ml-2">🌊</span>
             </p>
+            
+            {/* Test Email Button */}
+            <div className="mt-6">
+              <button
+                onClick={testEmailNotification}
+                disabled={loading}
+                className="ocean-button px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <span className="mr-1">📧</span>
+                    Sending Test...
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <span className="mr-2">📧</span>
+                    Send Test Email
+                    <span className="ml-2">🧪</span>
+                  </div>
+                )}
+              </button>
+              <p className="text-xs text-gray-500 mt-2">
+                Test the email notification system
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

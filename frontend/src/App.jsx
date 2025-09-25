@@ -1,18 +1,20 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext.jsx';
 import Navbar from './components/Navbar.jsx';
-import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import WeatherMap from './pages/WeatherMap.jsx';
-import RouteAnalysis from './pages/RouteAnalysis.jsx';
-import Alerts from './pages/Alerts.jsx';
-import AIChat from './pages/AIChat.jsx';
-import Profile from './pages/Profile.jsx';
-import HazardAlertsPage from './pages/HazardAlertsPage.jsx';
-import Upgrade from './pages/Upgrade.jsx';
 import LoadingSpinner from './components/LoadingSpinner.jsx';
+
+// Lazy load heavy components for better performance
+const Login = lazy(() => import('./pages/Login.jsx'));
+const Register = lazy(() => import('./pages/Register.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const WeatherMap = lazy(() => import('./pages/WeatherMap.jsx'));
+const RouteAnalysis = lazy(() => import('./pages/RouteAnalysis.jsx'));
+const Alerts = lazy(() => import('./pages/Alerts.jsx'));
+const AIChat = lazy(() => import('./pages/AIChat.jsx'));
+const Profile = lazy(() => import('./pages/Profile.jsx'));
+const HazardAlertsPage = lazy(() => import('./pages/HazardAlertsPage.jsx'));
+const Upgrade = lazy(() => import('./pages/Upgrade.jsx'));
 
 function App() {
   const { user, loading } = useAuth();
@@ -26,7 +28,8 @@ function App() {
       <div className="min-h-screen bg-gray-50">
         {user && <Navbar />}
         <main className={user ? 'pt-16' : ''}>
-          <Routes>
+          <Suspense fallback={<LoadingSpinner />}>
+            <Routes>
             <Route 
               path="/login" 
               element={user ? <Navigate to="/dashboard" /> : <Login />} 
@@ -72,6 +75,7 @@ function App() {
               element={user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} 
             />
           </Routes>
+          </Suspense>
         </main>
       </div>
     </Router>

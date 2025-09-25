@@ -1,378 +1,762 @@
-# 🌊 Enhanced Smart Ocean Navigation Assistant
+# 🌊 Smart Ocean Navigation Assistant# 🌊 Smart Ocean Navigation Assistant
 
-An advanced marine weather application powered by **Multi-Agent AI** with **NLP**, **Information Retrieval**, and **Real-time Maritime Data Processing**.
 
-## 🚀 Key Features
 
-### 🤖 Multi-Agent AI System
-- **Weather Analyst Agent**: Real-time marine weather analysis and forecasting
-- **Route Optimizer Agent**: AI-powered navigation route optimization
-- **Hazard Detector Agent**: Intelligent maritime hazard identification
-- **Information Retriever Agent**: NLP-powered maritime content processing
-- **Communication Manager Agent**: Smart user interaction coordination
+**An advanced marine weather and AI navigation system** designed for maritime professionals, providing real-time weather analysis, intelligent route planning, and AI-powered hazard detection for safe ocean navigation.**An advanced marine weather and AI navigation system** designed for maritime professionals, providing real-time weather analysis, intelligent route planning, and AI-powered hazard detection for safe ocean navigation.
 
-### 🧠 Advanced NLP & IR Capabilities
-- **Natural Language Processing**: NLTK, spaCy, and TextBlob integration
-- **Maritime Content Analysis**: Specialized processing for marine bulletins
-- **Multi-Source Data Integration**: RSS feeds, government maritime sources
-- **Intelligent Document Processing**: Automatic content categorization
-- **Real-time Information Retrieval**: Live maritime data aggregation
 
-### 🌐 Enhanced User Interface
-- **Marine-Themed Design**: Professional maritime color scheme
-- **Real-time Agent Status**: Live monitoring of AI agent availability
-- **Confidence Scoring**: AI response reliability indicators
-- **Interactive Maps**: Leaflet-powered weather and route visualization
+
+![Version](https://img.shields.io/badge/Version-2.0.0-blue)![Version](https://img.shields.io/badge/Version-2.0.0-blue)
+
+![License](https://img.shields.io/badge/License-MIT-green)![License](https://img.shields.io/badge/License-MIT-green)
+
+![Python](https://img.shields.io/badge/Python-3.8+-blue)![Python](https://img.shields.io/badge/Python-3.8+-blue)
+
+![React](https://img.shields.io/badge/React-18.2+-blue)![React](https://img.shields.io/badge/React-18.2+-blue)
+
+
+
+## 🚀 Key Features## 🚀 Key Features
+
+
+
+### 🤖 Multi-Agent AI System### 🤖 Multi-Agent AI System
+
+- **Weather Analyst Agent**: Real-time marine weather analysis and forecasting- **Weather Analyst Agent**: Real-time marine weather analysis and forecasting
+
+- **Route Optimizer Agent**: AI-powered navigation route optimization  - **Route Optimizer Agent**: AI-powered navigation route optimization
+
+- **Hazard Detector Agent**: Intelligent maritime hazard identification- **Hazard Detector Agent**: Intelligent maritime hazard identification
+
+- **Communication Manager Agent**: Natural language maritime assistance- **Information Retriever Agent**: NLP-powered maritime content processing
+
+- **Distance Calculator**: Precise nautical distance calculations between ports- **Communication Manager Agent**: Smart user interaction coordination
+
+
+
+### 🧭 Maritime Navigation Tools### 🧠 Advanced NLP & IR Capabilities
+
+- **Interactive Weather Maps**: Real-time weather visualization with Leaflet- **Natural Language Processing**: NLTK, spaCy, and TextBlob integration
+
+- **Route Analysis**: AI-enhanced route planning between harbors and ports- **Maritime Content Analysis**: Specialized processing for marine bulletins
+
+- **Hazard Detection**: Automated safety alerts and warnings- **Multi-Source Data Integration**: RSS feeds, government maritime sources
+
+- **Port Database**: Pre-loaded coordinates for major maritime locations- **Intelligent Document Processing**: Automatic content categorization
+
+- **Weather Forecasting**: 7-day marine weather predictions- **Real-time Information Retrieval**: Live maritime data aggregation
+
+
+
+### 🌊 Real-time Data Integration### 🌐 Enhanced User Interface
+
+- **OpenWeatherMap API**: Live marine weather conditions- **Marine-Themed Design**: Professional maritime color scheme
+
+- **Geolocation Services**: Precise location identification- **Real-time Agent Status**: Live monitoring of AI agent availability
+
+- **Email Notifications**: Automated hazard alerts and updates- **Confidence Scoring**: AI response reliability indicators
+
+- **Background Monitoring**: Continuous weather surveillance- **Interactive Maps**: Leaflet-powered weather and route visualization
+
 - **Responsive Design**: Optimized for desktop and mobile devices
 
-### 📡 Advanced Data Sources
-- **OpenWeatherMap API**: Real-time weather data
-- **Maritime Bulletins**: Government maritime safety notices
-- **RSS Feeds**: Live maritime news and updates
-- **Geographic APIs**: Location-based services
+### 💬 AI Chat Assistant
+
+- **Natural Language Processing**: Maritime queries in plain English### 📡 Advanced Data Sources
+
+- **Distance Calculations**: "Calculate distance between Chennai Fort and Colombo Fort"- **OpenWeatherMap API**: Real-time weather data
+
+- **Weather Analysis**: Location-specific marine weather insights- **Maritime Bulletins**: Government maritime safety notices
+
+- **Route Recommendations**: AI-powered navigation advice- **RSS Feeds**: Live maritime news and updates
+
+- **High Confidence Responses**: 95% accuracy for distance queries, 85% for weather- **Geographic APIs**: Location-based services
+
 - **Route Analysis**: Intelligent navigation planning
+
+## 🛠️ Technology Stack
 
 ## 🛠️ Technical Architecture
 
-### Backend (FastAPI + Python)
-```
-backend/
-├── main.py                     # Application entry point with enhanced AI routing
-├── services/
+### Backend (Python)
+
+- **FastAPI**: High-performance REST API framework### Backend (FastAPI + Python)
+
+- **OpenAI GPT-3.5-turbo**: Advanced language model for maritime analysis```
+
+- **SQLAlchemy**: Database ORM with SQLite storagebackend/
+
+- **APScheduler**: Background task scheduling for alerts├── main.py                     # Application entry point with enhanced AI routing
+
+- **Uvicorn**: ASGI server with extended timeout support├── services/
+
 │   ├── multi_agent_ai_service.py    # Core multi-agent AI system
-│   ├── enhanced_ir_service.py       # NLP-powered information retrieval
-│   ├── weather_service.py           # Weather data processing
-│   ├── route_service.py             # Route optimization
-│   └── alert_service.py             # Alert management
-├── routers/
-│   ├── enhanced_ai.py               # Enhanced AI endpoints
+
+### Frontend (React)│   ├── enhanced_ir_service.py       # NLP-powered information retrieval
+
+- **React 18.2**: Modern UI framework with hooks│   ├── weather_service.py           # Weather data processing
+
+- **Tailwind CSS**: Professional maritime-themed styling│   ├── route_service.py             # Route optimization
+
+- **Leaflet**: Interactive mapping with weather overlays│   └── alert_service.py             # Alert management
+
+- **Axios**: HTTP client with 120-second timeout handling├── routers/
+
+- **React Hot Toast**: User-friendly notifications│   ├── enhanced_ai.py               # Enhanced AI endpoints
+
 │   ├── weather.py                   # Weather API routes
-│   └── auth.py                      # Authentication
-└── models.py                        # Database models
+
+### AI & Processing│   └── auth.py                      # Authentication
+
+- **Multi-Agent Architecture**: Specialized AI agents for different tasks└── models.py                        # Database models
+
+- **Haversine Formula**: Precise maritime distance calculations```
+
+- **Weather Data Processing**: Real-time meteorological analysis
+
+- **Location Recognition**: Intelligent port and harbor identification### Frontend (React + Tailwind CSS)
+
 ```
 
-### Frontend (React + Tailwind CSS)
-```
-frontend/src/
+## 📦 Installation & Setupfrontend/src/
+
 ├── pages/
-│   ├── AIChat.jsx              # Enhanced multi-agent chat interface
-│   ├── Dashboard.jsx           # Main dashboard with AI insights
-│   ├── WeatherMap.jsx          # Interactive weather mapping
-│   └── RouteAnalysis.jsx       # AI-powered route analysis
-├── components/
+
+### Prerequisites│   ├── AIChat.jsx              # Enhanced multi-agent chat interface
+
+- Python 3.8 or higher│   ├── Dashboard.jsx           # Main dashboard with AI insights
+
+- Node.js 16 or higher│   ├── WeatherMap.jsx          # Interactive weather mapping
+
+- OpenAI API key (for AI features)│   └── RouteAnalysis.jsx       # AI-powered route analysis
+
+- OpenWeatherMap API key (for weather data)├── components/
+
 │   ├── Navbar.jsx              # Navigation with AI status
-│   └── LoadingSpinner.jsx      # Enhanced loading states
+
+### Quick Start│   └── LoadingSpinner.jsx      # Enhanced loading states
+
 └── contexts/
-    └── AuthContext.jsx         # Authentication management
-```
-   ```
 
-## 🔧 Installation & Setup
+1. **Clone the repository**    └── AuthContext.jsx         # Authentication management
 
-### Prerequisites
-- **Python 3.10+**
-- **Node.js 18+**
-- **MySQL 8.0+**
-- **OpenAI API Key** (for enhanced AI features)
+```bash```
+
+git clone https://github.com/irwasliit/IRWA_MARINE_PROJECT.git   ```
+
+cd IRWA_MARINE_PROJECT
+
+```## 🔧 Installation & Setup
+
+
+
+2. **Backend Setup**### Prerequisites
+
+```bash- **Python 3.10+**
+
+# Create virtual environment- **Node.js 18+**
+
+python -m venv venv- **MySQL 8.0+**
+
+.\venv\Scripts\activate  # Windows- **OpenAI API Key** (for enhanced AI features)
+
+source venv/bin/activate  # Linux/Mac
 
 ### Backend Setup
 
-1. **Clone and navigate to the project:**
-```bash
-git clone <repository-url>
-cd ir
-```
+# Install dependencies
 
-2. **Create virtual environment:**
+pip install -r requirements.txt1. **Clone and navigate to the project:**
+
 ```bash
-python -m venv venv
-venv\Scripts\activate  # Windows
-# or
+
+# Configure environment variablesgit clone <repository-url>
+
+cp env.example .envcd ir
+
+# Edit .env with your API keys:```
+
+# OPENAI_API_KEY=your_openai_key_here
+
+# OPENWEATHERMAP_API_KEY=your_weather_key_here2. **Create virtual environment:**
+
+```bash
+
+# Start backend serverpython -m venv venv
+
+python start_backend.pyvenv\Scripts\activate  # Windows
+
+```# or
+
 source venv/bin/activate  # Linux/Mac
-```
 
-3. **Install Python dependencies:**
+3. **Frontend Setup**```
+
 ```bash
+
+# Navigate to frontend directory3. **Install Python dependencies:**
+
+cd frontend```bash
+
 pip install -r requirements.txt
-```
+
+# Install dependencies```
+
+npm install
 
 4. **Download NLP models:**
-```bash
-python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('vader_lexicon')"
-python -m spacy download en_core_web_sm
+
+# Start development server```bash
+
+npm run devpython -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('vader_lexicon')"
+
+```python -m spacy download en_core_web_sm
+
 ```
 
-5. **Setup environment variables:**
-```bash
-cp env.example .env
+4. **Access the application**
+
+- Frontend: http://localhost:30005. **Setup environment variables:**
+
+- Backend API: http://localhost:8000```bash
+
+- API Documentation: http://localhost:8000/docscp env.example .env
+
 # Edit .env with your API keys and database credentials
-```
 
-6. **Initialize database:**
-```bash
-python backend/setup_database.py
-```
+## 🗺️ Application Pages```
 
-7. **Start backend server:**
-```bash
-python start_backend.py
-```
+
+
+### 🏠 Dashboard6. **Initialize database:**
+
+- Weather overview and forecasts```bash
+
+- Quick access to all featurespython backend/setup_database.py
+
+- System status indicators```
+
+
+
+### 🌤️ Weather Map7. **Start backend server:**
+
+- Interactive Leaflet map with weather data```bash
+
+- Click-to-get-weather functionalitypython start_backend.py
+
+- Location search and port identification```
+
+- Real-time weather conditions display
 
 ### Frontend Setup
 
-1. **Navigate to frontend directory:**
-```bash
-cd frontend
-```
+### 🧭 Route Analysis
+
+- Origin and destination port selection1. **Navigate to frontend directory:**
+
+- AI-powered route optimization```bash
+
+- Weather analysis along routecd frontend
+
+- Risk assessment and recommendations```
+
+- Estimated sailing times and distances
 
 2. **Install Node.js dependencies:**
-```bash
-npm install
-```
 
-3. **Start development server:**
-```bash
+### 💬 AI Chat```bash
+
+- Natural language maritime assistancenpm install
+
+- Distance calculations between ports```
+
+- Weather analysis and forecasts
+
+- Route planning advice3. **Start development server:**
+
+- Multi-agent AI responses with confidence scores```bash
+
 npm run dev
-```
 
-### Environment Variables (.env)
-```env
-# Database Configuration
+### ⚠️ Hazard Alerts```
+
+- Real-time hazard monitoring
+
+- Email notification system### Environment Variables (.env)
+
+- Customizable alert thresholds```env
+
+- Alert history and management# Database Configuration
+
 DATABASE_URL=mysql+pymysql://username:password@localhost/marine_weather
-
-# API Keys
-OPENAI_API_KEY=your_openai_api_key
-OPENWEATHER_API_KEY=your_openweather_api_key
-
-# Security
-SECRET_KEY=your_jwt_secret_key
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-# Email Configuration
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=your_app_password
-
-# AI Configuration
-MAX_TOKENS=1000
-TEMPERATURE=0.7
-MODEL_NAME=gpt-3.5-turbo
-```
-
-## 🚀 Usage
-
-### Multi-Agent AI Chat
-1. Navigate to **AI Assistant** page
-2. View real-time agent status indicators
-3. Ask questions like:
-   - "Analyze current weather conditions for latitude 40.7128, longitude -74.0060"
-   - "Optimize route from Miami to Nassau"
-   - "Detect hazards along the Gulf Coast"
-   - "Find latest maritime safety bulletins"
-
-### Weather Analysis
-- Real-time weather data visualization
-- AI-powered weather pattern analysis
-- Marine-specific weather insights
-- Interactive weather mapping
-
-### Route Optimization
-- AI-enhanced route planning
-- Weather-aware navigation suggestions
-- Hazard avoidance recommendations
-- Multi-factor route optimization
-
-### Information Retrieval
-- Natural language maritime queries
-- Real-time bulletin processing
-- Multi-source content aggregation
-- Intelligent content summarization
 
 ## 🔧 API Endpoints
 
-### Enhanced AI Endpoints
+# API Keys
+
+### Weather EndpointsOPENAI_API_KEY=your_openai_api_key
+
+```OPENWEATHER_API_KEY=your_openweather_api_key
+
+GET  /api/weather/current/{lat}/{lon}    # Current weather conditions
+
+GET  /api/weather/forecast/{lat}/{lon}   # Weather forecast data# Security
+
+POST /api/weather/location              # Weather by location nameSECRET_KEY=your_jwt_secret_key
+
+```ALGORITHM=HS256
+
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+### AI Endpoints
+
+```# Email Configuration
+
+POST /api/ai/chat                       # Multi-agent AI chatEMAIL_HOST=smtp.gmail.com
+
+POST /api/enhanced-ai/chat              # Enhanced AI chat with weatherEMAIL_PORT=587
+
+GET  /api/ai/status                     # AI system statusEMAIL_USER=your_email@gmail.com
+
+```EMAIL_PASSWORD=your_app_password
+
+
+
+### Route Endpoints# AI Configuration
+
+```MAX_TOKENS=1000
+
+POST /api/routes/analyze                # Route analysis and optimizationTEMPERATURE=0.7
+
+GET  /api/routes/history                # Route analysis historyMODEL_NAME=gpt-3.5-turbo
+
+``````
+
+
+
+### Alert Endpoints## 🚀 Usage
+
 ```
+
+GET  /api/alerts/active                 # Active hazard alerts### Multi-Agent AI Chat
+
+POST /api/alerts/preferences            # Alert preferences setup1. Navigate to **AI Assistant** page
+
+GET  /api/alerts/history                # Alert history2. View real-time agent status indicators
+
+```3. Ask questions like:
+
+   - "Analyze current weather conditions for latitude 40.7128, longitude -74.0060"
+
+## 🎯 Usage Examples   - "Optimize route from Miami to Nassau"
+
+   - "Detect hazards along the Gulf Coast"
+
+### Distance Calculation   - "Find latest maritime safety bulletins"
+
+**Question**: "Calculate minimum distance between Chennai Fort and Colombo Fort"
+
+### Weather Analysis
+
+**AI Response** (95% confidence):- Real-time weather data visualization
+
+```- AI-powered weather pattern analysis
+
+📍 From: Chennai Fort (13.0827°N, 80.2707°E)- Marine-specific weather insights
+
+📍 To: Colombo Fort (6.9271°N, 79.8612°E)- Interactive weather mapping
+
+📏 Great Circle Distance: 361.24 nautical miles (669.1 km)
+
+⏱️ Estimated sailing time: ~36-45 hours at 8-10 knots### Route Optimization
+
+🧭 This is the shortest sea route distance (great circle)- AI-enhanced route planning
+
+```- Weather-aware navigation suggestions
+
+- Hazard avoidance recommendations
+
+### Weather Analysis- Multi-factor route optimization
+
+**Question**: "What are the current weather conditions in Mumbai harbor?"
+
+### Information Retrieval
+
+**AI Response** (85% confidence):- Natural language maritime queries
+
+```- Real-time bulletin processing
+
+🌊 LIVE WEATHER DATA for Mumbai Harbor:- Multi-source content aggregation
+
+🌡️ Temperature: 28.5°C (83.3°F)- Intelligent content summarization
+
+💨 Wind: 15 km/h (8.1 knots) from 220°
+
+📊 Pressure: 1013 hPa## 🔧 API Endpoints
+
+👁️ Visibility: 8.5 km (5.3 miles)
+
+🌊 Wave Height: 1.2 meters### Enhanced AI Endpoints
+
+``````
+
 POST /api/ai/chat                    # Multi-agent chat interface
-POST /api/ai/analyze-conditions      # Weather condition analysis
-POST /api/ai/optimize-route         # Route optimization
+
+### Route Optimization  POST /api/ai/analyze-conditions      # Weather condition analysis
+
+**Question**: "Plan optimal route from Singapore to Dubai"POST /api/ai/optimize-route         # Route optimization
+
 POST /api/ai/detect-hazards         # Hazard detection
-GET  /api/ai/status                 # System and agent status
+
+**AI Response**:GET  /api/ai/status                 # System and agent status
+
+``````
+
+🧭 ROUTE ANALYSIS: Singapore → Dubai
+
+📏 Distance: ~3,400 nautical miles### Weather Endpoints
+
+⏱️ Estimated Duration: 14-18 days```
+
+🌊 Recommended Route: Via Strait of Malacca → Indian Ocean → Arabian SeaGET  /api/weather/current/{lat}/{lon}    # Current weather data
+
+⚠️ Current Hazards: Moderate monsoon activity in Arabian SeaGET  /api/weather/forecast/{lat}/{lon}   # Weather forecast
+
+✅ Optimal Departure: Next 3-day weather windowPOST /api/weather/batch                  # Batch weather requests
+
+``````
+
+
+
+## 🌟 Key Features Explained### Route Endpoints
+
 ```
 
-### Weather Endpoints
-```
-GET  /api/weather/current/{lat}/{lon}    # Current weather data
-GET  /api/weather/forecast/{lat}/{lon}   # Weather forecast
-POST /api/weather/batch                  # Batch weather requests
-```
+### Multi-Agent AI SystemPOST /api/routes/analyze             # Route analysis
 
-### Route Endpoints
-```
-POST /api/routes/analyze             # Route analysis
-POST /api/routes/optimize            # Route optimization
-GET  /api/routes/history             # Route history
-```
+The application uses specialized AI agents that work together:POST /api/routes/optimize            # Route optimization
 
-## 🧠 AI Agent Capabilities
+- **Weather Analyst**: Processes meteorological dataGET  /api/routes/history             # Route history
 
-### Weather Analyst Agent
-- **Real-time Analysis**: Live weather data processing
-- **Pattern Recognition**: Weather trend identification
-- **Marine Focus**: Ocean-specific weather insights
-- **Forecasting**: AI-enhanced weather predictions
+- **Route Optimizer**: Plans efficient and safe routes  ```
 
-### Route Optimizer Agent
-- **Multi-factor Optimization**: Weather, distance, safety
-- **Dynamic Routing**: Real-time route adjustments
-- **Safety Integration**: Hazard-aware planning
-- **Efficiency Focus**: Fuel and time optimization
+- **Hazard Detector**: Identifies potential dangers
 
-### Hazard Detector Agent
-- **Pattern Recognition**: Hazard identification from data
-- **Safety Assessment**: Risk level evaluation
-- **Alert Generation**: Automated warning systems
-- **Predictive Analysis**: Future hazard prediction
+- **Communication Manager**: Handles user interactions## 🧠 AI Agent Capabilities
 
-### Information Retriever Agent
+
+
+### Distance Calculation Engine### Weather Analyst Agent
+
+- Uses **Haversine formula** for precise great-circle distances- **Real-time Analysis**: Live weather data processing
+
+- Pre-loaded database of major ports and harbors- **Pattern Recognition**: Weather trend identification
+
+- Automatic location recognition from natural language- **Marine Focus**: Ocean-specific weather insights
+
+- Results in nautical miles, kilometers, and statute miles- **Forecasting**: AI-enhanced weather predictions
+
+
+
+### Real-time Weather Integration### Route Optimizer Agent
+
+- **OpenWeatherMap API** for live data- **Multi-factor Optimization**: Weather, distance, safety
+
+- Marine-specific weather parameters- **Dynamic Routing**: Real-time route adjustments
+
+- 7-day forecasting capability- **Safety Integration**: Hazard-aware planning
+
+- Weather pattern analysis and trends- **Efficiency Focus**: Fuel and time optimization
+
+
+
+### Intelligent Route Analysis### Hazard Detector Agent
+
+- Weather-aware route planning- **Pattern Recognition**: Hazard identification from data
+
+- Hazard avoidance recommendations- **Safety Assessment**: Risk level evaluation
+
+- Fuel efficiency optimization- **Alert Generation**: Automated warning systems
+
+- Safety-first approach to navigation- **Predictive Analysis**: Future hazard prediction
+
+
+
+## 📊 Project Structure### Information Retriever Agent
+
 - **NLP Processing**: Natural language understanding
-- **Content Aggregation**: Multi-source data collection
-- **Document Analysis**: Maritime bulletin processing
-- **Knowledge Extraction**: Key information identification
 
-### Communication Manager Agent
-- **Response Coordination**: Multi-agent response management
-- **Context Awareness**: Conversation context maintenance
-- **User Intent Recognition**: Query understanding
-- **Response Optimization**: Best response selection
+```- **Content Aggregation**: Multi-source data collection
 
-## 🎨 Enhanced UI Features
+IRWA_MARINE_PROJECT/- **Document Analysis**: Maritime bulletin processing
 
-### Marine Theme Design
-- **Ocean-inspired Colors**: Professional maritime palette
-- **Responsive Layout**: Mobile-first design approach
-- **Interactive Elements**: Smooth animations and transitions
-- **Accessibility**: WCAG-compliant design
+├── backend/                    # Python FastAPI backend- **Knowledge Extraction**: Key information identification
 
-### Real-time Status Indicators
-- **Agent Status**: Live agent availability monitoring
-- **System Health**: Overall system status display
-- **Confidence Scores**: AI response reliability indicators
-- **Processing States**: Real-time operation feedback
+│   ├── main.py                # Application entry point
 
-### Enhanced Chat Interface
-- **Multi-agent Responses**: Agent-specific message handling
-- **Rich Formatting**: Enhanced message presentation
-- **Conversation History**: Persistent chat storage
-- **Quick Suggestions**: Contextual query suggestions
+│   ├── routers/               # API route handlers### Communication Manager Agent
 
-## 📦 Docker Deployment
+│   │   ├── weather.py         # Weather API endpoints- **Response Coordination**: Multi-agent response management
 
-### Build and run with Docker Compose:
+│   │   ├── ai_chat.py         # AI chat functionality- **Context Awareness**: Conversation context maintenance
+
+│   │   ├── routes.py          # Route analysis endpoints- **User Intent Recognition**: Query understanding
+
+│   │   └── alerts.py          # Hazard alert system- **Response Optimization**: Best response selection
+
+│   ├── services/              # Business logic services
+
+│   │   ├── multi_agent_ai_service.py    # Core AI system## 🎨 Enhanced UI Features
+
+│   │   ├── weather_service.py           # Weather data processing
+
+│   │   ├── location_search_service.py   # Location services### Marine Theme Design
+
+│   │   └── alert_service.py             # Alert management- **Ocean-inspired Colors**: Professional maritime palette
+
+│   ├── models.py              # Database models- **Responsive Layout**: Mobile-first design approach
+
+│   ├── database.py            # Database configuration- **Interactive Elements**: Smooth animations and transitions
+
+│   └── scheduler.py           # Background task scheduling- **Accessibility**: WCAG-compliant design
+
+├── frontend/                  # React frontend application
+
+│   ├── src/### Real-time Status Indicators
+
+│   │   ├── pages/            # Application pages- **Agent Status**: Live agent availability monitoring
+
+│   │   │   ├── Dashboard.jsx      # Main dashboard- **System Health**: Overall system status display
+
+│   │   │   ├── WeatherMap.jsx     # Interactive weather map- **Confidence Scores**: AI response reliability indicators
+
+│   │   │   ├── RouteAnalysis.jsx  # Route planning tool- **Processing States**: Real-time operation feedback
+
+│   │   │   └── AIChat.jsx        # AI assistant interface
+
+│   │   ├── components/       # Reusable UI components### Enhanced Chat Interface
+
+│   │   │   ├── Navbar.jsx         # Navigation component- **Multi-agent Responses**: Agent-specific message handling
+
+│   │   │   ├── WeatherCard.jsx    # Weather display cards- **Rich Formatting**: Enhanced message presentation
+
+│   │   │   └── LoadingSpinner.jsx # Loading animations- **Conversation History**: Persistent chat storage
+
+│   │   └── contexts/         # React context providers- **Quick Suggestions**: Contextual query suggestions
+
+│   ├── public/               # Static assets
+
+│   └── package.json          # Frontend dependencies## 📦 Docker Deployment
+
+├── setup.py                  # Project setup script
+
+├── start_backend.py          # Backend startup script### Build and run with Docker Compose:
+
+├── start_frontend.py         # Frontend startup script```bash
+
+├── requirements.txt          # Python dependenciesdocker-compose up --build
+
+├── docker-compose.yml        # Docker deployment```
+
+└── README.md                 # Project documentation
+
+```### Individual container builds:
+
 ```bash
-docker-compose up --build
-```
 
-### Individual container builds:
-```bash
-# Backend
+## 🔐 Environment Configuration# Backend
+
 docker build -t marine-weather-backend ./backend
 
+Create a `.env` file in the project root:
+
 # Frontend
-docker build -t marine-weather-frontend ./frontend
-```
 
-## 🔍 Testing
+```envdocker build -t marine-weather-frontend ./frontend
 
-### Backend Tests
-```bash
+# API Keys```
+
+OPENAI_API_KEY=your_openai_api_key_here
+
+OPENWEATHERMAP_API_KEY=your_openweathermap_api_key_here## 🔍 Testing
+
+
+
+# Database### Backend Tests
+
+DATABASE_URL=sqlite:///./marine_weather.db```bash
+
 cd backend
-python -m pytest tests/
-```
 
-### API Testing
-```bash
+# Email Configuration (optional)python -m pytest tests/
+
+SMTP_SERVER=smtp.gmail.com  ```
+
+SMTP_PORT=587
+
+SMTP_USERNAME=your_email@gmail.com### API Testing
+
+SMTP_PASSWORD=your_app_password```bash
+
 python test_apis.py
-python test_fixed_apis.py
-python test_email_notifications.py
-```
 
-### Frontend Tests
+# Securitypython test_fixed_apis.py
+
+SECRET_KEY=your_secret_key_herepython test_email_notifications.py
+
+ALGORITHM=HS256```
+
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+```### Frontend Tests
+
 ```bash
-cd frontend
+
+## 🐳 Docker Deploymentcd frontend
+
 npm test
-```
 
-## 🚀 Production Deployment
+```bash```
 
-### Environment Setup
-1. **Database**: MySQL 8.0+ with proper indexing
-2. **Web Server**: Nginx with SSL configuration
-3. **Application**: Gunicorn for Python, PM2 for Node.js
+# Build and run with Docker Compose
+
+docker-compose up --build## 🚀 Production Deployment
+
+
+
+# Individual container builds### Environment Setup
+
+docker build -t marine-weather-backend ./backend1. **Database**: MySQL 8.0+ with proper indexing
+
+docker build -t marine-weather-frontend ./frontend2. **Web Server**: Nginx with SSL configuration
+
+```3. **Application**: Gunicorn for Python, PM2 for Node.js
+
 4. **Monitoring**: Implement logging and monitoring
-5. **Security**: Proper API key management and CORS setup
 
-### Performance Optimization
+## 🧪 Testing5. **Security**: Proper API key management and CORS setup
+
+
+
+The application includes comprehensive testing capabilities:### Performance Optimization
+
 - **Caching**: Redis for session and response caching
-- **CDN**: Static asset delivery optimization
-- **Database**: Query optimization and indexing
-- **AI**: Response caching for common queries
 
-## 🤝 Contributing
+```bash- **CDN**: Static asset delivery optimization
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/enhancement`)
-3. Commit changes (`git commit -am 'Add new feature'`)
+# Start backend server- **Database**: Query optimization and indexing
+
+python start_backend.py- **AI**: Response caching for common queries
+
+
+
+# Test AI chat functionality## 🤝 Contributing
+
+# Visit http://localhost:3000/chat and try:
+
+# "Calculate distance between Singapore and Dubai"1. Fork the repository
+
+# "What's the weather in Mumbai?"2. Create feature branch (`git checkout -b feature/enhancement`)
+
+# "Plan route from Chennai to Colombo"3. Commit changes (`git commit -am 'Add new feature'`)
+
 4. Push to branch (`git push origin feature/enhancement`)
-5. Create Pull Request
 
-## 📄 License
+# Test weather map5. Create Pull Request
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+# Visit http://localhost:3000/weather
 
-## 🆘 Support
+# Click on map locations to get weather data## 📄 License
 
-For support and questions:
+
+
+# Test route analysis  This project is licensed under the MIT License - see the LICENSE file for details.
+
+# Visit http://localhost:3000/route-analysis
+
+# Set origin and destination ports## 🆘 Support
+
+# Generate AI-powered route analysis
+
+```For support and questions:
+
 - **Documentation**: Check inline code documentation
-- **Issues**: Create GitHub issues for bugs
+
+## 🚀 Performance Features- **Issues**: Create GitHub issues for bugs
+
 - **Features**: Submit feature requests via GitHub
-- **Community**: Join our discussion forums
 
-## 🎯 Roadmap
+- **Extended Timeouts**: 120-second frontend timeout, 150-second backend timeout- **Community**: Join our discussion forums
 
-### Upcoming Features
+- **Continuous Loading**: Real-time progress indicators without fake timers
+
+- **Efficient Logging**: Minimal production logging for better performance## 🎯 Roadmap
+
+- **AI Optimization**: GPT-3.5-turbo for fast, cost-effective responses
+
+- **Database Caching**: SQLite with optimized queries### Upcoming Features
+
 - **Machine Learning Models**: Custom weather prediction models
-- **Advanced Visualization**: 3D weather and route modeling
-- **Mobile App**: Native mobile application
-- **Offline Capabilities**: Offline weather data and routing
-- **Integration APIs**: Third-party marine software integration
 
-### Performance Enhancements
-- **Real-time Updates**: WebSocket-based live updates
+## 🤝 Contributing- **Advanced Visualization**: 3D weather and route modeling
+
+- **Mobile App**: Native mobile application
+
+1. Fork the repository- **Offline Capabilities**: Offline weather data and routing
+
+2. Create a feature branch: `git checkout -b feature/new-feature`- **Integration APIs**: Third-party marine software integration
+
+3. Commit changes: `git commit -am 'Add new feature'`
+
+4. Push to branch: `git push origin feature/new-feature`### Performance Enhancements
+
+5. Submit a Pull Request- **Real-time Updates**: WebSocket-based live updates
+
 - **Advanced Caching**: Intelligent data caching strategies
-- **Scalability**: Microservices architecture migration
+
+## 📄 License- **Scalability**: Microservices architecture migration
+
 - **AI Optimization**: Custom-trained maritime AI models
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
+## 🆘 Support & Contact
+
 **Built with ❤️ for the maritime community**
 
-*Enhancing ocean navigation safety through intelligent technology*
+- **GitHub Issues**: [Report bugs or request features](https://github.com/irwasliit/IRWA_MARINE_PROJECT/issues)
+
+- **Documentation**: [Project Wiki](https://github.com/irwasliit/IRWA_MARINE_PROJECT/wiki)*Enhancing ocean navigation safety through intelligent technology*
+
+- **Email**: [Contact Developer](mailto:irwasliit@gmail.com)
 
 ## 📁 Project Structure
 
+## 🌟 Acknowledgments
+
 ```
-marine-weather-assistant/
-├── backend/
-│   ├── main.py                 # FastAPI application
-│   ├── database.py            # Database configuration
+
+- **OpenAI** for GPT-3.5-turbo language modelmarine-weather-assistant/
+
+- **OpenWeatherMap** for marine weather data├── backend/
+
+- **Leaflet** for interactive mapping capabilities│   ├── main.py                 # FastAPI application
+
+- **Maritime Community** for domain expertise and feedback│   ├── database.py            # Database configuration
+
 │   ├── models.py              # SQLAlchemy models
-│   ├── schemas.py             # Pydantic schemas
+
+---│   ├── schemas.py             # Pydantic schemas
+
 │   ├── auth.py                # Authentication logic
-│   ├── routers/               # API route handlers
+
+**Built with ❤️ for safer ocean navigation**│   ├── routers/               # API route handlers
+
 │   │   ├── auth.py
-│   │   ├── weather.py
+
+*Enhancing maritime safety through intelligent technology*│   │   ├── weather.py
 │   │   ├── routes.py
 │   │   ├── alerts.py
 │   │   └── ai_chat.py

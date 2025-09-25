@@ -190,25 +190,156 @@ const Dashboard = () => {
 
           {alerts.length > 0 && (
             <div className="maritime-card p-6 mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                <BellIcon className="h-6 w-6 text-orange-500 mr-2" />
-                Recent Alerts
-              </h2>
-              <div className="space-y-4">
-                {alerts.map((alert, index) => (
-                  <div key={index} className="flex items-start space-x-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
-                    <div className="flex-shrink-0">
-                      <ExclamationTriangleIcon className="h-6 w-6 text-orange-500" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{alert.title || 'Weather Alert'}</h4>
-                      <p className="text-sm text-gray-600 mt-1">{alert.description || 'No description available'}</p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {alert.created_at ? new Date(alert.created_at).toLocaleString() : 'Recently'}
-                      </p>
-                    </div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <div className="bg-orange-100 p-2 rounded-lg mr-3">
+                    <BellIcon className="h-5 w-5 text-orange-600" />
                   </div>
-                ))}
+                  Recent Alerts
+                  <span className="ml-3 bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                    {alerts.filter(alert => !alert.is_read).length} New
+                  </span>
+                </h2>
+                <Link to="/alerts" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                  View All →
+                </Link>
+              </div>
+              <div className="space-y-4">
+                {alerts.map((alert, index) => {
+                  const getSeverityConfig = (severity) => {
+                    switch(severity) {
+                      case 'CRITICAL':
+                        return {
+                          bgColor: 'bg-gradient-to-r from-red-100 to-red-200',
+                          borderColor: 'border-red-400 shadow-red-200',
+                          iconColor: 'text-red-700',
+                          badgeColor: 'bg-red-600 text-white shadow-lg',
+                          stripeColor: 'bg-red-600',
+                          icon: '🚨',
+                          textColor: 'text-red-900',
+                          pulse: true
+                        };
+                      case 'HIGH':
+                        return {
+                          bgColor: 'bg-gradient-to-r from-orange-100 to-orange-200',
+                          borderColor: 'border-orange-400 shadow-orange-200',
+                          iconColor: 'text-orange-700',
+                          badgeColor: 'bg-orange-600 text-white shadow-md',
+                          stripeColor: 'bg-orange-600',
+                          icon: '⚠️',
+                          textColor: 'text-orange-900',
+                          pulse: false
+                        };
+                      case 'MEDIUM':
+                        return {
+                          bgColor: 'bg-gradient-to-r from-yellow-50 to-yellow-100',
+                          borderColor: 'border-yellow-300',
+                          iconColor: 'text-yellow-700',
+                          badgeColor: 'bg-yellow-500 text-white',
+                          stripeColor: 'bg-yellow-500',
+                          icon: '⚡',
+                          textColor: 'text-yellow-800',
+                          pulse: false
+                        };
+                      default:
+                        return {
+                          bgColor: 'bg-gradient-to-r from-blue-50 to-blue-100',
+                          borderColor: 'border-blue-300',
+                          iconColor: 'text-blue-600',
+                          badgeColor: 'bg-blue-500 text-white',
+                          stripeColor: 'bg-blue-500',
+                          icon: 'ℹ️',
+                          textColor: 'text-blue-800',
+                          pulse: false
+                        };
+                    }
+                  };
+                  
+                  const config = getSeverityConfig(alert.severity);
+                  
+                  return (
+                    <div key={index} className={`relative ${config.bgColor} ${config.borderColor} border-2 rounded-xl p-5 hover:shadow-lg transition-all duration-300 ${config.pulse ? 'animate-pulse' : ''}`}>
+                      {/* Enhanced severity indicator stripe */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-2 ${config.stripeColor} rounded-l-xl ${config.pulse ? 'animate-pulse' : ''}`}></div>
+                      
+                      {/* Danger glow effect for critical alerts */}
+                      {alert.severity === 'CRITICAL' && (
+                        <div className="absolute inset-0 bg-red-500 opacity-10 rounded-xl animate-pulse"></div>
+                      )}
+                      
+                      <div className="flex items-start space-x-4 relative z-10">
+                        <div className="flex-shrink-0 mt-1">
+                          <span className={`text-3xl ${config.pulse ? 'animate-bounce' : ''}`}>{config.icon}</span>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          {/* Header with alert type and severity */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-3">
+                              <h4 className={`font-bold text-lg ${config.textColor}`}>
+                                {alert.alert_type?.replace('_', ' ') || 'Weather Alert'}
+                              </h4>
+                              {alert.severity && (
+                                <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${config.badgeColor} ${config.pulse ? 'animate-pulse' : ''}`}>
+                                  {alert.severity}
+                                </span>
+                              )}
+                            </div>
+                            {!alert.is_read && (
+                              <div className={`w-3 h-3 rounded-full animate-pulse ${
+                                alert.severity === 'CRITICAL' ? 'bg-red-600' : 'bg-orange-500'
+                              }`}></div>
+                            )}
+                          </div>
+                          
+                          {/* Alert message */}
+                          <p className={`text-sm leading-relaxed mb-3 ${
+                            alert.severity === 'CRITICAL' ? 'text-red-800 font-semibold' :
+                            alert.severity === 'HIGH' ? 'text-orange-800 font-medium' :
+                            alert.severity === 'MEDIUM' ? 'text-yellow-800' :
+                            'text-blue-800'
+                          }`}>
+                            {alert.message || 'No description available'}
+                          </p>
+                          
+                          {/* Footer with timestamp and location */}
+                          <div className={`flex items-center justify-between text-xs ${
+                            alert.severity === 'CRITICAL' ? 'text-red-600' :
+                            alert.severity === 'HIGH' ? 'text-orange-600' :
+                            alert.severity === 'MEDIUM' ? 'text-yellow-700' :
+                            'text-blue-600'
+                          }`}>
+                            <div className="flex items-center space-x-4">
+                              <span className="flex items-center font-medium">
+                                🕒 {alert.sent_at ? new Date(alert.sent_at).toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : 'Recently'}
+                              </span>
+                              {alert.weather_data?.location && (
+                                <span className="flex items-center font-medium">
+                                  📍 {alert.weather_data.location}
+                                </span>
+                              )}
+                            </div>
+                            
+                            {alert.is_read ? (
+                              <span className="text-green-700 font-bold bg-green-100 px-2 py-1 rounded-full">✓ Read</span>
+                            ) : (
+                              <span className={`font-bold px-2 py-1 rounded-full ${
+                                alert.severity === 'CRITICAL' ? 'text-red-700 bg-red-100' :
+                                alert.severity === 'HIGH' ? 'text-orange-700 bg-orange-100' :
+                                'text-blue-700 bg-blue-100'
+                              }`}>● New</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -40,30 +40,53 @@ const Profile = () => {
     }
   }, [user]);
 
+  // Refresh stats when component becomes visible (user navigates back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        fetchUserStats();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
+
   const fetchUserStats = async () => {
     try {
       setStats(prev => ({ ...prev, loading: true }));
       
+      // Get saved locations
       const locationsResponse = await axios.get('/api/weather/locations');
       const savedLocations = locationsResponse.data?.length || 0;
 
-      const alertsResponse = await axios.get('/api/alerts/active');
-      const activeAlerts = alertsResponse.data?.length || 0;
+      // Get active alerts
+      let activeAlerts = 0;
+      try {
+        const alertsResponse = await axios.get('/api/alerts/active');
+        activeAlerts = alertsResponse.data?.length || 0;
+      } catch (error) {
+        console.log('Active alerts not available:', error.response?.status);
+      }
 
+      // Get route analyses
       let routeAnalyses = 0;
       try {
         const routesResponse = await axios.get('/api/routes/history');
         routeAnalyses = routesResponse.data?.length || 0;
       } catch (error) {
-        console.log('Route history not available');
+        console.log('Route history not available:', error.response?.status);
       }
 
+      // Get AI conversations
       let aiConversations = 0;
       try {
-        const chatResponse = await axios.get('/api/chat/history');
+        const chatResponse = await axios.get('/api/ai/history');
         aiConversations = chatResponse.data?.length || 0;
       } catch (error) {
-        console.log('Chat history not available');
+        console.log('Chat history not available:', error.response?.status);
       }
 
       setStats({
@@ -74,8 +97,14 @@ const Profile = () => {
         loading: false,
       });
 
+      // Show success message only if user manually refreshed
+      if (performance.now() > 2000) { // Only after page has been loaded for a while
+        toast.success('Navigation statistics updated');
+      }
+
     } catch (error) {
       console.error('Error fetching user stats:', error);
+      toast.error('Failed to load navigation statistics');
       setStats(prev => ({ ...prev, loading: false }));
     }
   };
@@ -106,6 +135,41 @@ const Profile = () => {
       email: user.email || '',
     });
     setIsEditing(false);
+  };
+
+  const testEmailNotification = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post('/api/alerts/test-email');
+      
+      if (response.data.success) {
+        toast.success(
+          `✅ Test email sent successfully to ${user.email}!\nCheck your inbox (including spam folder).`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.error(
+          `❌ ${response.data.message}\n💡 Check EMAIL_SETUP_GUIDE.md for configuration help.`,
+          { duration: 8000 }
+        );
+      }
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      
+      if (error.response?.status === 500) {
+        toast.error(
+          `🔧 Email service error: ${error.response?.data?.detail || 'Configuration needed'}\n📧 Please check your .env email settings.`,
+          { duration: 10000 }
+        );
+      } else {
+        toast.error(
+          `❌ Failed to send test email\n🔍 Check backend logs and email configuration.`,
+          { duration: 8000 }
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -226,13 +290,26 @@ const Profile = () => {
 
             <div className="space-y-6">
               <div className="maritime-card p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <ChartBarIcon className="h-5 w-5 text-blue-600 mr-2" />
-                  Navigation Statistics
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <ChartBarIcon className="h-5 w-5 text-blue-600 mr-2" />
+                    Navigation Statistics
+                  </h3>
+                  <button
+                    onClick={fetchUserStats}
+                    disabled={stats.loading}
+                    className="text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50 flex items-center"
+                  >
+                    <span className={`mr-1 ${stats.loading ? 'animate-spin' : ''}`}>🔄</span>
+                    Refresh
+                  </button>
+                </div>
                 {stats.loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <LoadingSpinner type="compass" size="sm" />
+                  <div className="flex items-center justify-center py-3">
+                    <div className="w-5 h-5 relative">
+                      <div className="absolute inset-0 border-2 border-blue-200 rounded-full"></div>
+                      <div className="absolute inset-0 border-2 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -295,6 +372,26 @@ const Profile = () => {
                     <span className="mr-2">🤖</span>
                     AI Assistant
                   </button>
+                </div>
+              </div>
+
+              <div className="maritime-card p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <span className="mr-2">📧</span>
+                  Email Notifications
+                </h3>
+                <div className="space-y-3">
+                  <button 
+                    onClick={testEmailNotification}
+                    disabled={loading}
+                    className="w-full text-left px-4 py-2 text-sm text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors flex items-center disabled:opacity-50"
+                  >
+                    <span className="mr-2">🧪</span>
+                    {loading ? 'Sending Test Email...' : 'Send Test Email'}
+                  </button>
+                  <p className="text-xs text-gray-500 px-4">
+                    Test your email configuration to ensure you receive weather notifications
+                  </p>
                 </div>
               </div>
 

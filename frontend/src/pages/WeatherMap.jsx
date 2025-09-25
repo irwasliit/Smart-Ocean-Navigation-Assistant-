@@ -669,6 +669,8 @@ const WeatherMap = () => {
                     Save Location
                   </button>
                   
+                  {/* TEMPORARILY DISABLED - Use in Route Planner Button */}
+                  {/* 
                   <button
                     onClick={useInRoutePlanner}
                     className="w-full flex items-center justify-center px-4 py-2 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:from-green-600 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg"
@@ -677,6 +679,7 @@ const WeatherMap = () => {
                     Use in Route Planner
                     <span className="ml-2">🚢</span>
                   </button>
+                  */}
                 </div>
               </div>
             )}
@@ -693,8 +696,8 @@ const WeatherMap = () => {
                 </div>
 
                 {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <LoadingSpinner type="ocean" text="Loading weather data..." />
+                  <div className="flex items-center justify-center py-4">
+                    <LoadingSpinner type="ocean" size="sm" text="Loading weather data..." />
                   </div>
                 ) : (
                   <div className="space-y-4">
