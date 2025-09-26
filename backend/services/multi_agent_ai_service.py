@@ -620,6 +620,169 @@ class DisasterPredictorAgent:
                 timestamp=datetime.now()
             )
     
+    async def analyze_current_hazard_alerts(self, location: str = None, latitude: float = None, longitude: float = None) -> AgentResponse:
+        """Analyze current real-time hazard alerts using the hazard alerts service"""
+        print(f"🚨 ANALYZE_CURRENT_HAZARD_ALERTS: Starting analysis for location={location}, lat={latitude}, lon={longitude}")
+        try:
+            from .hazard_alerts_service import hazard_alerts_service
+            
+            # Smart detection of global vs local queries
+            # Global indicators: asking about multiple countries, global situation, "any country", etc.
+            global_keywords = ["countries", "global", "world", "worldwide", "any country", "which country", "what countries", "affected by", "international", "globally"]
+            is_global_query = (
+                not location or 
+                location == "requested location" or 
+                any(word in (location or "").lower() for word in ["countries", "global", "world"]) or
+                any(keyword in user_query.lower() for keyword in global_keywords) if hasattr(self, '_current_query') else True
+            )
+            
+            if is_global_query or not latitude or not longitude:
+                # For global queries, get alerts for major regions
+                global_alerts = []
+                print(f"🌍 ANALYZE_CURRENT_HAZARD_ALERTS: Performing GLOBAL analysis (location='{location}', is_global={is_global_query})")
+                
+                # Major regions to check for global overview
+                regions = [
+                    {"name": "East Asia (China/Taiwan)", "lat": 24.0, "lon": 121.0},
+                    {"name": "Southeast Asia", "lat": 1.3, "lon": 103.8},
+                    {"name": "North America", "lat": 40.7, "lon": -74.0},
+                    {"name": "Europe", "lat": 51.5, "lon": 0.0},
+                    {"name": "Australia", "lat": -33.9, "lon": 151.2}
+                ]
+                
+                for region in regions:
+                    result = await hazard_alerts_service.get_comprehensive_alerts(
+                        latitude=region["lat"], 
+                        longitude=region["lon"]
+                    )
+                    alerts = result.get("alerts", [])
+                    if alerts:
+                        global_alerts.extend([{"region": region["name"], "alerts": alerts}])
+            else:
+                # Get alerts for specific location
+                print(f"📍 ANALYZE_CURRENT_HAZARD_ALERTS: Performing LOCAL analysis for lat={latitude}, lon={longitude}")
+                result = await hazard_alerts_service.get_comprehensive_alerts(
+                    latitude=latitude, 
+                    longitude=longitude
+                )
+                alerts = result.get("alerts", [])
+                global_alerts = [{"region": location or f"Location ({latitude:.2f}, {longitude:.2f})", "alerts": alerts}]
+            
+            # Format current alerts summary
+            current_alerts_summary = ""
+            total_alerts = 0
+            affected_regions = []
+            major_disasters = []
+            
+            if global_alerts:
+                current_alerts_summary = "CURRENT ACTIVE DISASTERS & HAZARDS:\n\n"
+                for region_data in global_alerts:
+                    region_name = region_data["region"]
+                    alerts = region_data["alerts"]
+                    
+                    if alerts:
+                        total_alerts += len(alerts)
+                        affected_regions.append(region_name)
+                        current_alerts_summary += f"🌍 **{region_name}**:\n"
+                        
+                        for alert in alerts[:3]:  # Show top 3 alerts per region
+                            severity_emoji = "🔴" if alert.get("severity", "").lower() in ["extreme", "severe"] else "🟠" if alert.get("severity", "").lower() == "moderate" else "🟡"
+                            current_alerts_summary += f"  {severity_emoji} {alert.get('title', 'Alert')}\n"
+                            current_alerts_summary += f"     • Type: {alert.get('event_type', 'Unknown')}\n"
+                            current_alerts_summary += f"     • Severity: {alert.get('severity', 'Unknown')}\n"
+                            
+                            # Track major disasters
+                            if alert.get("severity", "").lower() in ["extreme", "severe"]:
+                                major_disasters.append({
+                                    "region": region_name,
+                                    "title": alert.get('title', 'Alert'),
+                                    "type": alert.get('event_type', 'Unknown')
+                                })
+                            
+                            if alert.get('description'):
+                                current_alerts_summary += f"     • Details: {alert.get('description')[:100]}...\n"
+                            current_alerts_summary += "\n"
+                        
+                        if len(alerts) > 3:
+                            current_alerts_summary += f"     ... and {len(alerts) - 3} more alerts\n\n"
+            else:
+                current_alerts_summary = "✅ No major active disasters detected in monitored regions."
+            
+            print(f"🚨 ANALYZE_CURRENT_HAZARD_ALERTS: Total alerts found: {total_alerts}, Affected regions: {len(affected_regions)}")
+            
+            # Create comprehensive AI analysis
+            prompt = f"""
+            As a real-time disaster monitoring expert specializing in maritime safety, analyze the following current hazard alert situation:
+            
+            REAL-TIME GLOBAL DISASTER STATUS:
+            - Total Active Alerts: {total_alerts}
+            - Affected Regions: {len(affected_regions)}
+            - Major Disasters: {len(major_disasters)}
+            
+            {current_alerts_summary}
+            
+            MAJOR DISASTERS SUMMARY:
+            {chr(10).join([f"• {d['region']}: {d['title']} ({d['type']})" for d in major_disasters]) if major_disasters else "No major disasters currently active"}
+            
+            Provide a comprehensive real-time disaster analysis including:
+            
+            1. **GLOBAL SITUATION OVERVIEW** - Current state of natural disasters worldwide
+            2. **AFFECTED COUNTRIES/REGIONS** - Specific areas experiencing disasters now
+            3. **DISASTER TYPES & SEVERITY** - What types of disasters and their impact levels
+            4. **MARITIME IMPACT** - How these disasters affect marine navigation and safety
+            5. **IMMEDIATE CONCERNS** - Most urgent situations requiring attention
+            6. **SAFETY RECOMMENDATIONS** - Actionable advice for mariners in affected areas
+            
+            Focus on providing current, factual information about active disasters. Be specific about which countries and regions are affected RIGHT NOW.
+            If no major disasters are active, clearly state that as well.
+            """
+            
+            response = self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a real-time disaster monitoring expert with access to current global hazard data. Provide accurate, timely information about active natural disasters and their maritime implications."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=800,
+                temperature=0.1
+            )
+            
+            content = response.choices[0].message.content.strip()
+            
+            # Calculate confidence based on data availability
+            confidence = 0.5  # Base confidence for real-time data
+            if total_alerts > 0:
+                confidence += 0.3  # Active alerts available
+            if major_disasters:
+                confidence += 0.2  # Major disasters detected
+            
+            return AgentResponse(
+                agent_type=self.agent_type,
+                content=content,
+                confidence=min(0.95, confidence),
+                metadata={
+                    "total_active_alerts": total_alerts,
+                    "affected_regions": affected_regions,
+                    "major_disasters": len(major_disasters),
+                    "analysis_type": "real_time_hazard_alerts",
+                    "regions_checked": len(global_alerts) if global_alerts else 0
+                },
+                timestamp=datetime.now()
+            )
+            
+        except Exception as e:
+            print(f"🚨 ANALYZE_CURRENT_HAZARD_ALERTS: ERROR - {str(e)}")
+            logger.error(f"Real-time hazard alert analysis failed: {e}")
+            import traceback
+            print(f"🚨 ANALYZE_CURRENT_HAZARD_ALERTS: Full traceback: {traceback.format_exc()}")
+            return AgentResponse(
+                agent_type=self.agent_type,
+                content=f"Real-time disaster monitoring unavailable: {str(e)}. Please check official disaster monitoring websites for current information.",
+                confidence=0.1,
+                metadata={"error": str(e)},
+                timestamp=datetime.now()
+            )
+
     def _format_weather_for_disaster_analysis(self, weather_data: Dict) -> str:
         """Format weather data for disaster risk analysis"""
         if not weather_data:
@@ -1251,12 +1414,28 @@ class MultiAgentAIService:
                 lat = current_loc.get('latitude') if current_loc else None
                 lon = current_loc.get('longitude') if current_loc else None
                 
-                disaster_response = await self.disaster_predictor.analyze_disaster_risks(
-                    location=location_name,
-                    latitude=lat,
-                    longitude=lon,
-                    weather_data=weather_data
-                )
+                # Detect if user is asking about CURRENT disasters vs historical
+                is_current_query = any(word in query_lower for word in ['now', 'current', 'currently', 'today', 'active', 'affecting', 'recent', 'latest', 'any country', 'any place'])
+                
+                print(f"🔍 OPENAI: Disaster query detected. Current query: {is_current_query}. Message: '{user_query[:50]}...'")
+                
+                if is_current_query:
+                    # Use real-time hazard alerts for current disaster queries
+                    # Pass the query to help determine if it's global or local
+                    self.disaster_predictor._current_query = user_query
+                    disaster_response = await self.disaster_predictor.analyze_current_hazard_alerts(
+                        location=location_name,
+                        latitude=lat,
+                        longitude=lon
+                    )
+                else:
+                    # Use historical disaster prediction for prediction/historical queries
+                    disaster_response = await self.disaster_predictor.analyze_disaster_risks(
+                        location=location_name,
+                        latitude=lat,
+                        longitude=lon,
+                        weather_data=weather_data
+                    )
                 agent_responses.append(disaster_response)
         
         # Generate final response
@@ -1311,12 +1490,15 @@ class MultiAgentAIService:
             # Use free AI alternatives if available
             if self.ai_provider == "ollama" and OLLAMA_AVAILABLE:
                 logger.info("🚀 Using Ollama AI service")
+                print(f"🚀 AI SERVICE: Using Ollama for message: '{message[:50]}...'")
                 return await ollama_service.process_message(message, context)
             elif self.ai_provider == "huggingface" and HUGGINGFACE_AVAILABLE:
                 logger.info("🤗 Using HuggingFace AI service")
+                print(f"🤗 AI SERVICE: Using HuggingFace for message: '{message[:50]}...'")
                 return await huggingface_service.process_message(message, context)
             elif self.ai_provider == "openai" and self.client:
                 # Use OpenAI (original method)
+                print(f"🔥 AI SERVICE: Using OpenAI for message: '{message[:50]}...'")
                 agent_response = await self.chat_response(message, context)
                 
                 result = {
@@ -1328,6 +1510,7 @@ class MultiAgentAIService:
             else:
                 # Use enhanced fallback with real weather data
                 logger.warning(f"⚠️ Using fallback response - AI Provider: {self.ai_provider}, Client: {self.client is not None}")
+                print(f"📋 AI SERVICE: Using FALLBACK for message: '{message[:50]}...' (Provider: {self.ai_provider}, Client: {self.client is not None})")
                 return await self._get_smart_fallback_response(message, context)
                 
         except Exception as e:
@@ -1462,6 +1645,78 @@ class MultiAgentAIService:
             response += "• Tide/Current: NOAA tide tables\n\n"
             response += "📋 **Safety:** File a float plan with someone ashore!"
             
+        elif any(word in message_lower for word in ['disaster', 'typhoon', 'hurricane', 'earthquake', 'tsunami', 'affected', 'countries', 'now', 'current', 'active']):
+            # Handle disaster/typhoon queries with real-time data
+            print(f"🚨 FALLBACK: Detected disaster query: '{message[:50]}...'")
+            
+            # Smart detection: if asking about "countries" or "global", always do global check
+            is_global_fallback = any(word in message_lower for word in ['countries', 'global', 'world', 'any country', 'which country', 'what countries'])
+            
+            try:
+                from .hazard_alerts_service import hazard_alerts_service
+                
+                # For global queries or when no specific location, check major regions
+                if is_global_fallback or not (lat and lon):
+                    print(f"🌍 FALLBACK: Performing GLOBAL disaster check")
+                    regions = [
+                        {"name": "East Asia (China/Taiwan)", "lat": 24.0, "lon": 121.0},
+                        {"name": "Southeast Asia", "lat": 1.3, "lon": 103.8},
+                        {"name": "North America", "lat": 40.7, "lon": -74.0},
+                        {"name": "Europe", "lat": 51.5, "lon": 0.0}
+                    ]
+                else:
+                    print(f"📍 FALLBACK: Checking specific location: {location}")
+                    regions = [{"name": location or "Your Location", "lat": lat, "lon": lon}]
+                
+                global_alerts = []
+                total_alerts = 0
+                affected_regions = []
+                
+                for region in regions:
+                    result = await hazard_alerts_service.get_comprehensive_alerts(
+                        latitude=region["lat"], 
+                        longitude=region["lon"]
+                    )
+                    alerts = result.get("alerts", [])
+                    if alerts:
+                        total_alerts += len(alerts)
+                        affected_regions.append(region["name"])
+                        global_alerts.append({"region": region["name"], "alerts": alerts})
+                
+                if total_alerts > 0:
+                    response = f"🚨 **CURRENT GLOBAL DISASTERS ({total_alerts} Active Alerts)**\n\n"
+                    
+                    for region_data in global_alerts:
+                        region_name = region_data["region"]
+                        alerts = region_data["alerts"]
+                        
+                        response += f"🌍 **{region_name}** ({len(alerts)} alerts)\n"
+                        for alert in alerts[:2]:  # Show top 2 per region
+                            severity_emoji = "🔴" if alert.get("severity", "").lower() in ["extreme", "severe"] else "🟠" if alert.get("severity", "").lower() == "moderate" else "🟡"
+                            response += f"  {severity_emoji} {alert.get('title', 'Alert')}\n"
+                            response += f"     • Type: {alert.get('event_type', 'Unknown')}\n"
+                            if alert.get('description'):
+                                response += f"     • Details: {alert.get('description')[:80]}...\n"
+                        response += "\n"
+                    
+                    response += "⚠️ **Maritime Impact:** Severe disruption to shipping in affected areas\n"
+                    response += "📡 **Monitor:** Official weather services & maritime alerts"
+                else:
+                    response = "✅ **No Major Disasters Currently Active**\n\n"
+                    response += "🌍 Global disaster monitoring shows no major active events\n\n"
+                    response += "📡 **Stay Informed:**\n"
+                    response += "• GDACS Global Disaster Alert System\n"
+                    response += "• National weather services\n"
+                    response += "• Maritime safety broadcasts"
+                    
+            except Exception as e:
+                response = "🚨 **Current Disaster Information**\n\n"
+                response += "⚠️ Real-time disaster monitoring temporarily unavailable\n\n"
+                response += "📡 **Check Official Sources:**\n"
+                response += "• GDACS: gdacs.org\n"
+                response += "• National weather services\n"
+                response += "• Maritime emergency broadcasts"
+
         elif any(word in message_lower for word in ['safety', 'emergency', 'hazard', 'danger']):
             response = "⚠️ **Maritime Safety Information**\n\n"
             response += "📻 **Emergency Communications:**\n"
@@ -1472,14 +1727,43 @@ class MultiAgentAIService:
             response += "• Notice to Mariners (Coast Guard)\n"
             response += "• NAVTEX broadcasts"
             
+        elif any(word in message_lower for word in ['tides', 'tide', 'current', 'currents']):
+            response = f"🌊 **Tidal & Current Information {f'for {location}' if location else ''}**\n\n"
+            response += "📊 **Official Sources:**\n"
+            response += "• NOAA Tides & Currents: tidesandcurrents.noaa.gov\n"
+            response += "• UK Admiralty: admiralty.co.uk/tides\n"
+            response += "• Marine apps: Tide Charts, iStreams\n\n"
+            response += "⚠️ **Critical:** Always check local tide tables before departure!"
+            
+        elif any(word in message_lower for word in ['port', 'harbor', 'harbour', 'marina']):
+            response = f"⚓ **Port & Harbor Information {f'for {location}' if location else ''}**\n\n"
+            response += "🏢 **Port Resources:**\n"
+            response += "• Port authorities & harbormaster contacts\n"
+            response += "• Berthing & mooring information\n"
+            response += "• Fuel, water, and supply services\n"
+            response += "• Customs & immigration procedures\n\n"
+            response += "📞 **Always contact port authority before arrival!**"
+            
+        elif any(word in message_lower for word in ['fish', 'fishing', 'commercial']):
+            response = "🎣 **Commercial Marine Operations**\n\n"
+            response += "📋 **Key Considerations:**\n"
+            response += "• Weather windows for safe operations\n"
+            response += "• Seasonal fish migration patterns\n"
+            response += "• Maritime traffic & shipping lanes\n"
+            response += "• Regulatory zones & restrictions\n\n"
+            response += "🌊 **Check local fishing regulations & marine protected areas**"
+            
         elif any(word in message_lower for word in ['hello', 'hi', 'help', 'start']):
-            response = "⚓ **Welcome to Smart Ocean Navigation Assistant!**\n\n"
-            response += "🌊 I can help you with:\n"
-            response += "• Marine weather conditions & forecasts\n"
-            response += "• Route planning & navigation\n"
-            response += "• Maritime safety & hazards\n"
-            response += "• Emergency procedures\n\n"
-            response += "💡 Ask me about weather, routes, or safety for your location!"
+            response = "⚓ **Welcome to Advanced Marine AI Assistant!**\n\n"
+            response += "🌊 **I'm your comprehensive marine expert for:**\n"
+            response += "• 🌪️ **Real-time disasters & hazards** (global & local)\n"
+            response += "• 🌤️ **Marine weather & forecasting**\n"
+            response += "• 🧭 **Route planning & navigation**\n"
+            response += "• ⚓ **Port information & services**\n"
+            response += "• 🌊 **Tides, currents & oceanographic data**\n"
+            response += "• 🎣 **Commercial marine operations**\n"
+            response += "• 🚨 **Emergency procedures & safety**\n\n"
+            response += "💡 **Ask me anything marine-related - I understand context!**"
             
         else:
             response = "🌊 **Marine Navigation Assistance**\n\n"
