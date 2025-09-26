@@ -633,7 +633,7 @@ class DisasterPredictorAgent:
                 not location or 
                 location == "requested location" or 
                 any(word in (location or "").lower() for word in ["countries", "global", "world"]) or
-                any(keyword in user_query.lower() for keyword in global_keywords) if hasattr(self, '_current_query') else True
+                any(keyword in self._current_query.lower() for keyword in global_keywords) if hasattr(self, '_current_query') and self._current_query else True
             )
             
             if is_global_query or not latitude or not longitude:
