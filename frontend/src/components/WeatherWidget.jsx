@@ -10,6 +10,26 @@ const WeatherWidget = ({ weatherData, location, compact = false }) => {
 
   if (!weatherData) return null;
 
+  // Helper function to get better location display name
+  const getLocationDisplayName = (location) => {
+    if (!location) return 'Weather Data';
+    
+    // Use displayName if available (enhanced by Dashboard)
+    if (location.displayName) return location.displayName;
+    
+    // If location has a proper name and it's not just coordinates
+    if (location.name && !location.name.startsWith('Location ')) {
+      return location.name;
+    }
+    
+    // For coordinate-based names, make them more readable
+    if (location.latitude && location.longitude) {
+      return `Marine Location ${location.latitude.toFixed(3)}, ${location.longitude.toFixed(3)}`;
+    }
+    
+    return location.name || 'Weather Data';
+  };
+
   const getWeatherIcon = (condition, temp) => {
     const icons = {
       clear: temp > 25 ? '☀️' : '🌤️',
@@ -54,7 +74,9 @@ const WeatherWidget = ({ weatherData, location, compact = false }) => {
             <span className="text-3xl weather-flow">{getWeatherIcon(condition, temp)}</span>
             <div>
               <div className="text-2xl font-bold text-gray-800">{temp}°C</div>
-              <div className="text-sm text-gray-600">{location?.name || 'Unknown'}</div>
+              <div className="text-sm text-gray-600">
+                {getLocationDisplayName(location)}
+              </div>
             </div>
           </div>
           <div className="text-right">
@@ -81,13 +103,18 @@ const WeatherWidget = ({ weatherData, location, compact = false }) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-1">Current Weather</h3>
-            <p className="text-sm text-gray-600">
-              {location?.name || (location?.latitude && location?.longitude ? 
-                `Location ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 
-                'Location Not Available')}
-            </p>
-            <p className="text-xs text-gray-500">{currentTime.toLocaleTimeString()}</p>
+            <h3 className="text-lg font-semibold text-gray-800 mb-1">
+              {getLocationDisplayName(location)}
+            </h3>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-blue-600 font-medium">📍</span>
+              <p className="text-sm text-gray-600">
+                {location?.latitude && location?.longitude ? 
+                  `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 
+                  'Coordinates not available'}
+              </p>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{currentTime.toLocaleTimeString()}</p>
           </div>
           <div className="text-5xl weather-flow">{getWeatherIcon(condition, temp)}</div>
         </div>

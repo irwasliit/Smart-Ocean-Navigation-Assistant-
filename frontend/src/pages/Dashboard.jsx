@@ -17,7 +17,7 @@ import WeatherWidget from '../components/WeatherWidget';
 import Navbar from '../components/Navbar';
 
 const Dashboard = () => {
-  const [weatherData, setWeatherData] = useState(null);
+  const [locationsWithWeather, setLocationsWithWeather] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,17 +25,59 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
+  // Helper function to improve location name display
+  const getDisplayLocationName = (location) => {
+    if (!location) return 'Unknown Location';
+    
+    // If location has a proper name and it's not just coordinates
+    if (location.name && !location.name.startsWith('Location ')) {
+      return location.name;
+    }
+    
+    // For coordinate-based names, try to make them more readable
+    if (location.latitude && location.longitude) {
+      return `Marine Location ${location.latitude.toFixed(3)}, ${location.longitude.toFixed(3)}`;
+    }
+    
+    return location.name || 'Unknown Location';
+  };
+
   const fetchDashboardData = async () => {
     try {
       const locationsResponse = await axios.get('/api/weather/locations');
       const locations = locationsResponse.data;
 
-      if (locations.length > 0) {
-        const weatherResponse = await axios.get(
-          `/api/weather/current/${locations[0].latitude}/${locations[0].longitude}`
-        );
-        setWeatherData(weatherResponse.data);
-      }
+      // Fetch weather data for all saved locations
+      const weatherPromises = locations.map(async (location) => {
+        try {
+          const weatherResponse = await axios.get(
+            `/api/weather/current/${location.latitude}/${location.longitude}`
+          );
+          
+          // Enhance location object with better display name
+          const enhancedLocation = {
+            ...location,
+            displayName: getDisplayLocationName(location)
+          };
+          
+          return {
+            location: enhancedLocation,
+            weatherData: weatherResponse.data
+          };
+        } catch (error) {
+          console.error(`Error fetching weather for ${location.name}:`, error);
+          return {
+            location: {
+              ...location,
+              displayName: getDisplayLocationName(location)
+            },
+            weatherData: null
+          };
+        }
+      });
+
+      const locationsWithWeatherData = await Promise.all(weatherPromises);
+      setLocationsWithWeather(locationsWithWeatherData);
 
       const alertsResponse = await axios.get('/api/alerts/history');
       setAlerts(alertsResponse.data.slice(0, 5));
@@ -126,17 +168,80 @@ const Dashboard = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             <div className="lg:col-span-2">
-              {weatherData ? (
-                <WeatherWidget weatherData={weatherData} location={{ name: 'Current Location' }} />
+              {locationsWithWeather.length > 0 ? (
+                <div className="space-y-6">
+                  <div className="maritime-card p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                        <span className="mr-3">🌊</span>
+                        Your Saved Locations Weather
+                      </h2>
+                      <div className="flex items-center space-x-3">
+                        <span className="bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-medium">
+                          {locationsWithWeather.length} Location{locationsWithWeather.length > 1 ? 's' : ''}
+                        </span>
+                        <Link 
+                          to="/weather" 
+                          className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                        >
+                          Manage Locations →
+                        </Link>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Current weather conditions for all your saved maritime locations
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {locationsWithWeather.map((item, index) => (
+                      <div key={`${item.location.id}-${index}`} className="space-y-2">
+                        {item.weatherData ? (
+                          <WeatherWidget 
+                            weatherData={item.weatherData} 
+                            location={item.location}
+                          />
+                        ) : (
+                          <div className="maritime-card p-6 text-center border-l-4 border-gray-400">
+                            <CloudIcon className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">
+                              {item.location.displayName || item.location.name}
+                            </h3>
+                            <p className="text-sm text-gray-500 mb-3">Weather data temporarily unavailable</p>
+                            <p className="text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 inline-block">
+                              📍 {item.location.latitude.toFixed(4)}, {item.location.longitude.toFixed(4)}
+                            </p>
+                            <div className="mt-3">
+                              <Link 
+                                to={`/weather?lat=${item.location.latitude}&lng=${item.location.longitude}`}
+                                className="text-xs text-blue-600 hover:text-blue-700 underline"
+                              >
+                                View on Map →
+                              </Link>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : (
-                <div className="maritime-card p-8 text-center">
-                  <CloudIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Weather Data</h3>
-                  <p className="text-gray-600 mb-4">Add a location to view weather information</p>
-                  <Link to="/weather" className="ocean-button inline-flex items-center space-x-2">
-                    <MapIcon className="h-4 w-4" />
-                    <span>Go to Weather Map</span>
-                  </Link>
+                <div className="maritime-card p-8 text-center bg-gradient-to-br from-blue-50 to-cyan-50">
+                  <div className="text-6xl mb-4">🗺️</div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">No Saved Locations Yet</h3>
+                  <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                    Start by exploring the weather map and save your favorite maritime locations. 
+                    Once saved, you'll see all their weather conditions right here on your dashboard.
+                  </p>
+                  <div className="space-y-3">
+                    <Link to="/weather" className="ocean-button inline-flex items-center space-x-2">
+                      <MapIcon className="h-4 w-4" />
+                      <span>Explore Weather Map</span>
+                    </Link>
+                    <p className="text-xs text-gray-500">
+                      💡 Tip: Click on any location on the map to view weather and save it
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -177,7 +282,7 @@ const Dashboard = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Locations Monitored</span>
-                    <span className="text-sm font-bold text-blue-600">3</span>
+                    <span className="text-sm font-bold text-blue-600">{locationsWithWeather.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Data Sources</span>
