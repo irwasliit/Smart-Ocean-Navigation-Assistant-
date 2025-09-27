@@ -461,7 +461,7 @@ const WeatherMap = () => {
               <div className="maritime-card p-4" style={{ overflow: 'visible', position: 'relative', zIndex: 99999999 }}>
                 <WeatherMapLocationSearch 
                   onLocationSelect={handleLocationSearch}
-                  placeholder="Search ports, harbors, or marine locations..."
+                  placeholder="Search places or locations..."
                 />
               </div>
             </div>

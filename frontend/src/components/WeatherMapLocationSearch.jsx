@@ -18,7 +18,7 @@ if (typeof document !== 'undefined') {
   document.head.appendChild(styleElement);
 }
 
-const WeatherMapLocationSearch = ({ onLocationSelect, placeholder = "Search marine locations..." }) => {
+const WeatherMapLocationSearch = ({ onLocationSelect, placeholder = "Search locations..." }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -507,7 +507,7 @@ const WeatherMapLocationSearch = ({ onLocationSelect, placeholder = "Search mari
                   animation: 'spin 1s linear infinite'
                 }}></div>
                 <span style={{ marginLeft: '8px', fontSize: '14px', color: '#6b7280' }}>
-                  Searching marine locations...
+                  Searching locations...
                 </span>
               </div>
             </div>
@@ -626,7 +626,7 @@ const WeatherMapLocationSearch = ({ onLocationSelect, placeholder = "Search mari
               <MagnifyingGlassIcon style={{ width: '32px', height: '32px', color: '#d1d5db', margin: '0 auto 8px' }} />
               <p style={{ fontSize: '14px', fontWeight: '500', marginBottom: '4px', margin: '0 0 4px 0' }}>No locations found</p>
               <p style={{ fontSize: '12px', margin: 0 }}>
-                Try "Singapore Port", "Miami Harbor", "Tokyo Bay"
+                Try "Singapore", "Miami", "Tokyo Bay"
               </p>
             </div>
           )}

@@ -386,7 +386,7 @@ const LocationSearch = ({ onLocationSelect, placeholder = "Search for harbors an
               <div className="flex items-center justify-center">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-marine-500"></div>
                 <span className="ml-2 text-sm text-gray-600">
-                  {query.length >= 2 ? 'Searching harbors...' : 'Finding nearest harbor...'}
+                  {query.length >= 2 ? 'Searching places...' : 'Finding nearest location...'}
                 </span>
               </div>
             </div>
@@ -523,7 +523,7 @@ const LocationSearch = ({ onLocationSelect, placeholder = "Search for harbors an
                 <div className="p-8 text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-marine-500 mx-auto mb-4"></div>
                   <p className="text-sm text-gray-600">
-                    {query.length >= 2 ? 'Searching harbors...' : 'Finding nearest harbor...'}
+                    {query.length >= 2 ? 'Searching places...' : 'Finding nearest location...'}
                   </p>
                 </div>
               )}

@@ -1743,6 +1743,87 @@ class MultiAgentAIService:
         
         agent_responses = []
         
+        # Enhanced route query detection with location extraction
+        route_patterns = [
+            r'route.*from.*to|from.*to.*route|best route|optimal route|safe route',
+            r'navigate.*from.*to|navigation.*from.*to',
+            r'travel.*from.*to|go.*from.*to|journey.*from.*to',
+            r'path.*from.*to|way.*from.*to|how.*get.*from.*to'
+        ]
+        
+        # Extract locations from route queries
+        location_extraction_patterns = [
+            r'from\s+([^,\s]+(?:\s+[^,\s]+)*?)(?:\s+to|\s*,|\s*$)',
+            r'to\s+([^,\s]+(?:\s+[^,\s]+)*?)(?:\s*,|\s*$|\s+from)',
+            r'between\s+([^,\s]+(?:\s+[^,\s]+)*?)\s+and\s+([^,\s]+(?:\s+[^,\s]+)*?)(?:\s*,|\s*$)'
+        ]
+        
+        route_requested = any(re.search(pattern, query_lower) for pattern in route_patterns)
+        
+        if route_requested:
+            print(f"🛳️ ROUTE QUERY DETECTED: '{user_query[:50]}...'")
+            
+            # Try to extract locations
+            departure_location = None
+            destination_location = None
+            
+            for pattern in location_extraction_patterns:
+                matches = re.findall(pattern, query_lower)
+                if matches:
+                    if 'between' in pattern:  # Special case for "between X and Y"
+                        if len(matches) > 0 and isinstance(matches[0], tuple):
+                            departure_location = matches[0][0].strip()
+                            destination_location = matches[0][1].strip()
+                    else:
+                        if 'from' in pattern and matches:
+                            departure_location = matches[0].strip()
+                        elif 'to' in pattern and matches:
+                            destination_location = matches[0].strip()
+            
+            # Generate intelligent route response even without coordinates
+            route_response = await self._generate_smart_route_response(
+                user_query, departure_location, destination_location, context_data
+            )
+            agent_responses.append(route_response)
+        
+        # Enhanced hazard detection with location intelligence
+        hazard_patterns = [
+            r'hazard|danger|risk|safe|safety|warning|alert',
+            r'current.*conditions|current.*situation|current.*status',
+            r'can.*go|safe.*travel|safe.*navigate|conditions.*for',
+            r'disaster|typhoon|hurricane|cyclone|earthquake|tsunami',
+            r'ragasa|taiwan.*safe|china.*safe|affected.*countries',
+            r'current.*disasters|happening.*now|natural.*disaster',
+            r'is.*it.*safe|should.*i.*go|travel.*warning'
+        ]
+        
+        hazard_requested = any(re.search(pattern, query_lower) for pattern in hazard_patterns)
+        
+        if hazard_requested and not route_requested:  # Don't double-process route queries
+            print(f"⚠️ HAZARD QUERY DETECTED: '{user_query[:50]}...'")
+            
+            # Try to extract location from hazard query
+            hazard_location = None
+            location_patterns = [
+                r'(?:in|at|for|around|near|to)\s+([^,\s]+(?:\s+[^,\s]+)*?)(?:\s*[,?.]|\s*$)',
+                r'\b(taiwan|china|pacific|atlantic|indian|mediterranean|japan|korea|philippines|singapore|mumbai|dubai|hong\s+kong|macau|beijing|shanghai)\b',
+                r'go.*(?:to|taiwan|china|japan|korea|philippines)',
+                r'travel.*(?:to|taiwan|china|japan|korea|philippines)',
+                r'safe.*(?:taiwan|china|japan|korea|philippines|asia)'
+            ]
+            
+            for pattern in location_patterns:
+                matches = re.findall(pattern, query_lower)
+                if matches:
+                    hazard_location = matches[0].strip()
+                    break
+            
+            # Generate intelligent hazard response
+            hazard_response = await self._generate_smart_hazard_response(
+                user_query, hazard_location, context_data
+            )
+            agent_responses.append(hazard_response)
+        
         # Check if user is asking for weather and try to extract location
         weather_requested = any(word in query_lower for word in ['weather', 'wind', 'wave', 'storm', 'temperature', 'forecast', 'conditions'])
         if weather_requested:
@@ -1758,7 +1839,6 @@ class MultiAgentAIService:
             # If current location is not available or user specified a different location, try to extract from query
             if not use_current_location:
                 # Try to extract location from query
-                import re
                 # Look for patterns like "weather of [location]", "weather in [location]", etc.
                 location_patterns = [
                     r'weather\s+(?:of|in|at|for)\s+([^?.,!]+)',
@@ -1870,8 +1950,8 @@ class MultiAgentAIService:
         if any(word in query_lower for word in disaster_keywords + current_keywords + ['natural']):
             print(f"🔍 DISASTER QUERY DETECTED: '{user_query[:50]}...'")
             
-            location_name = context_data.get('location_name', 'global')
-            current_loc = context_data.get('current_location', {})
+            location_name = context_data.get('location_name', 'global') if context_data else 'global'
+            current_loc = context_data.get('current_location', {}) if context_data else {}
             lat = current_loc.get('latitude') if current_loc else None
             lon = current_loc.get('longitude') if current_loc else None
             
@@ -2264,6 +2344,323 @@ class MultiAgentAIService:
             print(f"OpenAI connection test failed: {e}")
             return False
     
+    async def _generate_smart_route_response(self, user_query: str, departure: str, destination: str, context_data: Dict = None) -> AgentResponse:
+        """Generate intelligent route response without requiring coordinates"""
+        try:
+            if not self.client:
+                # Fallback for when OpenAI is not available
+                return self._generate_route_fallback(departure, destination)
+            
+            # Create intelligent prompt based on available information
+            prompt = f"""As a maritime navigation expert, provide route guidance for this query: "{user_query}"
+
+Departure: {departure or 'Not specified'}
+Destination: {destination or 'Not specified'}
+
+Provide practical navigation advice including:
+1. **Route Assessment**: General routing considerations for this journey
+2. **Weather Factors**: Seasonal weather patterns to consider
+3. **Navigation Hazards**: Known challenges or hazards for this route
+4. **Safety Recommendations**: Essential safety measures and preparations
+5. **Communication**: Radio frequencies and emergency contacts for the area
+6. **Alternative Options**: Backup routes or stopping points
+
+Focus on actionable maritime advice. If specific locations aren't clear from the query, provide general ocean navigation principles.
+Keep response under 400 words."""
+
+            response = self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a master mariner with 30+ years of experience in ocean navigation. Provide practical, safety-focused advice for mariners."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=600,
+                temperature=0.3
+            )
+            
+            content = response.choices[0].message.content.strip()
+            confidence = 0.8 if (departure and destination) else 0.6
+            
+            return AgentResponse(
+                agent_type=AgentType.ROUTE_OPTIMIZER,
+                content=content,
+                confidence=confidence,
+                metadata={
+                    "departure": departure,
+                    "destination": destination,
+                    "query_type": "smart_route"
+                },
+                timestamp=datetime.now()
+            )
+            
+        except Exception as e:
+            print(f"❌ Smart route response failed: {e}")
+            return self._generate_route_fallback(departure, destination)
+    
+    def _generate_route_fallback(self, departure: str, destination: str) -> AgentResponse:
+        """Generate fallback route response when AI is unavailable"""
+        locations = f"from {departure} to {destination}" if (departure and destination) else "for your route"
+        
+        content = f"""For maritime route planning {locations}:
+
+🗺️ **Navigation Planning:**
+• Use official nautical charts for your area
+• Check NAVTEX for marine safety information
+• Review weather routing services (passage weather)
+• Plan fuel stops and safe harbors along the route
+
+⚠️ **Safety Considerations:**
+• Monitor weather conditions before departure
+• File a voyage plan with local authorities
+• Ensure emergency equipment is operational
+• Have backup navigation methods available
+
+📡 **Communication:**
+• Monitor Coast Guard emergency frequencies
+• Check port authority communications
+• Update position reports regularly
+
+For detailed route analysis, use professional marine navigation software with current chart data."""
+        
+        return AgentResponse(
+            agent_type=AgentType.ROUTE_OPTIMIZER,
+            content=content,
+            confidence=0.4,
+            metadata={"fallback": True, "departure": departure, "destination": destination},
+            timestamp=datetime.now()
+        )
+    
+    async def _generate_smart_hazard_response(self, user_query: str, location: str, context_data: Dict = None) -> AgentResponse:
+        """Generate intelligent hazard response with real-time data integration"""
+        try:
+            # First, try to get real hazard data from our new disaster service
+            location_name = location or context_data.get('location_name', 'global') if context_data else 'global'
+            current_loc = context_data.get('current_location', {}) if context_data else {}
+            lat = current_loc.get('latitude') if current_loc else None
+            lon = current_loc.get('longitude') if current_loc else None
+            
+            # Use our new real-time disaster service
+            try:
+                from .real_time_disaster_service import disaster_service
+                
+                # Get current real disasters
+                disasters = await disaster_service.get_current_disasters(region=location_name)
+                
+                if disasters:
+                    # Format disaster data for AI analysis
+                    disaster_summary = disaster_service.format_disaster_summary(disasters)
+                    
+                    # Enhanced AI analysis with real disaster data
+                    if self.client:
+                        enhanced_prompt = f"""Based on this REAL-TIME disaster information, provide a clear maritime safety assessment:
+
+CURRENT REAL DISASTERS:
+{disaster_summary}
+
+USER QUERY: "{user_query}"
+LOCATION: {location or 'Not specified'}
+
+IMPORTANT: These are REAL current disasters happening right now. Use this actual data to provide:
+
+1. **Current Safety Status**: Can vessels safely operate in this area?
+2. **Active Disasters**: What disasters are currently affecting maritime operations?
+3. **Geographic Impact**: Which areas are specifically affected by these real events?
+4. **Navigation Impact**: How do these REAL conditions affect maritime operations?
+5. **Immediate Recommendations**: Based on these actual disasters, should travel proceed, be delayed, or avoid specific areas?
+6. **Real-Time Monitoring**: What official sources should mariners monitor for updates on these actual events?
+
+Be specific about the REAL disasters mentioned above. If Typhoon Ragasa is affecting China/Taiwan, state this clearly. Use the actual disaster information provided.
+Keep response under 350 words."""
+
+                        ai_response = self.client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "You are a maritime safety officer with access to real-time disaster data. Provide clear, actionable assessments based on the actual current disasters provided. Do not make up information - use only the real disaster data given."},
+                                {"role": "user", "content": enhanced_prompt}
+                            ],
+                            max_tokens=600,
+                            temperature=0.2
+                        )
+                        
+                        enhanced_content = ai_response.choices[0].message.content.strip()
+                        
+                        return AgentResponse(
+                            agent_type=AgentType.HAZARD_DETECTOR,
+                            content=enhanced_content,
+                            confidence=0.95,
+                            metadata={
+                                "location": location,
+                                "real_time_data": True,
+                                "disaster_count": len(disasters),
+                                "source": "real_disaster_analysis"
+                            },
+                            timestamp=datetime.now()
+                        )
+                    
+                    # Fallback without AI enhancement
+                    content = f"""**CURRENT REAL DISASTERS - Maritime Safety Assessment**
+
+{disaster_summary}
+
+**Maritime Safety Recommendations:**
+• Monitor official disaster warning systems
+• Check with local port authorities before departure
+• Consider alternative routes if traveling through affected areas
+• Maintain emergency communication equipment
+• Follow all official evacuation or safety orders
+
+*Data from real-time global disaster monitoring systems*"""
+                    
+                    return AgentResponse(
+                        agent_type=AgentType.HAZARD_DETECTOR,
+                        content=content,
+                        confidence=0.85,
+                        metadata={
+                            "location": location,
+                            "real_time_data": True,
+                            "disaster_count": len(disasters)
+                        },
+                        timestamp=datetime.now()
+                    )
+                
+                # If no current disasters found, try the original disaster predictor
+                disaster_response = await self.disaster_predictor.analyze_current_hazard_alerts(
+                    location=location_name,
+                    latitude=lat,
+                    longitude=lon
+                )
+                
+                # If we got good disaster data, enhance it with AI analysis
+                if disaster_response.confidence > 0.7:
+                    if self.client:
+                        enhanced_prompt = f"""Based on this real-time hazard information, provide a clear maritime safety assessment:
+
+CURRENT HAZARD DATA:
+{disaster_response.content}
+
+USER QUERY: "{user_query}"
+LOCATION: {location or 'Not specified'}
+
+Provide a clear assessment:
+1. **Current Safety Status**: Can vessels safely operate in this area?
+2. **Specific Hazards**: What are the main risks right now?
+3. **Navigation Impact**: How do these conditions affect maritime operations?
+4. **Recommendations**: Should travel proceed, be delayed, or avoid the area?
+5. **Monitoring**: What should mariners watch for?
+
+Be direct and specific. If conditions are safe, say so clearly. If dangerous, explain why and suggest alternatives.
+Keep response under 300 words."""
+
+                        ai_response = self.client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "You are a maritime safety officer providing clear, actionable hazard assessments. Be direct about safety conditions."},
+                                {"role": "user", "content": enhanced_prompt}
+                            ],
+                            max_tokens=500,
+                            temperature=0.2
+                        )
+                        
+                        enhanced_content = ai_response.choices[0].message.content.strip()
+                        
+                        return AgentResponse(
+                            agent_type=AgentType.HAZARD_DETECTOR,
+                            content=enhanced_content,
+                            confidence=0.9,
+                            metadata={
+                                "location": location,
+                                "real_time_data": True,
+                                "source": "enhanced_hazard_analysis"
+                            },
+                            timestamp=datetime.now()
+                        )
+                
+                # Return the disaster service response if AI enhancement fails
+                return disaster_response
+                
+            except Exception as e:
+                print(f"⚠️ Disaster service failed: {e}")
+                # Fall back to AI-only analysis
+                pass
+            
+            # Fallback to AI-only hazard analysis if disaster service unavailable
+            if self.client:
+                prompt = f"""As a maritime safety expert, assess the current hazard situation for this query: "{user_query}"
+
+Location: {location or 'General maritime area'}
+
+Provide a practical safety assessment covering:
+1. **General Maritime Hazards**: Common risks for this area/season
+2. **Weather Considerations**: Typical weather patterns and concerns
+3. **Navigation Factors**: Key safety considerations for vessels
+4. **Current Assessment**: Based on available information, safety recommendations
+5. **Monitoring Advice**: What mariners should watch and where to get updates
+
+Be practical and specific. If you don't have current data, clearly state what sources mariners should check.
+Keep response focused and under 350 words."""
+
+                response = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a senior maritime safety officer with expertise in hazard assessment. Provide clear, actionable safety guidance."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=500,
+                    temperature=0.3
+                )
+                
+                content = response.choices[0].message.content.strip()
+                confidence = 0.6 if location else 0.5
+                
+                return AgentResponse(
+                    agent_type=AgentType.HAZARD_DETECTOR,
+                    content=content,
+                    confidence=confidence,
+                    metadata={"location": location, "ai_analysis": True},
+                    timestamp=datetime.now()
+                )
+            
+            # Final fallback if everything fails
+            return self._generate_hazard_fallback(location)
+            
+        except Exception as e:
+            print(f"❌ Smart hazard response failed: {e}")
+            return self._generate_hazard_fallback(location)
+    
+    def _generate_hazard_fallback(self, location: str) -> AgentResponse:
+        """Generate fallback hazard response when AI is unavailable"""
+        location_text = f"for {location}" if location else "for your area"
+        
+        content = f"""For current maritime hazard information {location_text}:
+
+⚠️ **Real-Time Safety Sources:**
+• NAVTEX marine safety broadcasts
+• Coast Guard safety communications
+• GDACS.org for global disaster alerts
+• Local port authority safety bulletins
+
+🌊 **General Maritime Hazards:**
+• Monitor weather conditions before departure
+• Check for active storms or severe weather
+• Review tidal and current information
+• Verify navigational warnings (NAVWAR)
+
+📡 **Emergency Preparedness:**
+• Monitor Coast Guard emergency frequencies
+• Maintain updated emergency contact lists
+• File voyage plans with local authorities
+• Ensure emergency equipment is operational
+
+For current hazard conditions, consult official maritime safety broadcasts and weather services for your specific area."""
+        
+        return AgentResponse(
+            agent_type=AgentType.HAZARD_DETECTOR,
+            content=content,
+            confidence=0.3,
+            metadata={"fallback": True, "location": location},
+            timestamp=datetime.now()
+        )
+
     def _generate_fallback_response(self, user_query: str, error: str = None) -> AgentResponse:
         """Generate intelligent fallback response when AI is unavailable"""
         query_lower = user_query.lower()
