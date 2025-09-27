@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+
+
 def create_database():
     """Create the database if it doesn't exist"""
     try:
@@ -20,7 +22,7 @@ def create_database():
         connection = mysql.connector.connect(
             host='localhost',
             user='root',
-            password='1234',  # Database password
+            password="",  # Database password
             port=3306
         )
         
