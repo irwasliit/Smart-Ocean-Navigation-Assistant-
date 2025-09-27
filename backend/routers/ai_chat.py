@@ -141,18 +141,69 @@ async def clear_chat_history(
 
 @router.get("/suggestions")
 async def get_chat_suggestions():
-    """Get enhanced suggestions for the multi-agent AI chat"""
-    suggestions = [
-        "Analyze current weather conditions for my location",
-        "Optimize route from Miami to Nassau considering weather",
-        "Detect maritime hazards along the Gulf Coast",
-        "Find latest maritime safety bulletins",
-        "What's the best departure time for my route?",
-        "Compare weather conditions between two ports",
-        "Are there any storm warnings in my area?",
-        "Explain marine weather patterns in simple terms",
-        "Provide route recommendations for heavy seas",
-        "Search for recent maritime incidents"
+    """Get enhanced suggestions with real-world maritime scenarios"""
+    import random
+    
+    # Comprehensive real-world maritime suggestions
+    all_suggestions = [
+        # Current weather and conditions with specific locations
+        "Current weather conditions in Colombo Harbor, Sri Lanka",
+        "Sea state between Mumbai and Kochi, India right now",
+        "Wind and wave forecast for Bay of Bengal this week",
+        "Visibility conditions in the Strait of Malacca today",
+        "Storm activity in the South China Sea region",
+        "Monsoon impact on Indian Ocean shipping routes",
+        
+        # Real route planning and optimization
+        "Safe route from Singapore to Hong Kong with current weather",
+        "Optimal passage from Chennai to Colombo avoiding rough seas",
+        "Best time to sail from Dubai to Mumbai this month",
+        "Route analysis from Jaffna to Trincomalee, Sri Lanka",
+        "Pacific crossing from Los Angeles to Tokyo safety assessment",
+        "Atlantic route from New York to Southampton weather routing",
+        
+        # Specific hazard and safety assessments
+        "Typhoon tracking in Western Pacific affecting shipping",
+        "Piracy alerts in Gulf of Aden and Somali waters",
+        "Tsunami warnings for Indian Ocean coastal areas",
+        "Maritime security threats in Red Sea shipping lanes",
+        "Cyclone season impact on Australia-Asia trade routes",
+        "Earthquake activity near Japan affecting maritime operations",
+        
+        # Real disaster and emergency information
+        "Current natural disasters affecting Southeast Asian countries",
+        "Hurricane activity in Caribbean affecting cruise routes",
+        "Volcanic ash from Indonesia impacting air and sea navigation",
+        "Flooding in Bangladesh affecting Chittagong port operations",
+        "Typhoon damage assessment in Philippines ports",
+        "Monsoon flooding impact on Indian subcontinent ports",
+        
+        # Port and harbor real-world scenarios
+        "Port congestion and delays at Singapore container terminals",
+        "Fuel bunker availability and prices in Dubai ports",
+        "Customs clearance procedures at Hong Kong maritime facilities",
+        "Pilot service availability at Colombo International Harbor",
+        "Anchorage capacity at Mumbai's Jawaharlal Nehru Port",
+        "Container handling capacity at Chennai Port Trust",
+        
+        # Regional maritime intelligence
+        "Commercial vessel traffic density in Malacca Strait",
+        "Fishing fleet activity near Sri Lankan territorial waters",
+        "Naval exercises affecting shipping in Arabian Sea",
+        "Suez Canal transit schedules and waiting times today",
+        "Panama Canal expansion impact on Asian trade routes",
+        "Arctic shipping route viability with current ice conditions",
+        
+        # Practical maritime operations
+        "Best practices for monsoon season sailing in Indian Ocean",
+        "Fuel efficiency tips for long-haul Pacific crossings",
+        "Emergency port options between India and Middle East",
+        "Communication equipment requirements for international waters",
+        "Weather routing services comparison for trans-Pacific voyages",
+        "Maritime insurance considerations for high-risk regions"
     ]
     
-    return {"suggestions": suggestions}
+    # Return 10 random suggestions for variety
+    selected_suggestions = random.sample(all_suggestions, min(10, len(all_suggestions)))
+    
+    return {"suggestions": selected_suggestions}

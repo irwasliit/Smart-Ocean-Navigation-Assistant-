@@ -13,6 +13,7 @@ import {
   FlagIcon,
   PaperAirplaneIcon,
   ExclamationTriangleIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 // Fix leaflet default markers
@@ -41,6 +42,7 @@ const RouteAnalysis = () => {
   const [speedKnots, setSpeedKnots] = useState('');
   const [fuelRangeKm, setFuelRangeKm] = useState('');
   const [fuelReservePct, setFuelReservePct] = useState('20');
+  const [abortController, setAbortController] = useState(null);
 
   const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null;
 
@@ -49,6 +51,31 @@ const RouteAnalysis = () => {
       toast('Login required for route analysis', { icon: 'ℹ️' });
     }
   }, [token]);
+
+  // Cleanup AbortController on component unmount
+  useEffect(() => {
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [abortController]);
+
+  // Add keyboard shortcut support (ESC key to cancel analysis)
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      if (event.key === 'Escape' && analyzing && abortController) {
+        cancelAnalysis();
+      }
+    };
+
+    if (analyzing) {
+      document.addEventListener('keydown', handleKeyPress);
+      return () => {
+        document.removeEventListener('keydown', handleKeyPress);
+      };
+    }
+  }, [analyzing, abortController]);
 
   // Load location from URL parameters or localStorage when component mounts
   useEffect(() => {
@@ -377,6 +404,10 @@ const RouteAnalysis = () => {
     setAnalyzing(true);
     setAnalysisResult(null);
     
+    // Create AbortController for cancellation
+    const controller = new AbortController();
+    setAbortController(controller);
+    
     // Simple continuous loading messages that cycle through steps
     const loadingMessages = [
       '🔍 Calculating optimal maritime route...',
@@ -427,7 +458,8 @@ const RouteAnalysis = () => {
         hazard_assessment: true  // Request comprehensive hazard analysis
       }, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 180000 // 3 minute timeout to allow backend fallback processing
+        timeout: 180000, // 3 minute timeout to allow backend fallback processing
+        signal: controller.signal // Add abort signal for cancellation
       });
       
       clearInterval(messageInterval);
@@ -447,7 +479,12 @@ const RouteAnalysis = () => {
       console.error('Route analysis error:', error);
       
       // Handle different types of errors
-      if (error.code === 'ECONNABORTED' || error.code === 'TIMEOUT') {
+      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        toast.error('🛑 Route analysis cancelled by user', { 
+          id: 'route-analysis',
+          duration: 4000 
+        });
+      } else if (error.code === 'ECONNABORTED' || error.code === 'TIMEOUT') {
         toast.error('⏱️ Analysis timed out. Complex routes may take longer. Please try with shorter routes or check your connection.', { 
           id: 'route-analysis',
           duration: 8000 
@@ -467,6 +504,17 @@ const RouteAnalysis = () => {
       }
     } finally {
       setAnalyzing(false);
+      setAbortController(null);
+    }
+  };
+
+  const cancelAnalysis = () => {
+    if (abortController) {
+      abortController.abort();
+      toast.success('🛑 Analysis cancelled successfully', { id: 'route-analysis' });
+      // Reset states immediately
+      setAnalyzing(false);
+      setAbortController(null);
     }
   };
 
@@ -783,33 +831,45 @@ const RouteAnalysis = () => {
                   </div>
                 )}
                 
-                  <button
-                    onClick={analyzeRoute}
-                    disabled={analyzing || !startPoint || !endPoint}
-                    className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-marine-600 hover:bg-marine-700 disabled:opacity-50 relative overflow-hidden"
-                  >
-                    {analyzing && (
-                      <div className="absolute inset-0 bg-marine-700">
-                        <div className="h-full bg-marine-500 animate-pulse" style={{
-                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-                          animation: 'shimmer 2s infinite linear'
-                        }}></div>
-                      </div>
-                    )}
-                    <div className="relative flex items-center">
-                      {analyzing ? (
-                        <>
+                {/* Button container - analyze or cancel */}
+                <div className="space-y-3">
+                  {!analyzing ? (
+                    <button
+                      onClick={analyzeRoute}
+                      disabled={!startPoint || !endPoint}
+                      className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-marine-600 hover:bg-marine-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    >
+                      <PaperAirplaneIcon className="h-4 w-4 mr-2" />
+                      Analyze Route
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <button
+                        disabled
+                        className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-marine-600 relative overflow-hidden"
+                      >
+                        <div className="absolute inset-0 bg-marine-700">
+                          <div className="h-full bg-marine-500 animate-pulse" style={{
+                            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                            animation: 'shimmer 2s infinite linear'
+                          }}></div>
+                        </div>
+                        <div className="relative flex items-center">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                           <span>Processing Maritime Analysis...</span>
-                        </>
-                      ) : (
-                        <>
-                          <PaperAirplaneIcon className="h-4 w-4 mr-2" />
-                          Analyze Route
-                        </>
-                      )}
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={cancelAnalysis}
+                        className="w-full flex items-center justify-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 transition-colors duration-200"
+                      >
+                        <XMarkIcon className="h-4 w-4 mr-2" />
+                        Cancel Analysis
+                      </button>
                     </div>
-                  </button>
+                  )}
+                </div>
                   
                   {/* Add CSS for animations */}
                   <style jsx>{`

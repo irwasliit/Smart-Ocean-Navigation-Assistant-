@@ -1,9 +1,12 @@
 import requests
 import json
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 import logging
 from dataclasses import dataclass
+
+if TYPE_CHECKING:
+    from ..schemas import AgentResponse
 
 logger = logging.getLogger(__name__)
 
@@ -417,6 +420,169 @@ class DisasterPredictionService:
             return "high"
         else:
             return "extreme"
+    
+    async def analyze_current_hazard_alerts(
+        self, 
+        location: str = "global", 
+        latitude: float = None, 
+        longitude: float = None
+    ) -> "AgentResponse":
+        """Analyze current hazard alerts and natural disasters"""
+        from .hazard_alerts_service import hazard_alerts_service
+        from ..schemas import AgentResponse
+        
+        try:
+            print(f"🚨 Analyzing current hazard alerts for location: {location}")
+            
+            # Get current hazard alerts
+            alerts = await hazard_alerts_service.get_current_alerts()
+            print(f"🚨 Retrieved {len(alerts)} current alerts")
+            
+            if not alerts:
+                # If no alerts, try to get recent earthquake data as backup
+                recent_disasters = await self._get_recent_global_disasters()
+                if recent_disasters:
+                    disaster_info = self._format_recent_disasters(recent_disasters)
+                    return AgentResponse(
+                        agent_type="disaster_predictor",
+                        content=f"Based on recent global monitoring:\n\n{disaster_info}",
+                        confidence=0.7,
+                        data_sources=["USGS", "Global Disaster Monitoring"]
+                    )
+                else:
+                    return AgentResponse(
+                        agent_type="disaster_predictor",
+                        content="Currently monitoring global disaster systems. No major active natural disasters requiring immediate alerts at this time. Systems are continuously monitoring seismic activity, weather patterns, and other hazard indicators.",
+                        confidence=0.6,
+                        data_sources=["Global Monitoring Systems"]
+                    )
+            
+            # Process and format alerts
+            formatted_alerts = []
+            high_priority_count = 0
+            
+            for alert in alerts[:10]:  # Limit to top 10 alerts
+                alert_text = self._format_hazard_alert(alert)
+                if alert_text:
+                    formatted_alerts.append(alert_text)
+                    if alert.get('severity', '').lower() in ['high', 'extreme', 'critical']:
+                        high_priority_count += 1
+            
+            if formatted_alerts:
+                alerts_content = "\n\n".join(formatted_alerts)
+                summary = f"Currently monitoring {len(alerts)} active hazard alerts globally"
+                if high_priority_count > 0:
+                    summary += f" ({high_priority_count} high priority)"
+                
+                content = f"{summary}:\n\n{alerts_content}"
+                
+                return AgentResponse(
+                    agent_type="disaster_predictor",
+                    content=content,
+                    confidence=0.8,
+                    data_sources=["Real-time Hazard Monitoring", "Global Alert Systems"]
+                )
+            else:
+                return AgentResponse(
+                    agent_type="disaster_predictor",
+                    content="Global hazard monitoring systems are active. Current alert processing in progress. No immediate high-priority natural disaster alerts requiring urgent attention.",
+                    confidence=0.6,
+                    data_sources=["Hazard Alert Systems"]
+                )
+                
+        except Exception as e:
+            logger.error(f"Error analyzing current hazard alerts: {e}")
+            return AgentResponse(
+                agent_type="disaster_predictor",
+                content="Unable to access current hazard alert systems. For the most current natural disaster information, please check official sources like USGS, NOAA, or local emergency management agencies.",
+                confidence=0.3,
+                data_sources=["System Error"]
+            )
+    
+    async def _get_recent_global_disasters(self) -> List[DisasterEvent]:
+        """Get recent global disasters as backup when alerts are unavailable"""
+        try:
+            # Get recent earthquakes from USGS
+            end_time = datetime.utcnow()
+            start_time = end_time - timedelta(days=7)  # Last 7 days
+            
+            params = {
+                'format': 'geojson',
+                'starttime': start_time.strftime('%Y-%m-%d'),
+                'endtime': end_time.strftime('%Y-%m-%d'),
+                'minmagnitude': 5.0,  # Only significant earthquakes
+                'orderby': 'time-desc',
+                'limit': 10
+            }
+            
+            response = requests.get(self.usgs_earthquake_url, params=params, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                disasters = []
+                
+                for feature in data.get('features', []):
+                    props = feature.get('properties', {})
+                    coords = feature.get('geometry', {}).get('coordinates', [])
+                    
+                    if len(coords) >= 2:
+                        disaster = DisasterEvent(
+                            event_type="earthquake",
+                            location=props.get('place', 'Unknown location'),
+                            date=datetime.fromtimestamp(props.get('time', 0) / 1000),
+                            magnitude=props.get('mag'),
+                            description=f"Magnitude {props.get('mag')} earthquake",
+                            source="USGS",
+                            coordinates={'latitude': coords[1], 'longitude': coords[0]},
+                            impact_level=self._classify_earthquake_impact(props.get('mag', 0))
+                        )
+                        disasters.append(disaster)
+                
+                return disasters[:5]  # Return top 5
+                
+        except Exception as e:
+            logger.error(f"Error getting recent global disasters: {e}")
+            
+        return []
+    
+    def _format_recent_disasters(self, disasters: List[DisasterEvent]) -> str:
+        """Format recent disasters for display"""
+        if not disasters:
+            return "No significant recent disasters detected."
+        
+        formatted = []
+        for disaster in disasters:
+            time_ago = datetime.utcnow() - disaster.date
+            if time_ago.days > 0:
+                time_str = f"{time_ago.days} days ago"
+            else:
+                hours = time_ago.seconds // 3600
+                time_str = f"{hours} hours ago"
+            
+            formatted.append(
+                f"🔸 **{disaster.event_type.title()}** - {disaster.location}\n"
+                f"   Magnitude: {disaster.magnitude}, Impact: {disaster.impact_level}\n"
+                f"   Time: {time_str}"
+            )
+        
+        return "\n\n".join(formatted)
+    
+    def _format_hazard_alert(self, alert: Dict) -> Optional[str]:
+        """Format a hazard alert for display"""
+        try:
+            alert_type = alert.get('type', 'Unknown').title()
+            location = alert.get('location', 'Unknown location')
+            severity = alert.get('severity', 'Unknown')
+            description = alert.get('description', 'No description available')
+            
+            # Truncate long descriptions
+            if len(description) > 200:
+                description = description[:200] + "..."
+            
+            return f"🚨 **{alert_type}** Alert - {location}\nSeverity: {severity}\n{description}"
+            
+        except Exception as e:
+            logger.error(f"Error formatting alert: {e}")
+            return None
 
 # Global instance
 disaster_service = DisasterPredictionService()

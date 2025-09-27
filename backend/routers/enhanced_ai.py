@@ -54,17 +54,95 @@ async def chat_with_ai(
         response = await multi_agent_service.chat_response(message, context_data)
         print(f"🔥 ENHANCED AI: Received response with confidence: {response.confidence}")
         
+        # Generate dynamic suggestions with real-world locations based on query type
+        import random
+        dynamic_suggestions = []
+        query_lower = message.lower()
+        
+        if any(word in query_lower for word in ['weather', 'conditions', 'forecast']):
+            weather_suggestions = [
+                "How are sea conditions in Atlantic Ocean now",
+                "What is the weather like in Indian Ocean currently",
+                "Are there any storms affecting Pacific routes",
+                "What are current wind conditions for sailing",
+                "Is it safe to navigate during monsoon season",
+                "What severe weather systems are active now",
+                "How are wave conditions in major shipping lanes",
+                "What ocean areas have rough seas currently"
+            ]
+            dynamic_suggestions = random.sample(weather_suggestions, 4)
+            
+        elif any(word in query_lower for word in ['disaster', 'natural', 'earthquake', 'tsunami', 'hurricane', 'typhoon']):
+            disaster_suggestions = [
+                "Which countries affected by natural disasters now",
+                "What natural disasters currently happening globally",
+                "Are there any active tsunami warnings worldwide",
+                "Which regions have earthquake activity right now",
+                "What typhoons and hurricanes are currently active",
+                "Are there any volcanic eruptions affecting shipping",
+                "Which areas have severe weather warnings now",
+                "What emergency alerts are active for maritime routes"
+            ]
+            dynamic_suggestions = random.sample(disaster_suggestions, 4)
+            
+        elif any(word in query_lower for word in ['route', 'navigation', 'path', 'course']):
+            route_suggestions = [
+                "Which ocean routes are safest right now",
+                "What shipping lanes have current hazards",
+                "Are Atlantic crossing routes safe today",
+                "Which Pacific routes should be avoided now",
+                "What are the safest paths through Indian Ocean",
+                "Are there any route restrictions currently active",
+                "Which maritime corridors have weather issues",
+                "What alternative routes are recommended now"
+            ]
+            dynamic_suggestions = random.sample(route_suggestions, 4)
+            
+        elif any(word in query_lower for word in ['current', 'now', 'today', 'happening']):
+            current_suggestions = [
+                "Is it safe to travel in Pacific Ocean now",
+                "What are current sea conditions globally",
+                "Are there any active weather warnings for shipping",
+                "Which ocean routes are safe right now",
+                "What maritime hazards are active today",
+                "Are there any piracy threats currently",
+                "Which shipping lanes have disruptions now",
+                "What natural disasters affecting oceans currently"
+            ]
+            dynamic_suggestions = random.sample(current_suggestions, 4)
+            
+        elif any(word in query_lower for word in ['port', 'harbor', 'terminal', 'dock']):
+            port_suggestions = [
+                "Which ports have operational issues currently",
+                "Are there any harbor closures worldwide now",
+                "What ports have congestion problems today",
+                "Which terminals are experiencing delays now",
+                "Are there any port security alerts active",
+                "What harbors have weather restrictions currently",
+                "Which ports have fuel shortage issues now",
+                "Are there any customs delays at major ports"
+            ]
+            dynamic_suggestions = random.sample(port_suggestions, 4)
+            
+        else:
+            general_suggestions = [
+                "What maritime safety issues are happening now",
+                "Are there any global shipping disruptions currently",
+                "Which ocean areas have security concerns today",
+                "What weather patterns are affecting ships now",
+                "Are there any seasonal navigation warnings active",
+                "Which regions have emergency alerts for vessels",
+                "What global maritime threats should I know about",
+                "Are there any international shipping advisories now"
+            ]
+            dynamic_suggestions = random.sample(general_suggestions, 4)
+        
         return {
             "response": response.content,
             "confidence": response.confidence,
             "agent_type": response.agent_type.value,
             "timestamp": response.timestamp,
-            "suggestions": [
-                "What are the current weather conditions?",
-                "Analyze route safety for my planned trip",
-                "Check for maritime hazards in my area",
-                "Provide navigation recommendations"
-            ]
+            "suggestions": dynamic_suggestions
         }
         
     except Exception as e:

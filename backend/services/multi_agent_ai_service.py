@@ -710,31 +710,79 @@ class DisasterPredictorAgent:
             
             print(f"🚨 ANALYZE_CURRENT_HAZARD_ALERTS: Total alerts found: {total_alerts}, Affected regions: {len(affected_regions)}")
             
+            # Create comprehensive AI analysis with more specific disaster information
+            disaster_summary_by_type = {}
+            country_list = []
+            
+            # Analyze disasters by type and extract country information
+            for region_data in global_alerts:
+                region_name = region_data["region"]
+                alerts = region_data["alerts"]
+                
+                if alerts:
+                    # Extract potential country names from region and alert details
+                    if "china" in region_name.lower() or "taiwan" in region_name.lower():
+                        country_list.extend(["China", "Taiwan"])
+                    elif "asia" in region_name.lower():
+                        country_list.extend(["Philippines", "Japan", "Indonesia"])
+                    elif "america" in region_name.lower():
+                        country_list.extend(["United States", "Mexico"])
+                    elif "europe" in region_name.lower():
+                        country_list.extend(["United Kingdom", "France", "Germany"])
+                    elif "australia" in region_name.lower():
+                        country_list.append("Australia")
+                    
+                    # Group by disaster type
+                    for alert in alerts:
+                        disaster_type = alert.get('event_type', 'Unknown').title()
+                        if disaster_type not in disaster_summary_by_type:
+                            disaster_summary_by_type[disaster_type] = []
+                        disaster_summary_by_type[disaster_type].append({
+                            'location': region_name,
+                            'severity': alert.get('severity', 'Unknown'),
+                            'title': alert.get('title', 'Alert')
+                        })
+            
+            # Format disaster types summary
+            disaster_types_text = ""
+            if disaster_summary_by_type:
+                disaster_types_text = "CURRENT DISASTERS BY TYPE:\n"
+                for disaster_type, incidents in disaster_summary_by_type.items():
+                    disaster_types_text += f"\n🌪️ **{disaster_type}**:\n"
+                    for incident in incidents[:2]:  # Show top 2 per type
+                        disaster_types_text += f"   • {incident['location']}: {incident['severity']} - {incident['title']}\n"
+            
             # Create comprehensive AI analysis
             prompt = f"""
-            As a real-time disaster monitoring expert specializing in maritime safety, analyze the following current hazard alert situation:
+            As a real-time disaster monitoring expert with access to current global hazard data, analyze the following situation:
             
-            REAL-TIME GLOBAL DISASTER STATUS:
-            - Total Active Alerts: {total_alerts}
-            - Affected Regions: {len(affected_regions)}
-            - Major Disasters: {len(major_disasters)}
+            CURRENT GLOBAL DISASTER STATUS (Real-time data):
+            - Active Alerts Detected: {total_alerts}
+            - Regions Under Alert: {len(affected_regions)}
+            - Major/Severe Events: {len(major_disasters)}
+            - Potentially Affected Countries: {', '.join(set(country_list)) if country_list else 'Monitoring globally'}
             
             {current_alerts_summary}
             
-            MAJOR DISASTERS SUMMARY:
-            {chr(10).join([f"• {d['region']}: {d['title']} ({d['type']})" for d in major_disasters]) if major_disasters else "No major disasters currently active"}
+            {disaster_types_text}
             
-            Provide a comprehensive real-time disaster analysis including:
+            MARITIME-SPECIFIC IMPACTS:
+            - Storm systems affecting shipping routes
+            - Tsunami warnings for coastal navigation  
+            - High wind/wave conditions for vessel operations
+            - Port closures and harbor restrictions
             
-            1. **GLOBAL SITUATION OVERVIEW** - Current state of natural disasters worldwide
-            2. **AFFECTED COUNTRIES/REGIONS** - Specific areas experiencing disasters now
-            3. **DISASTER TYPES & SEVERITY** - What types of disasters and their impact levels
-            4. **MARITIME IMPACT** - How these disasters affect marine navigation and safety
-            5. **IMMEDIATE CONCERNS** - Most urgent situations requiring attention
-            6. **SAFETY RECOMMENDATIONS** - Actionable advice for mariners in affected areas
+            Provide a comprehensive, factual analysis including:
             
-            Focus on providing current, factual information about active disasters. Be specific about which countries and regions are affected RIGHT NOW.
-            If no major disasters are active, clearly state that as well.
+            1. **CURRENT SITUATION** - What natural disasters are happening RIGHT NOW
+            2. **AFFECTED COUNTRIES** - Specific nations experiencing active disasters
+            3. **DISASTER BREAKDOWN** - Types of events (typhoons, earthquakes, etc.) and their severity
+            4. **MARITIME IMPLICATIONS** - Direct impact on shipping, ports, and navigation
+            5. **REGIONAL FOCUS** - Special attention to Taiwan/China/Pacific if mentioned in query
+            6. **MARINER GUIDANCE** - Specific actions for vessels in affected areas
+            
+            Be factual and specific. If the data shows active disasters, name them. If no major disasters are currently active, state that clearly.
+            Focus on actionable maritime intelligence rather than general advice.
             """
             
             response = self.client.chat.completions.create(
@@ -804,35 +852,68 @@ class InformationRetrieverAgent:
         self.client = openai_client
         self.agent_type = AgentType.INFORMATION_RETRIEVER
         
-    async def process_maritime_bulletins(self, raw_content: List[str]) -> AgentResponse:
-        """Process and summarize maritime bulletins and notices"""
+    async def process_maritime_bulletins(self, raw_content: List[str], user_query: str = None) -> AgentResponse:
+        """Enhanced IR processing of maritime bulletins with better relevance scoring"""
         
         processed_content = []
+        relevance_scores = []
+        
         for content in raw_content:
-            summary = await self._summarize_bulletin(content)
+            summary = await self._enhanced_summarize_bulletin(content, user_query)
             processed_content.append(summary)
+            
+            # Calculate relevance score if user query is provided
+            if user_query:
+                relevance = self._calculate_content_relevance(content, user_query)
+                relevance_scores.append(relevance)
+        
+        # Sort by relevance if scores are available
+        if relevance_scores:
+            sorted_content = [x for _, x in sorted(zip(relevance_scores, processed_content), 
+                                                 key=lambda pair: pair[0], reverse=True)]
+        else:
+            sorted_content = processed_content
         
         prompt = f"""
-        As a maritime information specialist, analyze these maritime bulletins and notices:
+        As a maritime information specialist with advanced IR capabilities, analyze these bulletins:
         
-        Bulletin Summaries:
-        {json.dumps(processed_content, indent=2)}
+        USER QUERY CONTEXT: "{user_query or 'General bulletin processing'}"
         
-        Extract and organize:
-        1. Navigation warnings and notices
-        2. Weather-related maritime advisories
-        3. Port and harbor information
-        4. Safety alerts and emergency notices
-        5. Regulatory updates affecting navigation
-        6. Temporary restrictions or closures
+        PROCESSED BULLETINS (sorted by relevance):
+        {json.dumps(sorted_content[:10], indent=2)}  # Top 10 most relevant
         
-        Prioritize information by:
-        - Immediate safety impact
-        - Route relevance
-        - Time sensitivity
-        - Regulatory compliance requirements
+        ADVANCED IR ANALYSIS - Extract and prioritize:
         
-        Format as structured JSON with categories and priority levels.
+        🎯 QUERY-RELEVANT INFORMATION:
+        - Information directly answering user's query
+        - Related topics and cross-references
+        - Supporting data and context
+        
+        📊 CATEGORIZED INTELLIGENCE:
+        1. **Critical Safety Alerts** - Immediate hazards and warnings
+        2. **Navigation Updates** - Route changes, restrictions, new procedures
+        3. **Weather Intelligence** - Maritime weather advisories and forecasts
+        4. **Port Operations** - Harbor information, closures, services
+        5. **Regulatory Changes** - New rules, compliance requirements
+        6. **Emergency Notices** - Search and rescue, distress calls
+        
+        🏷️ RELEVANCE SCORING:
+        - High Priority: Direct safety impact, immediate action required
+        - Medium Priority: Important for planning, moderate time sensitivity
+        - Low Priority: General information, long-term considerations
+        
+        📍 GEOGRAPHIC RELEVANCE:
+        - Extract and highlight location-specific information
+        - Identify regional patterns and trends
+        - Cross-reference with known shipping routes
+        
+        ⏰ TIME SENSITIVITY ANALYSIS:
+        - Immediate (0-24 hours): Emergency actions required
+        - Short-term (1-7 days): Planning and preparation needed
+        - Medium-term (1-4 weeks): Strategic considerations
+        - Long-term (1+ months): Policy and regulatory changes
+        
+        FORMAT: Structured analysis with actionable intelligence, not just raw data.
         """
         
         try:
@@ -869,32 +950,125 @@ class InformationRetrieverAgent:
                 timestamp=datetime.now()
             )
     
-    async def _summarize_bulletin(self, content: str) -> Dict:
-        """Summarize individual bulletin content"""
-        # Extract key information using regex patterns
-        date_pattern = r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}'
-        time_pattern = r'\d{1,2}:\d{2}'
-        position_pattern = r'\d+°\d+\'[NS]\s+\d+°\d+\'[EW]'
+    async def _enhanced_summarize_bulletin(self, content: str, user_query: str = None) -> Dict:
+        """Enhanced bulletin summarization with better information extraction"""
+        # Extract key information using enhanced regex patterns
+        date_pattern = r'\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b'
+        time_pattern = r'\b\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?\b'
+        position_pattern = r'\d+[°\.]\d*[\'"]?\s*[NS]\s*[,\s]+\d+[°\.]\d*[\'"]?\s*[EW]'
+        vessel_pattern = r'\b(?:MV|MT|MS|SS|HMS|USCG|IMO\s*\d+)\s*[A-Z][A-Z0-9\s]+\b'
+        urgency_pattern = r'\b(?:URGENT|IMMEDIATE|EMERGENCY|CRITICAL|WARNING|CAUTION|NOTICE)\b'
         
         dates = re.findall(date_pattern, content)
         times = re.findall(time_pattern, content)
         positions = re.findall(position_pattern, content)
+        vessels = re.findall(vessel_pattern, content, re.IGNORECASE)
+        urgency_indicators = re.findall(urgency_pattern, content, re.IGNORECASE)
         
-        # Basic keyword extraction
-        keywords = []
-        important_terms = ['warning', 'danger', 'caution', 'closed', 'restricted', 'emergency']
-        for term in important_terms:
-            if term.lower() in content.lower():
-                keywords.append(term)
+        # Enhanced keyword extraction with maritime focus
+        maritime_keywords = {
+            'safety': ['warning', 'danger', 'caution', 'hazard', 'risk', 'unsafe', 'avoid'],
+            'navigation': ['route', 'course', 'bearing', 'channel', 'fairway', 'anchorage', 'berth'],
+            'weather': ['storm', 'wind', 'wave', 'gale', 'hurricane', 'typhoon', 'visibility', 'fog'],
+            'operations': ['closed', 'restricted', 'prohibited', 'suspended', 'cancelled', 'delayed'],
+            'emergency': ['emergency', 'distress', 'mayday', 'search', 'rescue', 'assistance'],
+            'regulatory': ['regulation', 'requirement', 'compliance', 'mandatory', 'prohibited']
+        }
+        
+        categorized_keywords = {}
+        for category, keywords in maritime_keywords.items():
+            found_keywords = [kw for kw in keywords if kw.lower() in content.lower()]
+            if found_keywords:
+                categorized_keywords[category] = found_keywords
+        
+        # Extract geographical references
+        geo_pattern = r'\b(?:port|harbor|bay|strait|channel|sea|ocean|coast|island|reef|shoal)\s+(?:of\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b'
+        geographical_refs = re.findall(geo_pattern, content, re.IGNORECASE)
+        
+        # Calculate importance score
+        importance_score = 0
+        importance_score += len(urgency_indicators) * 3
+        importance_score += len(positions) * 2
+        importance_score += len(vessels)
+        importance_score += sum(len(kws) for kws in categorized_keywords.values())
+        
+        # Query relevance scoring if user query provided
+        query_relevance = 0
+        if user_query:
+            query_words = set(user_query.lower().split())
+            content_words = set(content.lower().split())
+            common_words = query_words.intersection(content_words)
+            query_relevance = len(common_words) / len(query_words) if query_words else 0
         
         return {
-            'summary': content[:200] + '...' if len(content) > 200 else content,
+            'summary': content[:300] + '...' if len(content) > 300 else content,
             'dates': dates,
             'times': times,
             'positions': positions,
-            'keywords': keywords,
-            'length': len(content)
+            'vessels': vessels,
+            'urgency_indicators': urgency_indicators,
+            'categorized_keywords': categorized_keywords,
+            'geographical_references': geographical_refs,
+            'importance_score': importance_score,
+            'query_relevance': query_relevance,
+            'length': len(content),
+            'word_count': len(content.split())
         }
+    
+    def _calculate_content_relevance(self, content: str, user_query: str) -> float:
+        """Calculate relevance score between content and user query using advanced IR techniques"""
+        if not user_query or not content:
+            return 0.0
+        
+        query_lower = user_query.lower()
+        content_lower = content.lower()
+        
+        # Term frequency scoring
+        query_terms = set(query_lower.split())
+        content_terms = content_lower.split()
+        content_term_count = len(content_terms)
+        
+        tf_score = 0
+        for term in query_terms:
+            term_frequency = content_terms.count(term) / content_term_count if content_term_count > 0 else 0
+            tf_score += term_frequency
+        
+        # Exact phrase matching bonus
+        phrase_bonus = 0
+        if len(query_lower) > 10:  # Only for longer queries
+            if query_lower in content_lower:
+                phrase_bonus = 0.5
+        
+        # Semantic similarity (basic keyword expansion)
+        semantic_expansion = {
+            'weather': ['storm', 'wind', 'wave', 'temperature', 'forecast', 'conditions'],
+            'navigation': ['route', 'course', 'bearing', 'direction', 'path'],
+            'safety': ['danger', 'hazard', 'warning', 'risk', 'caution', 'emergency'],
+            'location': ['port', 'harbor', 'bay', 'sea', 'ocean', 'coast'],
+            'disaster': ['hurricane', 'typhoon', 'earthquake', 'tsunami', 'cyclone']
+        }
+        
+        semantic_score = 0
+        for key_concept, related_terms in semantic_expansion.items():
+            if key_concept in query_lower:
+                for related_term in related_terms:
+                    if related_term in content_lower:
+                        semantic_score += 0.1
+        
+        # Position-based scoring (terms appearing early are more important)
+        position_score = 0
+        first_quarter = content_lower[:len(content_lower)//4]
+        for term in query_terms:
+            if term in first_quarter:
+                position_score += 0.2
+        
+        # Final relevance score (0-1 scale)
+        total_score = tf_score + phrase_bonus + semantic_score + position_score
+        return min(1.0, total_score)  # Cap at 1.0
+    
+    async def _summarize_bulletin(self, content: str) -> Dict:
+        """Legacy method - kept for compatibility"""
+        return await self._enhanced_summarize_bulletin(content)
 
 class CommunicationManagerAgent:
     """Specialized agent for managing communications and user interactions"""
@@ -903,6 +1077,125 @@ class CommunicationManagerAgent:
         self.client = openai_client
         self.agent_type = AgentType.COMMUNICATION_MANAGER
         
+    def _advanced_nlp_preprocessing(self, user_query: str) -> Dict[str, Any]:
+        """Advanced NLP preprocessing to better understand human language patterns"""
+        query_lower = user_query.lower()
+        
+        # Extract key entities and contexts
+        entities = {
+            'locations': [],
+            'time_references': [],
+            'weather_terms': [],
+            'urgency_level': 'normal',
+            'question_type': None,
+            'action_requested': None
+        }
+        
+        # Location extraction with maritime context
+        location_patterns = {
+            'coordinates': r'(\d+\.?\d*)[°\s]*([nsew])\s*[,\s]*(\d+\.?\d*)[°\s]*([nsew])',
+            'cities': r'\b(jaffna|colombo|galle|trincomalee|kandy|manila|singapore|mumbai|delhi|chennai|kochi|new york|london|paris|tokyo|dubai|hong kong)\b',
+            'countries': r'\b(sri lanka|india|china|taiwan|japan|philippines|indonesia|thailand|malaysia|australia|usa|uk|france|germany)\b',
+            'regions': r'\b(pacific ocean|indian ocean|atlantic ocean|bay of bengal|arabian sea|south china sea|mediterranean)\b'
+        }
+        
+        for category, pattern in location_patterns.items():
+            matches = re.findall(pattern, query_lower)
+            if matches:
+                entities['locations'].extend(matches)
+        
+        # Time reference extraction
+        time_patterns = [
+            r'\b(now|today|tonight|tomorrow|yesterday|this week|next week|soon|later|currently|right now)\b',
+            r'\b(morning|afternoon|evening|night|dawn|dusk|midnight|noon)\b',
+            r'\b(\d{1,2})\s*(am|pm|hours?|days?|weeks?)\b'
+        ]
+        
+        for pattern in time_patterns:
+            matches = re.findall(pattern, query_lower)
+            if matches:
+                entities['time_references'].extend(matches)
+        
+        # Weather terms extraction with maritime focus
+        weather_terms = [
+            'wind', 'wave', 'storm', 'hurricane', 'typhoon', 'cyclone', 'temperature', 'pressure',
+            'visibility', 'fog', 'rain', 'clouds', 'sunny', 'clear', 'rough', 'calm', 'choppy',
+            'swell', 'gust', 'breeze', 'gale', 'squall', 'thunderstorm', 'lightning'
+        ]
+        
+        found_weather_terms = [term for term in weather_terms if term in query_lower]
+        entities['weather_terms'] = found_weather_terms
+        
+        # Urgency level detection
+        urgent_indicators = ['emergency', 'urgent', 'immediate', 'asap', 'quickly', 'fast', 'now', 'help']
+        high_priority = ['important', 'critical', 'serious', 'major', 'significant']
+        
+        if any(word in query_lower for word in urgent_indicators):
+            entities['urgency_level'] = 'urgent'
+        elif any(word in query_lower for word in high_priority):
+            entities['urgency_level'] = 'high'
+        
+        # Question type detection
+        question_starters = {
+            'what': 'information_request',
+            'how': 'procedure_request', 
+            'when': 'time_request',
+            'where': 'location_request',
+            'why': 'explanation_request',
+            'which': 'selection_request',
+            'can': 'capability_request',
+            'should': 'recommendation_request',
+            'is': 'confirmation_request',
+            'will': 'prediction_request'
+        }
+        
+        first_word = query_lower.split()[0] if query_lower.split() else ''
+        entities['question_type'] = question_starters.get(first_word, 'statement')
+        
+        # Action requested detection
+        action_verbs = [
+            'analyze', 'check', 'find', 'show', 'calculate', 'predict', 'warn', 'alert',
+            'monitor', 'track', 'search', 'locate', 'identify', 'recommend', 'suggest',
+            'optimize', 'plan', 'route', 'navigate', 'avoid', 'compare'
+        ]
+        
+        for verb in action_verbs:
+            if verb in query_lower:
+                entities['action_requested'] = verb
+                break
+        
+        # Sentiment and tone analysis
+        positive_words = ['good', 'safe', 'calm', 'clear', 'favorable', 'optimal', 'best']
+        negative_words = ['bad', 'dangerous', 'rough', 'stormy', 'risky', 'avoid', 'worst']
+        
+        sentiment_score = 0
+        for word in positive_words:
+            if word in query_lower:
+                sentiment_score += 1
+        for word in negative_words:
+            if word in query_lower:
+                sentiment_score -= 1
+        
+        entities['sentiment'] = 'positive' if sentiment_score > 0 else 'negative' if sentiment_score < 0 else 'neutral'
+        
+        return entities
+    
+    def _extract_locations_from_advanced_nlp(self, nlp_data: Dict) -> List[str]:
+        """Extract location information from advanced NLP analysis"""
+        locations = []
+        
+        # Flatten location data from NLP analysis
+        for location_group in nlp_data.get('locations', []):
+            if isinstance(location_group, (list, tuple)):
+                locations.extend([str(loc) for loc in location_group if loc])
+            else:
+                locations.append(str(location_group))
+        
+        # Remove duplicates and clean up
+        unique_locations = list(set([loc.strip() for loc in locations if loc.strip()]))
+        
+        return unique_locations
+    
     def _calculate_maritime_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> dict:
         """Calculate accurate maritime distance using Haversine formula"""
         import math
@@ -967,7 +1260,10 @@ class CommunicationManagerAgent:
         return None, None
 
     async def generate_user_response(self, user_query: str, agent_responses: List[AgentResponse], context: Optional[NavigationContext] = None, weather_data: Dict = None, location_name: str = None) -> AgentResponse:
-        """Generate user-friendly response from agent analysis"""
+        """Generate user-friendly response using advanced NLP and agent analysis"""
+        
+        # Advanced NLP preprocessing for better understanding
+        nlp_analysis = self._advanced_nlp_preprocessing(user_query)
         
         # Check if this is a distance calculation query
         distance_keywords = ['distance', 'calculate', 'between', 'minimum distance', 'nautical miles', 'how far']
@@ -1035,36 +1331,125 @@ MARITIME DISTANCE CALCULATION:
         # Enhanced NLP understanding for better responses
         query_type = self._analyze_query_intent(user_query)
         
-        prompt = f"""
-        As a professional maritime navigation expert, provide a precise, accurate response to this query:
+        # Use NLP analysis to create more intelligent prompts
+        urgency_modifier = ""
+        if nlp_analysis['urgency_level'] == 'urgent':
+            urgency_modifier = "⚡ URGENT REQUEST - Prioritize immediate safety information and critical data."
+        elif nlp_analysis['urgency_level'] == 'high':
+            urgency_modifier = "🔸 HIGH PRIORITY - Focus on important details and actionable information."
         
-        USER QUERY: "{user_query}"
-        QUERY TYPE: {query_type}
+        question_context = ""
+        if nlp_analysis['question_type']:
+            question_context = f"USER'S INTENT: {nlp_analysis['question_type'].replace('_', ' ').title()}"
         
-        EXPERT ANALYSIS AVAILABLE:
-        {json.dumps(compiled_info, indent=2, default=str)}
-        {weather_info}
-        {distance_info}
+        nlp_context = f"""
+        NLP ANALYSIS:
+        - Detected Locations: {nlp_analysis.get('locations', [])}
+        - Time References: {nlp_analysis.get('time_references', [])}
+        - Weather Terms: {nlp_analysis.get('weather_terms', [])}
+        - Urgency Level: {nlp_analysis['urgency_level']}
+        - Question Type: {nlp_analysis['question_type']}
+        - Action Requested: {nlp_analysis.get('action_requested', 'None')}
+        - Sentiment: {nlp_analysis.get('sentiment', 'neutral')}
         
-        CONTEXT: {json.dumps(context.__dict__ if context else {}, indent=2, default=str)}
-        
-        CRITICAL INSTRUCTIONS:
-        🎯 GIVE SPECIFIC, ACCURATE ANSWERS - No generic responses
-        📊 USE PROVIDED CALCULATIONS - Don't recalculate, use the exact distance data provided
-        🔢 BE PRECISE - Include exact numbers, coordinates, and measurements when available
-        ⚓ MARITIME FOCUS - Use proper nautical terminology and units (nautical miles, knots, etc.)
-        🚫 NO FLUFF - Skip generic safety advice unless specifically asked
-        ✅ DIRECT ANSWERS - Answer the exact question asked, then provide brief context
-        📍 LOCATION SPECIFIC - Use exact coordinates and location names provided
-        
-        RESPONSE STRUCTURE:
-        1. Direct answer to the specific question
-        2. Key technical details/calculations 
-        3. Brief practical implications (only if relevant)
-        
-        LENGTH: Concise and focused (150-250 words maximum)
-        TONE: Professional maritime expert - confident, precise, technical when needed
+        {urgency_modifier}
+        {question_context}
         """
+        
+        # Special handling for disaster/current conditions queries
+        if any(word in user_query.lower() for word in ['disaster', 'natural', 'countries', 'affected', 'current', 'happening', 'now', 'taiwan', 'china', 'pacific']):
+            # For disaster queries, provide real-time information if available from agents
+            disaster_agent_info = compiled_info.get("responses_by_type", {}).get("disaster_predictor", {})
+            if disaster_agent_info:
+                prompt = f"""
+                As a real-time disaster monitoring expert with advanced language understanding, provide current, factual information:
+                
+                USER QUERY: "{user_query}"
+                
+                {nlp_context}
+                
+                REAL-TIME DISASTER DATA:
+                {json.dumps(disaster_agent_info, indent=2, default=str)}
+                
+                {weather_info}
+                
+                ADVANCED RESPONSE INSTRUCTIONS:
+                🧠 USE NLP CONTEXT - Consider the user's intent, urgency, and sentiment
+                🚨 PROVIDE CURRENT INFORMATION - Use the real-time data provided above
+                🌍 BE SPECIFIC ABOUT LOCATIONS - Name exact countries/regions affected
+                📊 INCLUDE SEVERITY LEVELS - Mention disaster types and their impact
+                ⚡ FOCUS ON ACTIVE EVENTS - What's happening RIGHT NOW
+                🚢 MARITIME IMPLICATIONS - How these events affect marine navigation
+                📈 MATCH USER'S URGENCY - Respond appropriately to urgency level
+                💬 NATURAL LANGUAGE - Use conversational tone matching user's style
+                
+                RESPONSE STRUCTURE (adapt based on urgency and question type):
+                1. Direct answer matching user's question type
+                2. Specific affected countries/regions with disaster types
+                3. Maritime safety implications
+                4. Recommended actions based on urgency level
+                
+                LENGTH: Detailed but focused (200-300 words)
+                TONE: Professional but conversational, matching user's urgency and sentiment
+                """
+            else:
+                # Fallback for disaster queries without agent data
+                prompt = f"""
+                As a maritime safety expert with advanced language understanding, respond to this query:
+                
+                USER QUERY: "{user_query}"
+                
+                {nlp_context}
+                {weather_info}
+                
+                ADVANCED RESPONSE INSTRUCTIONS:
+                🧠 USE NLP CONTEXT - Consider the user's intent and communication style
+                🔗 DIRECT TO RELIABLE SOURCES - Recommend official disaster monitoring agencies
+                🌐 SUGGEST SPECIFIC RESOURCES - GDACS, NOAA, national weather services
+                📱 PROVIDE ACTIONABLE STEPS - How mariners can get current information
+                ⚠️ ACKNOWLEDGE LIMITATIONS - Be clear about what I can/cannot provide
+                💬 MATCH COMMUNICATION STYLE - Respond in a way that matches user's language
+                
+                LENGTH: Helpful guidance (150-200 words)
+                TONE: Honest about limitations, helpful with resources, conversational
+                """
+        else:
+            # Enhanced standard maritime query handling with NLP
+            prompt = f"""
+            As a professional maritime navigation expert with advanced language understanding, provide a precise response:
+            
+            USER QUERY: "{user_query}"
+            DETECTED INTENT: {query_type}
+            
+            {nlp_context}
+            
+            EXPERT ANALYSIS AVAILABLE:
+            {json.dumps(compiled_info, indent=2, default=str)}
+            {weather_info}
+            {distance_info}
+            
+            CONTEXT: {json.dumps(context.__dict__ if context else {}, indent=2, default=str)}
+            
+            ADVANCED RESPONSE INSTRUCTIONS:
+            🧠 USE NLP INSIGHTS - Consider user's intent, urgency, sentiment, and communication style
+            🎯 MATCH QUESTION TYPE - Tailor response format to the type of question asked
+            📊 USE PROVIDED CALCULATIONS - Don't recalculate, use exact data provided
+            🔢 BE PRECISE - Include exact numbers, coordinates, and measurements when available
+            ⚓ MARITIME FOCUS - Use proper nautical terminology and units
+            � NATURAL CONVERSATION - Write like you're speaking to a fellow mariner
+            ✅ DIRECT ANSWERS - Answer the exact question asked first
+            📍 LOCATION SPECIFIC - Use exact coordinates and location names provided
+            ⚡ MATCH URGENCY - Adjust response style based on detected urgency level
+            
+            RESPONSE STRUCTURE (adapt based on question type and urgency):
+            1. Direct answer matching the user's question format
+            2. Key technical details/calculations 
+            3. Practical implications (based on urgency level)
+            4. Follow-up suggestions (if appropriate)
+            
+            LENGTH: Adjust based on complexity and urgency (100-300 words)
+            TONE: Professional maritime expert but conversational, matching user's style and urgency
+            """
         
         try:
             response = self.client.chat.completions.create(
@@ -1127,37 +1512,96 @@ MARITIME DISTANCE CALCULATION:
             )
     
     def _analyze_query_intent(self, user_query: str) -> str:
-        """Analyze user query to understand intent for better NLP processing"""
+        """Enhanced NLP analysis to understand user intent with better language processing"""
         query_lower = user_query.lower()
         
-        # Weather-related queries
-        if any(word in query_lower for word in ['weather', 'wind', 'wave', 'storm', 'temperature', 'forecast', 'conditions', 'rain', 'sunny', 'cloudy']):
-            if any(word in query_lower for word in ['current', 'now', 'today', 'present']):
+        # Enhanced weather-related queries with more natural language patterns
+        weather_patterns = [
+            r'\b(what|how).*weather\b', r'\bhow.*wind\b', r'\bwave.*height\b', r'\bstorm.*coming\b',
+            r'\btemperature.*now\b', r'\bforecast.*today\b', r'\bconditions.*like\b', 
+            r'\brain.*expected\b', r'\bsunny.*tomorrow\b', r'\bcloudy.*will\b', r'\bwindy.*today\b',
+            r'\bhow.*rough\b', r'\bsea.*state\b', r'\bweather.*looking\b', r'\bcalm.*seas\b'
+        ]
+        if any(re.search(pattern, query_lower) for pattern in weather_patterns):
+            if any(word in query_lower for word in ['current', 'now', 'today', 'present', 'currently', 'right now']):
                 return "Current Weather Inquiry"
-            elif any(word in query_lower for word in ['forecast', 'tomorrow', 'week', 'future', 'will be']):
+            elif any(word in query_lower for word in ['forecast', 'tomorrow', 'week', 'future', 'will be', 'going to', 'next']):
                 return "Weather Forecast Request"
             else:
                 return "General Weather Information"
         
-        # Navigation and route queries
-        if any(word in query_lower for word in ['route', 'navigation', 'path', 'course', 'direction', 'navigate', 'travel', 'journey']):
+        # Enhanced navigation and route queries with natural language
+        navigation_patterns = [
+            r'\b(best|good|safe).*route\b', r'\bhow.*get.*to\b', r'\bnavigation.*help\b',
+            r'\bpath.*between\b', r'\bcourse.*from\b', r'\bdirection.*to\b', r'\bnavigate.*from\b',
+            r'\btravel.*route\b', r'\bjourney.*plan\b', r'\bway.*to.*get\b', r'\bshould.*go\b',
+            r'\bdistance.*between\b', r'\bhow.*far\b', r'\boptimal.*route\b', r'\bfastest.*way\b'
+        ]
+        if any(re.search(pattern, query_lower) for pattern in navigation_patterns):
             return "Navigation Planning"
         
-        # Safety and hazard queries
-        if any(word in query_lower for word in ['safe', 'danger', 'hazard', 'risk', 'warning', 'alert', 'emergency']):
+        # Enhanced safety and hazard queries with urgency detection
+        safety_patterns = [
+            r'\b(is.*safe|safe.*to)\b', r'\bdanger.*area\b', r'\bhazard.*warning\b',
+            r'\brisk.*level\b', r'\bwarning.*issued\b', r'\balert.*active\b', r'\bemergency.*situation\b',
+            r'\bavoid.*area\b', r'\bunsafe.*conditions\b', r'\bhazardous.*weather\b', r'\bthreat.*level\b'
+        ]
+        if any(re.search(pattern, query_lower) for pattern in safety_patterns):
             return "Safety Assessment"
         
-        # Location-specific queries
-        if any(word in query_lower for word in ['where', 'location', 'place', 'coordinates', 'position']):
+        # Enhanced disaster and current events queries
+        disaster_patterns = [
+            r'\b(what|which).*disaster\b', r'\b(what|which).*countries.*affected\b',
+            r'\bnatural.*disaster.*now\b', r'\bcurrent.*situation\b', r'\bhappening.*now\b',
+            r'\bactive.*disaster\b', r'\bearthquake.*recent\b', r'\btyphoon.*current\b',
+            r'\bhurricane.*active\b', r'\btsunami.*warning\b', r'\bstorm.*tracking\b',
+            r'\bdisaster.*alert\b', r'\bemergency.*active\b', r'\bcountries.*experiencing\b'
+        ]
+        if any(re.search(pattern, query_lower) for pattern in disaster_patterns):
+            return "Disaster and Emergency Information"
+        
+        # Enhanced location-specific queries with context
+        location_patterns = [
+            r'\bwhere.*is\b', r'\blocation.*of\b', r'\bplace.*called\b', r'\bcoordinates.*of\b',
+            r'\bposition.*of\b', r'\bfind.*location\b', r'\bshow.*me.*where\b', r'\bmap.*of\b',
+            r'\bnear.*me\b', r'\bclosest.*to\b', r'\baround.*here\b'
+        ]
+        if any(re.search(pattern, query_lower) for pattern in location_patterns):
             return "Location Information"
         
-        # Vessel operations
-        if any(word in query_lower for word in ['vessel', 'boat', 'ship', 'marina', 'harbor', 'port', 'dock']):
+        # Enhanced vessel operations with maritime context
+        vessel_patterns = [
+            r'\bvessel.*operation\b', r'\bboat.*management\b', r'\bship.*handling\b',
+            r'\bmarina.*services\b', r'\bharbor.*information\b', r'\bport.*details\b',
+            r'\bdocking.*procedure\b', r'\banchorage.*area\b', r'\bmarine.*facility\b'
+        ]
+        if any(re.search(pattern, query_lower) for pattern in vessel_patterns):
             return "Vessel Operations"
         
-        # General maritime questions
-        if any(word in query_lower for word in ['marine', 'maritime', 'ocean', 'sea', 'water']):
+        # Enhanced maritime questions with broader context
+        maritime_patterns = [
+            r'\bmarine.*weather\b', r'\bmaritime.*law\b', r'\bocean.*current\b',
+            r'\bsea.*condition\b', r'\bwater.*depth\b', r'\btidal.*information\b',
+            r'\bnavigation.*rule\b', r'\bmaritime.*safety\b', r'\bocean.*navigation\b'
+        ]
+        if any(re.search(pattern, query_lower) for pattern in maritime_patterns):
             return "Maritime Information"
+        
+        # Conversational patterns for better human interaction
+        greeting_patterns = [
+            r'\b(hello|hi|hey|good morning|good afternoon|good evening)\b',
+            r'\bhow.*are.*you\b', r'\bwhat.*can.*you.*do\b', r'\bhelp.*me\b'
+        ]
+        if any(re.search(pattern, query_lower) for pattern in greeting_patterns):
+            return "Conversational Greeting"
+        
+        # Question patterns for better understanding
+        question_patterns = [
+            r'\bwhat.*is\b', r'\bhow.*does\b', r'\bwhy.*is\b', r'\bwhen.*will\b',
+            r'\bwhere.*can\b', r'\bwho.*is\b', r'\bwhich.*one\b', r'\bcan.*you\b'
+        ]
+        if any(re.search(pattern, query_lower) for pattern in question_patterns):
+            return "Information Request"
         
         return "General Inquiry"
     
@@ -1371,14 +1815,26 @@ class MultiAgentAIService:
         
         # Skip connection test for faster response (client already initialized)
         
+        # Advanced context analysis using NLP insights
+        nlp_analysis = self.communication_manager._advanced_nlp_preprocessing(user_query) if self.client else {}
+        
         # If context data is available, run relevant analyses
         if context_data:
             weather_data = context_data.get('weather_data')
             route_data = context_data.get('route_data')
             ir_content = context_data.get('ir_content', [])
             
-            # Run quick analyses based on query content
-            if any(word in query_lower for word in ['weather', 'wind', 'wave', 'storm']):
+            # Enhanced IR processing with user query context
+            if ir_content and self.client:
+                ir_response = await self.information_retriever.process_maritime_bulletins(
+                    [item.get('text', '') for item in ir_content], 
+                    user_query
+                )
+                agent_responses.append(ir_response)
+            
+            # Run analyses based on NLP insights and query content
+            weather_keywords = nlp_analysis.get('weather_terms', []) + ['weather', 'wind', 'wave', 'storm']
+            if any(word in query_lower for word in weather_keywords):
                 if weather_data:
                     location = {"name": "Queried Location"}
                     weather_response = await self.weather_analyst.analyze_weather_conditions(weather_data, location)
@@ -1407,38 +1863,50 @@ class MultiAgentAIService:
                     hazard_response = await self.hazard_detector.detect_hazards(weather_data, route_data, ir_content)
                     agent_responses.append(hazard_response)
             
-            # Check for disaster-related queries
-            if any(word in query_lower for word in ['disaster', 'earthquake', 'tsunami', 'hurricane', 'typhoon', 'storm', 'prediction', 'previous', 'historical', 'warning']):
-                location_name = context_data.get('location_name', 'requested location')
-                current_loc = context_data.get('current_location', {})
-                lat = current_loc.get('latitude') if current_loc else None
-                lon = current_loc.get('longitude') if current_loc else None
-                
-                # Detect if user is asking about CURRENT disasters vs historical
-                is_current_query = any(word in query_lower for word in ['now', 'current', 'currently', 'today', 'active', 'affecting', 'recent', 'latest', 'any country', 'any place'])
-                
-                print(f"🔍 OPENAI: Disaster query detected. Current query: {is_current_query}. Message: '{user_query[:50]}...'")
-                
-                if is_current_query:
-                    # Use real-time hazard alerts for current disaster queries
-                    # Pass the query to help determine if it's global or local
-                    self.disaster_predictor._current_query = user_query
-                    disaster_response = await self.disaster_predictor.analyze_current_hazard_alerts(
-                        location=location_name,
-                        latitude=lat,
-                        longitude=lon
-                    )
-                else:
-                    # Use historical disaster prediction for prediction/historical queries
-                    disaster_response = await self.disaster_predictor.analyze_disaster_risks(
-                        location=location_name,
-                        latitude=lat,
-                        longitude=lon,
-                        weather_data=weather_data
-                    )
-                agent_responses.append(disaster_response)
+        # Enhanced disaster detection with better keyword matching
+        disaster_keywords = ['disaster', 'earthquake', 'tsunami', 'hurricane', 'typhoon', 'storm', 'cyclone', 'flood', 'volcanic', 'wildfire', 'drought']
+        current_keywords = ['now', 'current', 'currently', 'today', 'happening', 'active', 'affecting', 'recent', 'latest', 'any country', 'countries', 'what', 'which', 'where']
         
-        # Generate final response
+        if any(word in query_lower for word in disaster_keywords + current_keywords + ['natural']):
+            print(f"🔍 DISASTER QUERY DETECTED: '{user_query[:50]}...'")
+            
+            location_name = context_data.get('location_name', 'global')
+            current_loc = context_data.get('current_location', {})
+            lat = current_loc.get('latitude') if current_loc else None
+            lon = current_loc.get('longitude') if current_loc else None
+            
+            # Enhanced detection of current vs historical queries
+            is_current_query = (
+                any(word in query_lower for word in current_keywords) or
+                'natural disaster' in query_lower or
+                'disasters' in query_lower or
+                not any(word in query_lower for word in ['historical', 'past', 'previous', 'prediction', 'forecast'])
+            )
+            
+            print(f"🔍 Query analysis - Current query: {is_current_query}, Location: {location_name}")
+            
+            if is_current_query:
+                print("🚨 Using REAL-TIME hazard alerts for current disaster information")
+                # Use real-time hazard alerts for current disaster queries
+                self.disaster_predictor._current_query = user_query
+                disaster_response = await self.disaster_predictor.analyze_current_hazard_alerts(
+                    location=location_name,
+                    latitude=lat,
+                    longitude=lon
+                )
+                print(f"🚨 Disaster response confidence: {disaster_response.confidence}")
+            else:
+                print("📊 Using historical disaster prediction")
+                # Use historical disaster prediction for prediction/historical queries
+                disaster_response = await self.disaster_predictor.analyze_disaster_risks(
+                    location=location_name,
+                    latitude=lat,
+                    longitude=lon,
+                    weather_data=weather_data
+                )
+            
+            agent_responses.append(disaster_response)
+            print(f"🔍 Added disaster response to agent_responses. Total responses: {len(agent_responses)}")        # Generate final response
         try:
             # Pass weather data to communication manager if available
             weather_data = context_data.get('weather_data') if context_data else None
@@ -1797,28 +2265,103 @@ class MultiAgentAIService:
             return False
     
     def _generate_fallback_response(self, user_query: str, error: str = None) -> AgentResponse:
-        """Generate fallback response when AI is unavailable"""
+        """Generate intelligent fallback response when AI is unavailable"""
         query_lower = user_query.lower()
         
-        if any(word in query_lower for word in ['weather', 'wind', 'wave', 'storm', 'forecast']):
-            content = "I'm currently unable to provide AI-powered weather analysis due to service limitations. For current marine weather information, please check NOAA Marine Weather Services at weather.gov/marine or your local maritime weather broadcasts on VHF radio."
-        elif any(word in query_lower for word in ['route', 'navigation', 'course', 'path', 'optimize']):
-            content = "I'm currently unable to provide AI-powered route optimization due to service limitations. For navigation assistance, please consult your marine charts, check current weather conditions from official sources, and consider using navigation apps like Navionics or ActiveCaptain."
+        # Enhanced fallback responses with better guidance
+        if any(word in query_lower for word in ['disaster', 'natural', 'countries', 'affected', 'current', 'happening', 'now', 'taiwan', 'china', 'pacific']):
+            content = """For current natural disaster information, check these official sources:
+
+🌍 **Global Disaster Monitoring:**
+• GDACS.org - Global Disaster Alert and Coordination System
+• USGS Earthquake Hazards Program (earthquake.usgs.gov)
+• NOAA's National Hurricane Center (nhc.noaa.gov)
+
+🌊 **Maritime-Specific Alerts:**
+• NAVTEX marine safety broadcasts
+• IMO Global Integrated Shipping Information System
+• Your local Coast Guard marine safety bulletins
+
+📍 **Regional Sources (Taiwan/China/Pacific):**
+• Taiwan Central Weather Bureau
+• China Meteorological Administration  
+• Pacific Tsunami Warning Center (tsunami.gov)
+
+For real-time maritime conditions, monitor VHF weather broadcasts and official navigation warnings."""
+            
+        elif any(word in query_lower for word in ['weather', 'wind', 'wave', 'storm', 'forecast', 'conditions']):
+            content = """For current marine weather information:
+
+🌊 **Real-time Weather:**
+• NOAA Marine Weather (weather.gov/marine)
+• Windy.com - Interactive weather maps
+• PredictWind - Marine weather forecasting
+
+📡 **Live Updates:**
+• VHF marine weather broadcasts (WX channels)
+• NAVTEX marine weather transmissions
+• Marine weather apps with satellite data
+
+Always verify conditions from multiple sources before departure."""
+            
+        elif any(word in query_lower for word in ['route', 'navigation', 'course', 'path', 'distance', 'optimize']):
+            content = """For navigation planning and route analysis:
+
+🗺️ **Navigation Resources:**
+• Updated nautical charts and publications
+• Electronic Chart Display systems (ECDIS)
+• Current NOTAMs and navigation warnings
+
+📏 **Route Planning:**
+• Professional navigation software or chart plotters
+• Consider currents, tides, and weather routing
+• Plan fuel stops and safe harbors
+
+Use professional marine navigation tools and maintain paper chart backups."""
+            
         elif any(word in query_lower for word in ['hazard', 'danger', 'safety', 'warning', 'alert']):
-            content = "I'm currently unable to provide AI-powered hazard analysis due to service limitations. For maritime safety information, please monitor official marine safety broadcasts, NAVTEX transmissions, and check the Coast Guard's Notice to Mariners."
+            content = """For maritime safety and hazard information:
+
+⚠️ **Safety Monitoring:**
+• NAVTEX automatic marine safety broadcasts
+• Coast Guard safety communications
+• Port authority security and safety updates
+
+🚨 **Emergency Resources:**
+• GDACS.org for global disaster alerts
+• Local marine safety bulletins
+• Emergency contact information for your area
+
+Monitor multiple communication channels and report hazards to authorities."""
+            
         elif any(word in query_lower for word in ['hello', 'hi', 'help', 'what', 'how']):
-            content = "Hello! I'm the Smart Ocean Navigation Assistant. I'm currently experiencing some service limitations, but I can still help guide you to the right marine resources. For weather, check NOAA Marine Weather. For navigation, use your marine charts and GPS. For safety alerts, monitor VHF radio and Coast Guard broadcasts."
+            content = """Hello! I'm the Maritime AI Assistant. I'm currently experiencing service limitations, but I can guide you to the right resources:
+
+🌊 **Weather:** NOAA Marine Weather (weather.gov/marine)
+⚓ **Navigation:** Updated nautical charts and GPS systems
+🚨 **Safety:** NAVTEX broadcasts and Coast Guard communications
+🌍 **Disasters:** GDACS.org for global alerts
+
+I'll try to provide better AI assistance once service is restored. Stay safe out there!"""
+            
         else:
-            content = "I'm sorry, the AI assistant is temporarily unavailable due to service limitations. For marine weather information, visit weather.gov/marine. For navigation assistance, consult your marine charts and official maritime resources. Please try again later."
+            content = """I'm currently unable to provide AI-powered assistance. For maritime information:
+
+🌊 **Weather:** NOAA Marine Weather (weather.gov/marine)
+⚓ **Navigation:** Updated nautical charts and NOTAMs  
+🚨 **Safety:** NAVTEX broadcasts and Coast Guard communications
+🌍 **Disasters:** GDACS.org for global alerts
+
+Please consult official maritime resources and try again later."""
         
-        metadata = {"fallback_mode": True, "service_status": "limited"}
+        metadata = {"fallback_mode": True, "service_status": "limited", "query_type": query_lower}
         if error:
             metadata["error"] = error
         
         return AgentResponse(
             agent_type=AgentType.COMMUNICATION_MANAGER,
             content=content,
-            confidence=0.1,
+            confidence=0.3,  # Higher confidence for structured fallback responses
             metadata=metadata,
             timestamp=datetime.now()
         )
