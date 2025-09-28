@@ -1,10 +1,20 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import uvicorn
 from dotenv import load_dotenv
 import os
+import logging
+import traceback
+
+# Configure clean logging - Only show errors and warnings
+logging.basicConfig(level=logging.WARNING, format='%(levelname)s - %(message)s')
+# Suppress SQLAlchemy verbose logs
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
 
 from database import get_db, engine
 from models import Base
@@ -41,6 +51,39 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler for unhandled errors"""
+    error_id = f"error_{hash(str(exc))}"
+    
+    # Log the full error details
+    logging.error(f"Unhandled exception {error_id}: {str(exc)}")
+    logging.error(f"Traceback: {traceback.format_exc()}")
+    
+    # Return structured error response
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "message": "An unexpected error occurred. Please try again later.",
+            "error_id": error_id,
+            "type": "server_error"
+        }
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Custom HTTP exception handler"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "status_code": exc.status_code,
+            "type": "http_error"
+        }
+    )
 
 # Security
 security = HTTPBearer()

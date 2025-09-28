@@ -16,6 +16,19 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          maps: ['leaflet', 'react-leaflet', 'leaflet-geosearch'],
+          charts: ['recharts'],
+          ui: ['@headlessui/react', '@heroicons/react'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
   server: {
     port: 3000,
     proxy: {

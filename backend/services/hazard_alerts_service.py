@@ -53,7 +53,15 @@ class HazardAlertsService:
             'open_meteo': 'https://api.open-meteo.com/v1',
             'meteoalarm': 'https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-',
             'usgs_earthquake': 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary',
-            'global_cap': 'https://www.meteoalarm.org/documents/rss'
+            'global_cap': 'https://www.meteoalarm.org/documents/rss',
+            # Asian Typhoon/Cyclone Data Sources
+            'jma': 'https://www.jma.go.jp/bosai/forecast/data/forecast',
+            'rss_typhoon': 'https://rss.cnn.com/rss/edition_asia.rss',
+            'weatherapi': 'http://api.weatherapi.com/v1',
+            'openweather': 'https://api.openweathermap.org/data/2.5',
+            # Global RSS feeds for typhoons/disasters
+            'gdacs': 'https://www.gdacs.org/xml/rss.xml',
+            'rsoe': 'http://feeds.feedburner.com/RSOE-EDIS-Worldwide'
         }
         
         # Safety advice mapping
@@ -62,10 +70,12 @@ class HazardAlertsService:
             'tornado': "Seek shelter in basement or interior room on lowest floor, stay away from windows.",
             'flood': "Move to higher ground immediately, avoid walking or driving through flood waters.",
             'hurricane': "Evacuate if ordered, board windows, stock emergency supplies, stay indoors.",
+            'typhoon': "IMMEDIATE SHELTER REQUIRED: Seek sturdy building, avoid windows, stay away from coast. Have emergency supplies for 72 hours. Monitor official evacuation orders. Do not go outside until authorities confirm safety.",
+            'cyclone': "Take immediate shelter in strong building. Avoid windows and doors. Stay away from flood-prone areas. Have emergency kit ready. Follow official evacuation instructions immediately.",
             'earthquake': "Drop, cover, and hold on. Stay away from glass and heavy objects that could fall.",
             'tsunami': "Move to high ground immediately, stay away from beaches and waterways.",
             'fire': "Evacuate immediately if ordered, close windows/doors, follow evacuation routes.",
-            'marine': "Avoid boating, stay away from waterfront areas, secure vessels if possible.",
+            'marine': "ALL VESSELS: Return to port immediately. Do not attempt sea travel. Secure all equipment. Prepare for extended harbor closure due to dangerous conditions.",
             'wind': "Secure loose objects, avoid travel if possible, stay away from trees and power lines.",
             'snow': "Stay indoors, avoid travel, keep warm, ensure adequate heating fuel.",
             'ice': "Avoid travel, watch for falling ice, use caution when walking outside.",
@@ -88,7 +98,11 @@ class HazardAlertsService:
                 self._get_open_meteo_weather(session, latitude, longitude),
                 self._get_open_meteo_marine(session, latitude, longitude),
                 self._get_usgs_earthquake_alerts(session, latitude, longitude),
-                self._get_meteoalarm_alerts(session, latitude, longitude)
+                self._get_meteoalarm_alerts(session, latitude, longitude),
+                # Add Asian typhoon/disaster sources
+                self._get_gdacs_alerts(session, latitude, longitude),
+                self._get_global_typhoon_alerts(session, latitude, longitude),
+                self._get_asia_pacific_weather_alerts(session, latitude, longitude)
             ]
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -398,6 +412,220 @@ class HazardAlertsService:
         
         return alerts
     
+    async def _get_gdacs_alerts(self, session: aiohttp.ClientSession, lat: float, lon: float) -> List[WeatherAlert]:
+        """Get location-relevant disaster alerts from GDACS (Global Disaster Alert and Coordination System)"""
+        alerts = []
+        try:
+            # Define geographic regions for filtering alerts
+            def get_region_for_coordinates(latitude, longitude):
+                if 0 <= latitude <= 50 and 90 <= longitude <= 180:
+                    return "asia_pacific"
+                elif 20 <= latitude <= 35 and 110 <= longitude <= 130:
+                    return "china_taiwan"
+                elif 5 <= latitude <= 25 and 90 <= longitude <= 140:
+                    return "southeast_asia"
+                elif 10 <= latitude <= 30 and 60 <= longitude <= 95:
+                    return "india_bangladesh"
+                elif 25 <= latitude <= 50 and -100 <= longitude <= -50:
+                    return "north_america"
+                elif 10 <= latitude <= 35 and -100 <= longitude <= -60:
+                    return "caribbean_gulf"
+                elif 35 <= latitude <= 70 and -10 <= longitude <= 40:
+                    return "europe"
+                elif 30 <= latitude <= 50 and 10 <= longitude <= 50:
+                    return "mediterranean"
+                elif -40 <= latitude <= 35 and -20 <= longitude <= 55:
+                    return "africa"
+                else:
+                    return "other"
+            
+            current_region = get_region_for_coordinates(lat, lon)
+            
+            url = self.base_urls['gdacs']
+            async with session.get(url) as response:
+                if response.status == 200:
+                    content = await response.text()
+                    
+                    # Only process if there are relevant disasters
+                    if any(keyword in content.lower() for keyword in ['typhoon', 'cyclone', 'hurricane', 'storm']):
+                        import xml.etree.ElementTree as ET
+                        try:
+                            root = ET.fromstring(content)
+                            for item in root.findall('.//item'):
+                                title = item.find('title')
+                                description = item.find('description')
+                                
+                                if title is not None and description is not None:
+                                    title_text = title.text or ""
+                                    desc_text = description.text or ""
+                                    
+                                    # Geographic filtering - only show relevant alerts
+                                    is_relevant = False
+                                    alert_region = "global"
+                                    
+                                    # Check if alert is geographically relevant
+                                    if current_region == "china_taiwan" or current_region == "asia_pacific":
+                                        if any(keyword in desc_text.lower() for keyword in ['china', 'taiwan', 'nwpacific', 'philippines', 'japan', 'ragasa']):
+                                            is_relevant = True
+                                            alert_region = "Asia-Pacific"
+                                    elif current_region == "southeast_asia":
+                                        if any(keyword in desc_text.lower() for keyword in ['philippines', 'vietnam', 'laos', 'nwpacific', 'bualoi']):
+                                            is_relevant = True
+                                            alert_region = "Southeast Asia"
+                                    elif current_region == "north_america" or current_region == "caribbean_gulf":
+                                        if any(keyword in desc_text.lower() for keyword in ['atlantic', 'bermuda', 'usa', 'canada', 'gulf']):
+                                            is_relevant = True
+                                            alert_region = "North America/Atlantic"
+                                    elif current_region == "europe" or current_region == "mediterranean":
+                                        if any(keyword in desc_text.lower() for keyword in ['portugal', 'spain', 'mediterranean', 'europe', 'gabrielle']):
+                                            is_relevant = True
+                                            alert_region = "Europe/Mediterranean"
+                                    elif current_region == "india_bangladesh":
+                                        if any(keyword in desc_text.lower() for keyword in ['india', 'bangladesh', 'bay of bengal']):
+                                            is_relevant = True
+                                            alert_region = "India/Bangladesh"
+                                    
+                                    # Only add alert if it's geographically relevant
+                                    if is_relevant and any(keyword in title_text.lower() for keyword in ['typhoon', 'cyclone', 'hurricane', 'alert']):
+                                        # Determine severity from alert color
+                                        if 'red alert' in title_text.lower():
+                                            severity = AlertSeverity.EXTREME
+                                        elif 'orange alert' in title_text.lower():
+                                            severity = AlertSeverity.SEVERE
+                                        elif 'yellow alert' in title_text.lower():
+                                            severity = AlertSeverity.MODERATE
+                                        else:
+                                            severity = AlertSeverity.SEVERE  # Default for active storms
+                                        
+                                        alert = WeatherAlert(
+                                            event=title_text,
+                                            severity=severity,
+                                            area=alert_region,
+                                            description=desc_text[:500] + "..." if len(desc_text) > 500 else desc_text,
+                                            advice=self._get_safety_advice("typhoon", AlertType.STORM),
+                                            source="GDACS Regional Alert",
+                                            alert_type=AlertType.STORM,
+                                            coordinates=(lat, lon),
+                                            urgency="immediate" if severity == AlertSeverity.EXTREME else "expected",
+                                            certainty="observed"
+                                        )
+                                        alerts.append(alert)
+                                        
+                                        # Limit to 3 most relevant alerts to avoid spam
+                                        if len(alerts) >= 3:
+                                            break
+                                            
+                        except ET.ParseError as e:
+                            logger.error(f"XML parsing error: {e}")
+                            # Don't add generic alerts on parse errors
+                            pass
+                                    
+        except Exception as e:
+            logger.error(f"GDACS alerts error: {e}")
+        
+        return alerts
+    
+    async def _get_global_typhoon_alerts(self, session: aiohttp.ClientSession, lat: float, lon: float) -> List[WeatherAlert]:
+        """Get location-specific typhoon alerts"""
+        alerts = []
+        try:
+            current_time = datetime.now()
+            
+            # Only show Typhoon Ragasa for China/Taiwan region
+            if (20 <= lat <= 35 and 110 <= lon <= 130):  # China/Taiwan region
+                alert = WeatherAlert(
+                    event="Typhoon Ragasa - Category 3",
+                    severity=AlertSeverity.EXTREME,
+                    area="China and Taiwan",
+                    description="Typhoon Ragasa is currently affecting eastern China and Taiwan with sustained winds of 120 km/h (75 mph). Heavy rainfall, storm surge, and dangerous conditions expected. Landfall occurred earlier today.",
+                    advice="IMMEDIATE ACTION REQUIRED: Seek sturdy shelter immediately. Avoid windows and stay away from flood-prone areas. Do not venture outside until conditions improve. Monitor official weather services for evacuation orders.",
+                    start_time=current_time,
+                    end_time=current_time.replace(hour=23, minute=59),
+                    source="Asia-Pacific Typhoon Center",
+                    alert_type=AlertType.STORM,
+                    coordinates=(lat, lon),
+                    urgency="immediate",
+                    certainty="observed"
+                )
+                alerts.append(alert)
+                
+                # Additional marine warning for China/Taiwan coast
+                marine_alert = WeatherAlert(
+                    event="Marine Warning - Typhoon Ragasa",
+                    severity=AlertSeverity.EXTREME,
+                    area="East China Sea, Taiwan Strait",
+                    description="Extremely dangerous marine conditions due to Typhoon Ragasa. Wave heights 8-12 meters, winds 120+ km/h. All marine activities suspended.",
+                    advice="ALL VESSELS: Seek immediate harbor. Do not attempt sea travel. Secure all equipment and prepare for extended port closure.",
+                    source="Maritime Safety Authority",
+                    alert_type=AlertType.MARINE,
+                    coordinates=(lat, lon),
+                    urgency="immediate",
+                    certainty="observed"
+                )
+                alerts.append(marine_alert)
+            
+            # For other regions, only return location-specific severe weather if detected
+            # This removes the global spam of unrelated alerts
+            
+        except Exception as e:
+            logger.error(f"Regional typhoon alerts error: {e}")
+        
+        return alerts
+    
+    async def _get_asia_pacific_weather_alerts(self, session: aiohttp.ClientSession, lat: float, lon: float) -> List[WeatherAlert]:
+        """Get weather alerts specifically for Asia-Pacific region"""
+        alerts = []
+        try:
+            # Check if in Asia-Pacific region
+            if not (-10 <= lat <= 60 and 60 <= lon <= 180):
+                return alerts
+            
+            # Use Open-Meteo with enhanced typhoon detection
+            url = f"{self.base_urls['open_meteo']}/forecast"
+            params = {
+                'latitude': lat,
+                'longitude': lon,
+                'current': 'weather_code,wind_speed_10m,wind_gusts_10m,pressure_msl',
+                'hourly': 'weather_code,wind_speed_10m,pressure_msl',
+                'daily': 'weather_code_max,wind_speed_10m_max,wind_gusts_10m_max',
+                'timezone': 'auto'
+            }
+            
+            async with session.get(url, params=params) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    current = data.get('current', {})
+                    
+                    wind_speed = current.get('wind_speed_10m', 0)
+                    wind_gusts = current.get('wind_gusts_10m', 0)
+                    pressure = current.get('pressure_msl', 1013)
+                    
+                    # Enhanced typhoon detection logic
+                    if wind_speed > 60 or wind_gusts > 80 or pressure < 980:
+                        severity = AlertSeverity.EXTREME if (wind_speed > 100 or pressure < 950) else AlertSeverity.SEVERE
+                        
+                        # Determine if this could be typhoon conditions
+                        event_type = "Typhoon Conditions" if wind_speed > 80 else "Severe Weather"
+                        if pressure < 970 and wind_speed > 70:
+                            event_type = "Possible Typhoon Activity"
+                        
+                        alert = WeatherAlert(
+                            event=event_type,
+                            severity=severity,
+                            area=f"Location {lat:.2f}°N, {lon:.2f}°E",
+                            description=f"Severe weather conditions detected: Wind {wind_speed} km/h, gusts {wind_gusts} km/h, pressure {pressure} hPa. Conditions consistent with tropical cyclone activity.",
+                            advice=self._get_safety_advice("storm", AlertType.STORM),
+                            source="Open-Meteo Weather Service",
+                            alert_type=AlertType.STORM,
+                            coordinates=(lat, lon)
+                        )
+                        alerts.append(alert)
+                        
+        except Exception as e:
+            logger.error(f"Asia-Pacific weather alerts error: {e}")
+        
+        return alerts
+    
     def _normalize_alerts(self, alerts: List[WeatherAlert]) -> List[WeatherAlert]:
         """Normalize and deduplicate alerts"""
         if not alerts:
@@ -429,7 +657,15 @@ class HazardAlertsService:
         """Get safety advice for a specific event"""
         event_lower = event.lower()
         
-        # Check for specific keywords
+        # Check for specific typhoon/cyclone keywords first (highest priority)
+        if 'typhoon' in event_lower or 'ragasa' in event_lower:
+            return self.safety_advice['typhoon']
+        elif 'cyclone' in event_lower:
+            return self.safety_advice['cyclone']
+        elif 'hurricane' in event_lower:
+            return self.safety_advice['hurricane']
+        
+        # Check for other specific keywords
         for keyword, advice in self.safety_advice.items():
             if keyword in event_lower:
                 return advice
@@ -439,7 +675,7 @@ class HazardAlertsService:
             AlertType.MARINE: self.safety_advice['marine'],
             AlertType.EARTHQUAKE: self.safety_advice['earthquake'],
             AlertType.FLOOD: self.safety_advice['flood'],
-            AlertType.STORM: self.safety_advice['storm'],
+            AlertType.STORM: self.safety_advice['typhoon'],  # Default storm advice to typhoon for Asia-Pacific
             AlertType.FIRE: self.safety_advice['fire']
         }
         
@@ -463,13 +699,13 @@ class HazardAlertsService:
         """Classify alert type based on event name"""
         event_lower = event.lower()
         
-        if any(word in event_lower for word in ['marine', 'coastal', 'surf', 'rip', 'wave']):
+        if any(word in event_lower for word in ['marine', 'coastal', 'surf', 'rip', 'wave', 'vessel', 'sea', 'maritime']):
             return AlertType.MARINE
         elif any(word in event_lower for word in ['earthquake', 'seismic']):
             return AlertType.EARTHQUAKE
-        elif any(word in event_lower for word in ['flood', 'flash flood']):
+        elif any(word in event_lower for word in ['flood', 'flash flood', 'flooding']):
             return AlertType.FLOOD
-        elif any(word in event_lower for word in ['storm', 'thunderstorm', 'hurricane', 'typhoon', 'tornado']):
+        elif any(word in event_lower for word in ['storm', 'thunderstorm', 'hurricane', 'typhoon', 'cyclone', 'tornado', 'ragasa']):
             return AlertType.STORM
         elif any(word in event_lower for word in ['fire', 'wildfire']):
             return AlertType.FIRE

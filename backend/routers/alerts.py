@@ -101,6 +101,18 @@ async def delete_alert_preference(
     
     return {"message": "Alert preference deleted successfully"}
 
+@router.get("/active", response_model=List[AlertHistoryResponse])
+async def get_active_alerts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's active (unread) alerts"""
+    alerts = db.query(AlertHistory).filter(
+        AlertHistory.user_id == current_user.id,
+        AlertHistory.is_read == False
+    ).order_by(AlertHistory.sent_at.desc()).all()
+    return alerts
+
 @router.get("/history", response_model=List[AlertHistoryResponse])
 async def get_alert_history(
     current_user: User = Depends(get_current_user),
@@ -158,6 +170,47 @@ async def test_alert(
         raise HTTPException(status_code=404, detail="No alert preferences found for this location")
     
     # Test alert
-    result = await alert_service.test_alert(location, preferences[0])
+    result = await alert_service.test_alert(location, preferences[0], current_user.email)
     
     return {"message": "Test alert sent", "result": result}
+
+@router.post("/test-email")
+async def test_email_notification(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Test email notification functionality"""
+    try:
+        from services.notification_scheduler import scheduler
+        
+        # Get user's first saved location or use default
+        location = db.query(SavedLocation).filter(
+            SavedLocation.user_id == current_user.id
+        ).first()
+        
+        location_name = location.name if location else "Test Location"
+        
+        # Send test notification
+        success = await scheduler.test_notification(
+            email=current_user.email,
+            location_name=location_name
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Test email sent successfully to {current_user.email}",
+                "location": location_name
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Failed to send test email. Please check email configuration.",
+                "location": location_name
+            }
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error sending test email: {str(e)}"
+        )

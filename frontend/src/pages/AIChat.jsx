@@ -133,14 +133,54 @@ const AIChat = () => {
   };
 
   const fetchSuggestions = async () => {
-    setSuggestions([
-      "What are the current weather conditions for sailing?",
-      "Analyze the safety of my planned route",
-      "Check for maritime hazards in my area",
-      "What's the best time to depart today?",
-      "Provide navigation recommendations",
-      "Search for recent maritime bulletins"
-    ]);
+    // Enhanced suggestions with real-world locations and practical scenarios
+    const realWorldSuggestions = [
+      // Weather and conditions with specific locations
+      "What are the current weather conditions in Colombo Harbor, Sri Lanka?",
+      "How are the sea conditions between Mumbai and Dubai right now?",
+      "Is it safe to sail from Singapore to Manila today?",
+      "What's the weather forecast for the Bay of Bengal this week?",
+      "Current wind and wave conditions in the South China Sea",
+      
+      // Route planning with real routes
+      "Analyze the safety of the route from Jaffna to Trincomalee",
+      "Best route from Chennai to Colombo considering current weather",
+      "Plan a safe passage from Hong Kong to Singapore",
+      "Route optimization from New York to London via Atlantic",
+      "Safest path from Miami to Nassau in current conditions",
+      
+      // Hazard and safety checks for specific areas
+      "Check for maritime hazards between Taiwan and Philippines",
+      "Any typhoons affecting the Pacific shipping lanes?",
+      "Maritime safety alerts for Indian Ocean routes",
+      "Current tsunami warnings in the Pacific Ocean",
+      "Piracy warnings in the Gulf of Aden region",
+      
+      // Real disaster and emergency queries
+      "What natural disasters are currently affecting Asian countries?",
+      "Are there any active typhoons in the Western Pacific?",
+      "Current earthquake activity near Japan and Indonesia",
+      "Hurricane tracking in the Caribbean and Atlantic",
+      "Volcanic activity affecting maritime routes in Indonesia",
+      
+      // Port and harbor specific information
+      "Port conditions and services in Colombo, Sri Lanka",
+      "Harbor closures and restrictions in Hong Kong",
+      "Fuel availability at Singapore Maritime Port",
+      "Customs and immigration procedures in Dubai ports",
+      "Anchorage availability in Mumbai Harbor",
+      
+      // Regional maritime intelligence
+      "Maritime traffic density in the Strait of Malacca",
+      "Current conditions in the Suez Canal",
+      "Panama Canal transit times and restrictions",
+      "Fishing vessel activity near Sri Lankan waters",
+      "Commercial shipping congestion in major Asian ports"
+    ];
+    
+    // Randomly select 6 suggestions for variety
+    const shuffled = realWorldSuggestions.sort(() => 0.5 - Math.random());
+    setSuggestions(shuffled.slice(0, 6));
   };
 
   const sendMessage = async (message = inputMessage, contextData = {}) => {
@@ -401,21 +441,33 @@ const AIChat = () => {
                           
                           {/* Message metadata for AI responses */}
                           {message.type === 'assistant' && (
-                            <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between text-xs">
-                              <div className="flex items-center space-x-2">
-                                {message.agentType && (
-                                  <span className="flex items-center space-x-1 text-gray-600">
-                                    {getAgentIcon(message.agentType)}
-                                    <span>{message.agentType?.replace('_', ' ')}</span>
-                                  </span>
-                                )}
-                                {message.confidence && (
-                                  <span className={`font-medium ${getConfidenceColor(message.confidence)}`}>
-                                    {Math.round(message.confidence * 100)}% confidence
-                                  </span>
-                                )}
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <div className="flex items-center justify-between text-xs mb-1">
+                                <div className="flex items-center space-x-2">
+                                  {message.agentType && (
+                                    <span className="flex items-center space-x-1 text-gray-600">
+                                      {getAgentIcon(message.agentType)}
+                                      <span>{message.agentType?.replace('_', ' ')}</span>
+                                    </span>
+                                  )}
+                                  {message.confidence && (
+                                    <span className={`font-medium ${getConfidenceColor(message.confidence)}`}>
+                                      {Math.round(message.confidence * 100)}% confidence
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-gray-500">{formatTime(message.timestamp)}</span>
                               </div>
-                              <span className="text-gray-500">{formatTime(message.timestamp)}</span>
+                              
+                              {/* Show service status if AI is in fallback mode */}
+                              {message.confidence && message.confidence < 0.5 && (
+                                <div className="mt-1 text-xs">
+                                  <div className="flex items-center space-x-1 text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                                    <ExclamationTriangleIcon className="h-3 w-3" />
+                                    <span>AI service limited - using backup resources</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                           

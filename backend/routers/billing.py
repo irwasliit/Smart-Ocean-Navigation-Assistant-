@@ -12,8 +12,8 @@ router = APIRouter()
 
 class UpgradeRequest(BaseModel):
     plan: constr(pattern=r"^(pro|premium)$")
-    card_number: constr(min_length=12, max_length=19)
-    cvv: constr(min_length=3, max_length=4)
+    card_number: constr(min_length=16, max_length=16)
+    cvv: constr(min_length=3, max_length=3)
     exp_month: constr(pattern=r"^(0[1-9]|1[0-2])$")
     exp_year: constr(min_length=2, max_length=4)
 
@@ -25,8 +25,10 @@ async def upgrade_plan(
     db: Session = Depends(get_db),
 ):
     # Fake validation: ensure fields are present and look valid
-    if not req.card_number.isdigit() or not req.cvv.isdigit():
-        raise HTTPException(status_code=400, detail="Invalid payment details")
+    if not req.card_number.isdigit() or len(req.card_number) != 16:
+        raise HTTPException(status_code=400, detail="Card number must be exactly 16 digits")
+    if not req.cvv.isdigit() or len(req.cvv) != 3:
+        raise HTTPException(status_code=400, detail="CVV must be exactly 3 digits")
     # Basic expiry validation
     if not req.exp_year.isdigit():
         raise HTTPException(status_code=400, detail="Invalid expiry year")
