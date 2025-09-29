@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Dict, Any, Optional
 import asyncio
+import traceback
 
 from database import get_db
 from .auth import get_current_user
 from models import User
 from services.multi_agent_ai_service import multi_agent_service, NavigationContext
 from services.simple_enhanced_ir_service import simple_enhanced_ir_service as enhanced_ir_service
+from services.enhanced_ai_chat_service import enhanced_ai_chat_service, process_chat_message
 from datetime import datetime
 from services.usage_service import UsageService
 
@@ -137,23 +139,49 @@ async def chat_with_ai(
             ]
             dynamic_suggestions = random.sample(general_suggestions, 4)
         
+        # Safely extract agent type and timestamp
+        try:
+            agent_type = response.agent_type.value if hasattr(response.agent_type, 'value') else str(response.agent_type)
+        except:
+            agent_type = "communication_manager"
+            
+        try:
+            timestamp = response.timestamp.isoformat() if hasattr(response.timestamp, 'isoformat') else str(response.timestamp)
+        except:
+            timestamp = datetime.now().isoformat()
+        
         return {
             "response": response.content,
             "confidence": response.confidence,
-            "agent_type": response.agent_type.value,
-            "timestamp": response.timestamp,
+            "agent_type": agent_type,
+            "timestamp": timestamp,
             "suggestions": dynamic_suggestions
         }
         
     except Exception as e:
-        print(f"Error in AI chat: {e}")
-        return {
-            "response": "I'm sorry, I encountered an error while processing your message. Please try again.",
-            "confidence": 0.1,
-            "agent_type": "error",
-            "timestamp": datetime.now(),
-            "suggestions": []
-        }
+        print(f"❌ Error in AI chat: {e}")
+        print(f"❌ Error type: {type(e).__name__}")
+        print(f"❌ Full traceback: {traceback.format_exc()}")
+        
+        # Try fallback response
+        try:
+            fallback_response = f"I apologize, but I'm experiencing technical difficulties. The AI service is temporarily limited. Please try your question again, or try asking: 'What are current marine weather conditions?' Error details: {str(e)[:100]}"
+            
+            return {
+                "response": fallback_response,
+                "confidence": 0.1,
+                "agent_type": "fallback",
+                "timestamp": datetime.now(),
+                "suggestions": [
+                    "What are current marine weather conditions?",
+                    "Are there any weather alerts for sailing?",
+                    "Is it safe to navigate today?",
+                    "What are current wind conditions?"
+                ]
+            }
+        except Exception as fallback_error:
+            print(f"❌ Even fallback failed: {fallback_error}")
+            raise HTTPException(status_code=500, detail=f"AI service temporarily unavailable: {str(e)}")
 
 @router.post("/analyze-conditions")
 async def analyze_maritime_conditions(

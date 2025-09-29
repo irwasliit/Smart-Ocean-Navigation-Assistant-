@@ -26,8 +26,6 @@ const AIChat = () => {
   const [systemStatus, setSystemStatus] = useState('operational');
   const [chatUsage, setChatUsage] = useState({ current: 0, limit: null });
   const [limitReached, setLimitReached] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
-  const [locationError, setLocationError] = useState(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -35,7 +33,6 @@ const AIChat = () => {
     fetchSuggestions();
     checkSystemStatus();
     fetchChatUsage();
-    getCurrentLocation();
   }, [user]);
 
   const fetchChatUsage = async () => {
@@ -88,24 +85,6 @@ const AIChat = () => {
     } catch (error) {
       console.error('Error checking system status:', error);
       setSystemStatus('limited');
-    }
-  };
-
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation({ latitude, longitude });
-          setLocationError(null);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          setLocationError('Unable to get your location. Please enter location manually.');
-        }
-      );
-    } else {
-      setLocationError('Geolocation is not supported by this browser.');
     }
   };
 
@@ -183,6 +162,71 @@ const AIChat = () => {
     setSuggestions(shuffled.slice(0, 6));
   };
 
+  // Location detection from message text
+  const detectLocationFromMessage = async (message) => {
+    // Common location patterns for marine/weather queries
+    const locationPatterns = [
+      // City/Location patterns
+      /(?:weather|conditions|forecast).*?(?:in|at|of|for)\s+([A-Za-z\s]+?)(?:\s|$|,|\?)/i,
+      /current.*?weather.*?(?:in|at|of|for)\s+([A-Za-z\s]+?)(?:\s|$|,|\?)/i,
+      /(?:route|distance).*?(?:from|to|between)\s+([A-Za-z\s]+?)(?:\s+(?:to|and)\s+([A-Za-z\s]+?))?(?:\s|$|,|\?)/i,
+      // Direct location mentions
+      /\b(jaffna|colombo|chennai|singapore|mumbai|karachi|dhaka|yangon|bangkok|manila|jakarta|kuala lumpur|ho chi minh|da nang|phnom penh|siem reap|vientiane|nay pyi taw|bandar seri begawan|malé|port louis|victoria|antananarivo|maputo|durban|cape town|port elizabeth|dar es salaam|mombasa|mogadishu|djibouti|port sudan|alexandria|tripoli|tunis|algiers|casablanca|dakar|freetown|monrovia|abidjan|accra|lomé|cotonou|lagos|douala|libreville|pointe noire|luanda|walvis bay|port said|suez|aqaba|jeddah|dubai|abu dhabi|doha|kuwait city|basra|bandar abbas|chabahar|karachi|gwadar|mumbai|new mangalore|cochin|tuticorin|chennai|visakhapatnam|paradip|haldia|chittagong|mongla|yangon|sittwe|bangkok|laem chabang|ho chi minh city|da nang|sihanoukville|manila|cebu|davao|surabaya|semarang|jakarta|belawan|dumai|palembang|balikpapan|samarinda|pontianak|kuching|kota kinabalu|sandakan|tawau|brunei|kuala lumpur|port klang|penang|johor bahru|singapore|batam|medan|pekanbaru|jambi|bengkulu|lampung|bandar lampung|palembang|pangkal pinang|tanjung pinang|natuna|pontianak|kuching|miri|bintulu|sibu|kota kinabalu|sandakan|tawau|labuan|brunei|bandar seri begawan)\b/i
+    ];
+
+    const locationCoordinates = {
+      // Major Sri Lankan ports and cities
+      'jaffna': { name: 'Jaffna', latitude: 9.6615, longitude: 80.0255 },
+      'colombo': { name: 'Colombo', latitude: 6.9271, longitude: 79.8612 },
+      'galle': { name: 'Galle', latitude: 6.0535, longitude: 80.2210 },
+      'trincomalee': { name: 'Trincomalee', latitude: 8.5874, longitude: 81.2152 },
+      
+      // Major Southeast Asian ports
+      'chennai': { name: 'Chennai', latitude: 13.0827, longitude: 80.2707 },
+      'singapore': { name: 'Singapore', latitude: 1.3521, longitude: 103.8198 },
+      'mumbai': { name: 'Mumbai', latitude: 19.0760, longitude: 72.8777 },
+      'jakarta': { name: 'Jakarta', latitude: -6.2088, longitude: 106.8456 },
+      'bangkok': { name: 'Bangkok', latitude: 13.7563, longitude: 100.5018 },
+      'manila': { name: 'Manila', latitude: 14.5995, longitude: 120.9842 },
+      'kuala lumpur': { name: 'Kuala Lumpur', latitude: 3.1390, longitude: 101.6869 },
+      'ho chi minh': { name: 'Ho Chi Minh City', latitude: 10.8231, longitude: 106.6297 },
+      'karachi': { name: 'Karachi', latitude: 24.8607, longitude: 67.0011 },
+      'dhaka': { name: 'Dhaka', latitude: 23.8103, longitude: 90.4125 },
+      'yangon': { name: 'Yangon', latitude: 16.8661, longitude: 96.1951 },
+      
+      // Indian Ocean ports
+      'malé': { name: 'Malé', latitude: 4.1755, longitude: 73.5093 },
+      'port louis': { name: 'Port Louis', latitude: -20.1609, longitude: 57.5012 },
+      'victoria': { name: 'Victoria', latitude: -4.6236, longitude: 55.4544 },
+      
+      // Arabian Sea/Persian Gulf
+      'dubai': { name: 'Dubai', latitude: 25.2048, longitude: 55.2708 },
+      'abu dhabi': { name: 'Abu Dhabi', latitude: 24.4539, longitude: 54.3773 },
+      'doha': { name: 'Doha', latitude: 25.2854, longitude: 51.5310 },
+      'kuwait city': { name: 'Kuwait City', latitude: 29.3759, longitude: 47.9774 },
+      'jeddah': { name: 'Jeddah', latitude: 21.4858, longitude: 39.1925 }
+    };
+
+    // Try to extract location from message
+    for (const pattern of locationPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        let locationName = match[1] ? match[1].trim().toLowerCase() : '';
+        
+        // Clean up location name
+        locationName = locationName.replace(/\b(port|city|harbor|harbour)\b/gi, '').trim();
+        
+        // Check if we have coordinates for this location
+        if (locationCoordinates[locationName]) {
+          console.log(`🎯 Detected location: ${locationName}`);
+          return locationCoordinates[locationName];
+        }
+      }
+    }
+
+    return null; // No location detected
+  };
+
   const sendMessage = async (message = inputMessage, contextData = {}) => {
     if (!message.trim()) return;
 
@@ -209,24 +253,22 @@ const AIChat = () => {
     setLoading(true);
 
     try {
-      // Include user location if available
+      // Detect location from message text if not provided in contextData
+      let locationData = contextData.location;
+      if (!locationData) {
+        locationData = await detectLocationFromMessage(message);
+      }
+
+      // Prepare request data
       const requestData = {
         message: message,
         weather_data: contextData.weather_data,
         route_data: contextData.route_data,
-        location: contextData.location
+        location: locationData
       };
 
-      // Add current location coordinates if available
-      if (userLocation) {
-        requestData.current_location = {
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude
-        };
-      }
-
-      // Use enhanced AI endpoint
-      const response = await axios.post('/api/enhanced-ai/chat', requestData);
+      // Use dedicated AI Chat endpoint with Google Custom Search & real-time data
+      const response = await axios.post('/api/enhanced-chat/chat-with-location', requestData);
 
       const assistantMessage = {
         id: Date.now() + 1,
@@ -521,28 +563,6 @@ const AIChat = () => {
                         <span>Upgrade</span>
                       </button>
                     </div>
-                  </div>
-                )}
-
-                {/* Location Status */}
-                {userLocation && (
-                  <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-sm text-green-700">📍 Location detected - Weather queries will use your current location</span>
-                  </div>
-                )}
-                {locationError && (
-                  <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                      <span className="text-sm text-yellow-700">⚠️ {locationError}</span>
-                    </div>
-                    <button
-                      onClick={getCurrentLocation}
-                      className="text-xs text-blue-600 hover:text-blue-800 underline"
-                    >
-                      Try Again
-                    </button>
                   </div>
                 )}
                 
