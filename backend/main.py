@@ -24,6 +24,7 @@ from routers import routes
 from routers import alerts
 from routers import ai_chat
 from routers import enhanced_ai
+from routers import enhanced_ai_chat_router
 from routers import hazard_alerts
 from routers import billing
 from routers import usage
@@ -95,6 +96,7 @@ app.include_router(routes.router, prefix="/api/routes", tags=["routes"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(ai_chat.router, prefix="/api/ai", tags=["ai-chat"])
 app.include_router(enhanced_ai.router, prefix="/api/enhanced-ai", tags=["enhanced-ai-multi-agent"])
+app.include_router(enhanced_ai_chat_router.router, prefix="/api/enhanced-chat", tags=["enhanced-ai-chat"])
 app.include_router(hazard_alerts.router, prefix="/api/hazards", tags=["hazard-alerts"])
 app.include_router(billing.router, prefix="/api/billing", tags=["billing"])
 app.include_router(usage.router, prefix="/api/usage", tags=["usage"])
