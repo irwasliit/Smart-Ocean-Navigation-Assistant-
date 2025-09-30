@@ -24,50 +24,15 @@ const AIChat = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [agentStatus, setAgentStatus] = useState({});
   const [systemStatus, setSystemStatus] = useState('operational');
-  const [chatUsage, setChatUsage] = useState({ current: 0, limit: null });
-  const [limitReached, setLimitReached] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     fetchChatHistory();
     fetchSuggestions();
     checkSystemStatus();
-    fetchChatUsage();
   }, [user]);
 
-  const fetchChatUsage = async () => {
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      if (!token || !user) return;
 
-      const response = await axios.get('/api/usage/today', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      const plan = user?.plan || 'free';
-      const planLimits = {
-        free: { daily_chat: 10 },
-        pro: { daily_chat: 50 },
-        premium: { daily_chat: null }
-      };
-      
-      const currentUsage = response.data.usage?.chat?.count || 0;
-      const limit = response.data.usage?.chat?.limit;
-      
-      setChatUsage({ current: currentUsage, limit });
-      setLimitReached(limit !== null && currentUsage >= limit);
-    } catch (error) {
-      console.error('Error fetching chat usage:', error);
-      // Set default based on user plan
-      const plan = user?.plan || 'free';
-      const planLimits = {
-        free: { daily_chat: 10 },
-        pro: { daily_chat: 50 },
-        premium: { daily_chat: null }
-      };
-      setChatUsage({ current: 0, limit: planLimits[plan]?.daily_chat });
-    }
-  };
 
   useEffect(() => {
     scrollToBottom();
@@ -230,17 +195,6 @@ const AIChat = () => {
   const sendMessage = async (message = inputMessage, contextData = {}) => {
     if (!message.trim()) return;
 
-    // Check chat limits before sending
-    if (limitReached) {
-      const plan = user?.plan || 'free';
-      if (plan === 'free') {
-        toast.error('💬 Daily chat limit reached (10/10). Upgrade to Pro for 50 daily chats or Premium for unlimited!');
-      } else if (plan === 'pro') {
-        toast.error('💬 Daily chat limit reached (50/50). Upgrade to Premium for unlimited chats!');
-      }
-      return;
-    }
-
     const userMessage = {
       id: Date.now(),
       type: 'user',
@@ -286,9 +240,6 @@ const AIChat = () => {
       if (response.data.suggestions && response.data.suggestions.length > 0) {
         setSuggestions(response.data.suggestions);
       }
-
-      // Refresh usage data after successful chat
-      fetchChatUsage();
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -415,18 +366,6 @@ const AIChat = () => {
                     <h2 className="text-lg font-semibold text-white">Marine AI Captain</h2>
                   </div>
                   <div className="flex items-center space-x-4">
-                    {/* Chat Usage Display */}
-                    {user && (
-                      <div className="text-white text-sm">
-                        {chatUsage.limit !== null ? (
-                          <span className={`${limitReached ? 'text-red-200' : ''}`}>
-                            💬 {chatUsage.current}/{chatUsage.limit} chats today
-                          </span>
-                        ) : (
-                          <span className="text-green-200">💬 Unlimited chats</span>
-                        )}
-                      </div>
-                    )}
                     <button
                       onClick={clearChat}
                       className="text-white hover:text-gray-200 transition-colors"
@@ -540,45 +479,20 @@ const AIChat = () => {
 
               {/* Input */}
               <div className="border-t border-gray-200 p-6">
-                {/* Upgrade prompt when limit is reached */}
-                {limitReached && user && (
-                  <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-blue-900">
-                          💬 Daily Chat Limit Reached
-                        </h4>
-                        <p className="text-sm text-blue-700 mt-1">
-                          {user.plan === 'free' 
-                            ? 'You\'ve used all 10 daily chats. Upgrade to Pro for 50 chats or Premium for unlimited!'
-                            : 'You\'ve used all 50 daily chats. Upgrade to Premium for unlimited chats!'
-                          }
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => window.open('/upgrade', '_blank')}
-                        className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 flex items-center space-x-1"
-                      >
-                        <ArrowUpIcon className="h-4 w-4" />
-                        <span>Upgrade</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
                 
                 <form onSubmit={handleSubmit} className="flex space-x-4">
                   <input
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder={limitReached ? "🚫 Daily chat limit reached - Upgrade to continue" : "🌊 Ask about marine weather, routes, hazards, or navigation safety..."}
-                    className={`flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${limitReached ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                    disabled={loading || limitReached}
+                    placeholder="🌊 Ask about marine weather, routes, hazards, or navigation safety..."
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={loading}
                   />
                   <button
                     type="submit"
-                    disabled={loading || !inputMessage.trim() || limitReached}
-                    className={`ocean-button flex items-center space-x-2 px-6 py-3 ${limitReached ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={loading || !inputMessage.trim()}
+                    className="ocean-button flex items-center space-x-2 px-6 py-3"
                   >
                     {loading ? (
                       <LoadingSpinner type="compass" size="xs" />
@@ -590,7 +504,7 @@ const AIChat = () => {
                 </form>
                 
                 {/* Quick Suggestions */}
-                {suggestions.length > 0 && !limitReached && (
+                {suggestions.length > 0 && (
                   <div className="mt-4">
                     <p className="text-sm text-gray-500 mb-2">Suggested questions:</p>
                     <div className="flex flex-wrap gap-2">
@@ -598,47 +512,12 @@ const AIChat = () => {
                         <button
                           key={index}
                           onClick={() => sendMessage(suggestion)}
-                          disabled={loading || limitReached}
+                          disabled={loading}
                           className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-gray-200 transition-colors disabled:opacity-50"
                         >
                           {suggestion}
                         </button>
                       ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Upgrade suggestions when limit reached */}
-                {limitReached && user && (
-                  <div className="mt-4 text-center">
-                    <p className="text-sm text-gray-500 mb-3">
-                      Want to continue chatting? Upgrade your plan:
-                    </p>
-                    <div className="flex justify-center space-x-3">
-                      {user.plan === 'free' && (
-                        <>
-                          <button
-                            onClick={() => window.open('/upgrade', '_blank')}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
-                          >
-                            Pro Plan - 50 chats/day
-                          </button>
-                          <button
-                            onClick={() => window.open('/upgrade', '_blank')}
-                            className="px-4 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
-                          >
-                            Premium - Unlimited
-                          </button>
-                        </>
-                      )}
-                      {user.plan === 'pro' && (
-                        <button
-                          onClick={() => window.open('/upgrade', '_blank')}
-                          className="px-4 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
-                        >
-                          Upgrade to Premium - Unlimited chats
-                        </button>
-                      )}
                     </div>
                   </div>
                 )}

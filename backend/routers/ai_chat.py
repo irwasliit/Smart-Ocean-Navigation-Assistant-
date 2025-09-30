@@ -10,7 +10,7 @@ from models import User, ChatHistory, IRContent
 from schemas import ChatMessage, ChatResponse
 from .auth import get_current_user
 from services.multi_agent_ai_service import multi_agent_service
-from services.usage_service import UsageService
+
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -26,7 +26,6 @@ async def chat_with_ai(
     """Chat with AI assistant about marine weather and hazards using multi-agent system"""
     try:
         # Enforce daily chat limit
-        UsageService.check_and_increment(db, current_user, feature="chat")
         # Generate AI response using multi-agent system
         response_data = await multi_agent_service.process_message(
             message=message.message,

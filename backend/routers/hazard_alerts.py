@@ -10,7 +10,7 @@ from datetime import datetime
 from services.hazard_alerts_service import hazard_alerts_service
 from .auth import get_current_user
 from models import User
-from services.usage_service import UsageService
+
 from sqlalchemy.orm import Session
 from database import get_db
 
@@ -46,7 +46,6 @@ async def get_comprehensive_alerts(
             raise HTTPException(status_code=400, detail="Longitude must be between -180 and 180")
         
         # Enforce daily hazard usage
-        UsageService.safe_check_and_increment(db, current_user, feature="hazard")
         # Get comprehensive alerts
         result = await hazard_alerts_service.get_comprehensive_alerts(
             latitude=latitude,
@@ -140,7 +139,6 @@ async def get_alerts_by_city(
         latitude, longitude = coords
         
         # Enforce daily hazard usage
-        UsageService.safe_check_and_increment(db, current_user, feature="hazard")
         # Get alerts using coordinates
         return await get_comprehensive_alerts(
             latitude=latitude,
@@ -167,7 +165,6 @@ async def get_quick_alerts(
     """
     try:
         # Enforce daily hazard usage
-        UsageService.safe_check_and_increment(db, current_user, feature="hazard")
         # Get basic alerts (skip slower APIs)
         result = await hazard_alerts_service.get_comprehensive_alerts(
             latitude=latitude,
@@ -200,7 +197,6 @@ async def get_marine_alerts(
     """
     try:
         # Enforce daily hazard usage
-        UsageService.safe_check_and_increment(db, current_user, feature="hazard")
         result = await hazard_alerts_service.get_comprehensive_alerts(
             latitude=latitude,
             longitude=longitude
@@ -236,7 +232,6 @@ async def get_earthquake_alerts(
     """
     try:
         # Enforce daily hazard usage
-        UsageService.check_and_increment(db, current_user, feature="hazard")
         result = await hazard_alerts_service.get_comprehensive_alerts(
             latitude=latitude,
             longitude=longitude

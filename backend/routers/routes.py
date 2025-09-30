@@ -9,7 +9,6 @@ from schemas import RouteAnalysisCreate, RouteAnalysisResponse
 from .auth import get_current_user
 from services.route_service import RouteService
 from services.multi_agent_ai_service import multi_agent_service
-from services.usage_service import UsageService
 
 router = APIRouter()
 route_service = RouteService()
@@ -23,8 +22,6 @@ async def analyze_route(
 ):
     """Analyze weather conditions along a route between two points"""
     try:
-        # Enforce daily route analysis limit
-        UsageService.check_and_increment(db, current_user, feature="route")
         # Calculate route path and sample points with vessel specifications
         vessel_speed = route.cruising_speed_knots if route.cruising_speed_knots else 15
         route_data = await route_service.calculate_route(

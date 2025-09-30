@@ -121,14 +121,3 @@ class IRContent(Base):
     valid_until = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_active = Column(Boolean, default=True)
-
-class DailyUsage(Base):
-    __tablename__ = "daily_usage"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    date = Column(Date, nullable=False, index=True)
-    chat_count = Column(Integer, default=0)
-    weather_count = Column(Integer, default=0)
-    route_count = Column(Integer, default=0)
-    hazard_count = Column(Integer, default=0)
