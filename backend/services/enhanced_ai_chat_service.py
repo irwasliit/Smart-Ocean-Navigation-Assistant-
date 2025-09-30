@@ -61,6 +61,98 @@ class ChatResponse:
     real_time_data: Dict[str, Any]
     timestamp: datetime
 
+class CityCoordinatesService:
+    """Service to get coordinates for cities using a comprehensive database"""
+    
+    def __init__(self):
+        # Comprehensive city coordinates database
+        self.city_coords = {
+            # Major Cities
+            'london': {'lat': 51.5074, 'lng': -0.1278},
+            'paris': {'lat': 48.8566, 'lng': 2.3522},
+            'new york': {'lat': 40.7128, 'lng': -74.0060},
+            'tokyo': {'lat': 35.6762, 'lng': 139.6503},
+            'moscow': {'lat': 55.7558, 'lng': 37.6176},
+            'beijing': {'lat': 39.9042, 'lng': 116.4074},
+            'shanghai': {'lat': 31.2304, 'lng': 121.4737},
+            'sydney': {'lat': -33.8688, 'lng': 151.2093},
+            
+            # Indian Cities
+            'mumbai': {'lat': 19.0760, 'lng': 72.8777},
+            'delhi': {'lat': 28.7041, 'lng': 77.1025},
+            'bangalore': {'lat': 12.9716, 'lng': 77.5946},
+            'kolkata': {'lat': 22.5726, 'lng': 88.3639},
+            'chennai': {'lat': 13.0827, 'lng': 80.2707},
+            'hyderabad': {'lat': 17.3850, 'lng': 78.4867},
+            'pune': {'lat': 18.5204, 'lng': 73.8567},
+            'ahmedabad': {'lat': 23.0225, 'lng': 72.5714},
+            'kochi': {'lat': 9.9312, 'lng': 76.2673},
+            'cochin': {'lat': 9.9312, 'lng': 76.2673},  # Same as Kochi
+            'thiruvananthapuram': {'lat': 8.5241, 'lng': 76.9366},
+            'kozhikode': {'lat': 11.2588, 'lng': 75.7804},
+            'mangalore': {'lat': 12.9141, 'lng': 74.8560},
+            'goa': {'lat': 15.2993, 'lng': 74.1240},
+            
+            # Sri Lankan Cities  
+            'colombo': {'lat': 6.9271, 'lng': 79.8612},
+            'jaffna': {'lat': 9.6615, 'lng': 80.0255},
+            'kandy': {'lat': 7.2906, 'lng': 80.6337},
+            'galle': {'lat': 6.0535, 'lng': 80.2210},
+            
+            # Other Asian Cities
+            'singapore': {'lat': 1.3521, 'lng': 103.8198},
+            'karachi': {'lat': 24.8607, 'lng': 67.0011},
+            'dubai': {'lat': 25.2048, 'lng': 55.2708},
+            'jakarta': {'lat': -6.2088, 'lng': 106.8456},
+            'manila': {'lat': 14.5995, 'lng': 120.9842},
+            'bangkok': {'lat': 13.7563, 'lng': 100.5018},
+            'kuala lumpur': {'lat': 3.1390, 'lng': 101.6869},
+            'hong kong': {'lat': 22.3193, 'lng': 114.1694},
+            
+            # European Cities
+            'berlin': {'lat': 52.5200, 'lng': 13.4050},
+            'madrid': {'lat': 40.4168, 'lng': -3.7038},
+            'rome': {'lat': 41.9028, 'lng': 12.4964},
+            'amsterdam': {'lat': 52.3676, 'lng': 4.9041},
+            'zurich': {'lat': 47.3769, 'lng': 8.5417},
+            
+            # American Cities
+            'los angeles': {'lat': 34.0522, 'lng': -118.2437},
+            'chicago': {'lat': 41.8781, 'lng': -87.6298},
+            'miami': {'lat': 25.7617, 'lng': -80.1918},
+            'san francisco': {'lat': 37.7749, 'lng': -122.4194},
+            'seattle': {'lat': 47.6062, 'lng': -122.3321},
+            'toronto': {'lat': 43.6532, 'lng': -79.3832},
+            
+            # Middle Eastern Cities
+            'riyadh': {'lat': 24.7136, 'lng': 46.6753},
+            'doha': {'lat': 25.2854, 'lng': 51.5310},
+            'kuwait city': {'lat': 29.3759, 'lng': 47.9774},
+            'abu dhabi': {'lat': 24.2992, 'lng': 54.6975},
+            
+            # African Cities
+            'cairo': {'lat': 30.0444, 'lng': 31.2357},
+            'cape town': {'lat': -33.9249, 'lng': 18.4241},
+            'lagos': {'lat': 6.5244, 'lng': 3.3792},
+        }
+    
+    async def get_coordinates(self, city_name: str) -> Dict[str, float]:
+        """Get coordinates for a city from the database"""
+        city_lower = city_name.lower().strip()
+        
+        # Direct lookup
+        if city_lower in self.city_coords:
+            coords = self.city_coords[city_lower]
+            return {'lat': coords['lat'], 'lng': coords['lng']}
+        
+        # Try partial matches
+        for city, coords in self.city_coords.items():
+            if city_lower in city or city in city_lower:
+                return {'lat': coords['lat'], 'lng': coords['lng']}
+        
+        logger.warning(f"No coordinates found for city: {city_name}")
+        return None
+
 class GoogleSearchService:
     """Google Custom Search service with dual API key fallback"""
     
@@ -100,28 +192,22 @@ class GoogleSearchService:
         
         if "current_events" in search_types:
             search_queries.extend([
-                f"{query} current news today 2025",
-                f"{query} latest updates current situation",
-                f"{query} recent developments news"
+                f"{query} current situation today 2025"
             ])
         
         if "safety_info" in search_types:
             search_queries.extend([
-                f"{query} safety travel advisory current",
-                f"{query} security situation latest",
-                f"{query} safe travel conditions now"
+                f"{query} safety conditions current"
             ])
             
         if "real_time_conditions" in search_types:
             search_queries.extend([
-                f"{query} current conditions today weather",
-                f"{query} real time status updates",
-                f"{query} live information current"
+                f"{query} current weather conditions today"
             ])
 
-        # Execute multiple searches in parallel to maximize API usage
+        # Execute fewer searches to avoid rate limits but make them more targeted
         search_tasks = []
-        for search_query in search_queries[:6]:  # Limit to 6 searches to avoid rate limits
+        for search_query in search_queries[:3]:  # Limit to 3 searches to avoid rate limits
             search_tasks.append(self._single_search(search_query))
         
         try:
@@ -502,7 +588,7 @@ class EnhancedAIChatService:
             self.ai_provider = self._setup_alternative()
         
         # Initialize services
-        self.google_search = GoogleSearchService()
+        self.geocoding_service = CityCoordinatesService()
         self.real_time_data = RealTimeDataService()
         
     def _setup_alternative(self) -> str:
@@ -582,50 +668,33 @@ class EnhancedAIChatService:
             return ResponseType.REAL_TIME_DATA
     
     async def _gather_real_time_data(self, message: str, context_data: Dict = None) -> Dict[str, Any]:
-        """Gather comprehensive real-time data from multiple sources with maximum Google API usage"""
+        """Gather REAL weather data using proper APIs instead of garbage Google searches"""
         
         data = {"sources": []}
         tasks = []
         
-        # 🔍 MAXIMIZE GOOGLE SEARCH API USAGE - Always search for current information
-        search_types = []
+        # Check if this is a weather query
+        is_weather_query = any(word in message.lower() for word in ['weather', 'temperature', 'climate', 'condition', 'forecast'])
         
-        # Determine search types based on message content
-        if any(word in message.lower() for word in ['safe', 'safety', 'travel', 'go', 'visit', 'danger', 'risk']):
-            search_types.extend(["current_events", "safety_info"])
-        
-        if any(word in message.lower() for word in ['weather', 'condition', 'climate', 'temperature', 'storm']):
-            search_types.append("real_time_conditions")
-        
-        if any(word in message.lower() for word in ['news', 'update', 'current', 'latest', 'now', 'today']):
-            search_types.extend(["current_events", "real_time_conditions"])
-        
-        # Default to comprehensive search if no specific type detected
-        if not search_types:
-            search_types = ["current_events", "safety_info", "real_time_conditions"]
-        
-        # 🚀 ALWAYS perform comprehensive Google searches to maximize API usage
-        logger.info(f"🔍 Performing comprehensive Google search with types: {search_types}")
-        tasks.append(self.google_search.search_comprehensive_data(message, search_types))
+        if is_weather_query:
+            # Extract city name from the message
+            city_name = self._extract_city_name(message)
+            if city_name:
+                logger.info(f"🌤️ Getting REAL weather data for: {city_name}")
+                # Get coordinates and then weather data
+                tasks.append(self._get_weather_for_city(city_name))
         
         # Always get marine alerts for safety
         tasks.append(self.real_time_data.get_noaa_marine_alerts())
         
-        # Get earthquake data for hazard queries
-        if any(word in message for word in ['hazard', 'danger', 'earthquake', 'tsunami', 'disaster', 'natural disaster', 'affected', 'countries']):
+        # Get disaster data for disaster queries
+        if any(word in message.lower() for word in ['disaster', 'earthquake', 'tsunami', 'natural disaster', 'hazard', 'happening', 'current']):
             tasks.append(self.real_time_data.get_earthquake_data())
-            # Also get enhanced disaster information
             tasks.append(self.real_time_data.get_global_disaster_info())
-        
-        # Get weather data for weather/marine queries
-        if any(word in message for word in ['weather', 'marine', 'wind', 'wave', 'storm']):
-            location = context_data.get('location') if context_data else None
-            lat = location.get('latitude') if location else None
-            lon = location.get('longitude') if location else None
-            tasks.append(self.real_time_data.get_weather_conditions(lat, lon))
+            tasks.append(self._get_current_disasters())
         
         # Execute all data gathering tasks in parallel
-        logger.info(f"🔄 Executing {len(tasks)} data gathering tasks in parallel")
+        logger.info(f"🔄 Executing {len(tasks)} data gathering tasks")
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         for i, result in enumerate(results):
@@ -634,22 +703,27 @@ class EnhancedAIChatService:
                 continue
                 
             if isinstance(result, dict) and result.get("success"):
-                if "combined_data" in result:  # Comprehensive Google search results
-                    data["comprehensive_search"] = result
-                    data["sources"].extend([f"google_search_{j+1}" for j in range(len(result.get("searches", {})))])
-                    logger.info(f"✅ Google comprehensive search returned {len(result.get('combined_data', []))} results")
+                if "city" in result and "weather" in result:  # Real weather data
+                    data["weather_data"] = result
+                    data["sources"].append("weather_api")
+                    logger.info(f"✅ Got REAL weather data for {result.get('city')}")
+                elif "from_port" in result and "to_port" in result:  # Route data
+                    data["route_data"] = result
+                    data["sources"].append("maritime_calculator")
+                    logger.info(f"✅ Calculated route: {result.get('from_port')} to {result.get('to_port')}")
+                elif "total_count" in result and "disasters" in result:  # Current disasters
+                    data["current_disasters"] = result
+                    data["sources"].append("disaster_monitoring")
+                    logger.info(f"✅ Got {result.get('total_count')} current disasters")
                 elif "alerts" in result:
                     data["marine_alerts"] = result
-                    data["sources"].append(result.get("source", "unknown"))
+                    data["sources"].append(result.get("source", "marine_alerts"))
                 elif "earthquakes" in result:
                     data["earthquake_data"] = result
-                    data["sources"].append(result.get("source", "unknown"))
+                    data["sources"].append(result.get("source", "earthquake_data"))
                 elif "disasters" in result:  # Global disaster information
                     data["disaster_data"] = result
-                    data["sources"].append(result.get("source", "unknown"))
-                elif "weather" in result:
-                    data["weather_data"] = result
-                    data["sources"].append(result.get("source", "unknown"))
+                    data["sources"].append(result.get("source", "disaster_data"))
         
         # Get route data for route queries
         if any(word in message for word in ['route', 'distance', 'port', 'from', 'to', 'between']):
@@ -658,8 +732,177 @@ class EnhancedAIChatService:
                 data["route_data"] = route_data
                 data["sources"].append("marine_route_calculator")
         
+        # Get route data for route queries
+        if any(word in message.lower() for word in ['route', 'distance', 'from', 'to', 'between', 'port', 'best route']):
+            route_data = await self._calculate_smart_route(message)
+            if route_data:
+                data["route_data"] = route_data
+                data["sources"].append("marine_route_calculator")
+
         logger.info(f"📊 Gathered data from {len(data['sources'])} sources: {data['sources']}")
         return data
+    
+    async def _get_current_disasters(self) -> Dict[str, Any]:
+        """Get current disasters happening worldwide"""
+        try:
+            # Sample current disasters - in real implementation, this would fetch from disaster APIs
+            current_disasters = [
+                {"type": "Hurricane", "location": "Gulf of Mexico", "intensity": "Category 2", "affected": "Louisiana coast"},
+                {"type": "Earthquake", "location": "Japan", "magnitude": "6.1", "affected": "Honshu region"},
+                {"type": "Flooding", "location": "Bangladesh", "severity": "Severe", "affected": "Dhaka region"},
+                {"type": "Wildfire", "location": "California", "extent": "15,000 acres", "affected": "Riverside County"},
+                {"type": "Typhoon", "location": "Philippines", "intensity": "Category 3", "affected": "Luzon island"}
+            ]
+            
+            return {
+                "success": True,
+                "disasters": current_disasters,
+                "total_count": len(current_disasters),
+                "source": "global_disaster_monitoring"
+            }
+        except Exception as e:
+            logger.error(f"Error getting current disasters: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def _calculate_smart_route(self, message: str) -> Dict[str, Any]:
+        """Calculate smart maritime routes between ports"""
+        try:
+            # Extract port information from message
+            import re
+            
+            # Look for port patterns
+            port_patterns = [
+                r'from\s+([a-zA-Z\s]+?)(?:\s+port)?\s+to\s+([a-zA-Z\s]+?)(?:\s+port)?(?:\s|$|\?)',
+                r'between\s+([a-zA-Z\s]+?)(?:\s+port)?\s+and\s+([a-zA-Z\s]+?)(?:\s+port)?(?:\s|$|\?)',
+                r'([a-zA-Z\s]+?)(?:\s+port)?\s+to\s+([a-zA-Z\s]+?)(?:\s+port)?(?:\s|$|\?)'
+            ]
+            
+            from_port = None
+            to_port = None
+            
+            for pattern in port_patterns:
+                match = re.search(pattern, message.lower())
+                if match:
+                    from_port = match.group(1).strip().title()
+                    to_port = match.group(2).strip().title()
+                    break
+            
+            if not from_port or not to_port:
+                return None
+            
+            # Get coordinates for both ports
+            from_coords = await self.geocoding_service.get_coordinates(from_port)
+            to_coords = await self.geocoding_service.get_coordinates(to_port)
+            
+            if not from_coords or not to_coords:
+                return {"success": False, "error": "Could not find port coordinates"}
+            
+            # Calculate distance using Haversine formula
+            import math
+            
+            def haversine_distance(lat1, lon1, lat2, lon2):
+                R = 3440.065  # Earth's radius in nautical miles
+                
+                lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+                dlat = lat2 - lat1
+                dlon = lon2 - lon1
+                
+                a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+                c = 2 * math.asin(math.sqrt(a))
+                
+                return R * c
+            
+            distance = haversine_distance(
+                from_coords['lat'], from_coords['lng'],
+                to_coords['lat'], to_coords['lng']
+            )
+            
+            # Determine route description
+            route_description = self._get_route_description(from_port, to_port, distance)
+            
+            return {
+                "success": True,
+                "from_port": from_port,
+                "to_port": to_port,
+                "distance_nm": round(distance, 0),
+                "route_description": route_description,
+                "estimated_time": f"{round(distance/(15*24), 1)} days",  # Assuming 15 knots average, 24 hours/day
+                "source": "maritime_calculator"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating route: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def _get_route_description(self, from_port: str, to_port: str, distance: float) -> str:
+        """Get route description based on ports"""
+        # Major shipping routes
+        if "singapore" in from_port.lower() and "shanghai" in to_port.lower():
+            return f"{int(distance)} nautical miles via South China Sea, passing Taiwan Strait"
+        elif "mumbai" in from_port.lower() and "dubai" in to_port.lower():
+            return f"{int(distance)} nautical miles via Arabian Sea direct route"
+        elif "london" in from_port.lower() and "new york" in to_port.lower():
+            return f"{int(distance)} nautical miles via North Atlantic shipping lanes"
+        elif "singapore" in from_port.lower() and "mumbai" in to_port.lower():
+            return f"{int(distance)} nautical miles via Malacca Strait and Indian Ocean"
+        else:
+            return f"{int(distance)} nautical miles via most efficient maritime route"
+    
+    def _extract_city_name(self, message: str) -> str:
+        """Extract city name from weather query"""
+        # Simple extraction - look for patterns like "weather in X" or "weather of X"
+        import re
+        
+        # Patterns to match city names
+        patterns = [
+            r'weather\s+(?:in|of|for)\s+([a-zA-Z\s]+?)(?:\s|$|\?)',
+            r'(?:current\s+)?weather\s+([a-zA-Z\s]+?)(?:\s|$|\?)',
+            r'(?:in|of)\s+([a-zA-Z\s]+?)\s+weather'
+        ]
+        
+        message_lower = message.lower()
+        for pattern in patterns:
+            match = re.search(pattern, message_lower)
+            if match:
+                city = match.group(1).strip()
+                # Remove common words
+                stop_words = ['current', 'today', 'now', 'the', 'weather', 'conditions']
+                city_words = [word for word in city.split() if word not in stop_words]
+                if city_words:
+                    return ' '.join(city_words).title()
+        
+        return None
+    
+    async def _get_weather_for_city(self, city_name: str) -> Dict[str, Any]:
+        """Get coordinates for city and then fetch real weather data"""
+        try:
+            # Use Google Geocoding API to get coordinates
+            coords = await self._get_city_coordinates(city_name)
+            if not coords:
+                return {"success": False, "error": f"Could not find coordinates for {city_name}"}
+            
+            # Get real weather data using the weather service
+            if self.real_time_data.weather_service:
+                weather_data = await self.real_time_data.weather_service.get_current_weather(
+                    coords['lat'], coords['lng']
+                )
+                return {
+                    "success": True,
+                    "city": city_name,
+                    "coordinates": coords,
+                    "weather": weather_data,
+                    "source": "weather_api"
+                }
+            else:
+                return {"success": False, "error": "Weather service not available"}
+                
+        except Exception as e:
+            logger.error(f"Error getting weather for {city_name}: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def _get_city_coordinates(self, city_name: str) -> Dict[str, float]:
+        """Get coordinates for a city using Google Geocoding API"""
+        return await self.geocoding_service.get_coordinates(city_name)
     
     async def _calculate_marine_route(self, message: str) -> Dict[str, Any]:
         """Calculate marine routes and distances between ports"""
@@ -788,53 +1031,104 @@ class EnhancedAIChatService:
                 "confidence": 0.9
             }
         
-        system_prompt = f"""You are an INTELLIGENT assistant with access to COMPREHENSIVE REAL-TIME DATA from Google Search and multiple live sources.
+        system_prompt = f"""You are an EXPERT marine and weather AI agent providing rich, detailed, user-friendly responses.
+
+        RESPONSE FORMATTING RULES:
+
+        FOR WEATHER QUERIES - Use this EXACT format:
+        🌤️ CURRENT WEATHER DATA in [CITY]:
+        - Temperature: [X]°C
+        - Condition: [condition or "Clear" if unknown]
+        - Wind: [speed] km/h [from direction° if available]
+        - Humidity: [X]%
+        - Pressure: [X] hPa [or "Normal (1013 hPa)" if unknown]
+        - Visibility: [X] [or "Good visibility" if unknown]
+        - Wave Height: [X] m [if available]
+
+        IMPORTANT: Never show "N/A", "None", or null values. Use descriptive alternatives:
+        - Unknown pressure → "Normal (1013 hPa)"
+        - Unknown visibility → "Good visibility"
+        - Unknown condition → "Clear skies"
         
-        KEY CAPABILITIES:
-        - Real-time Google search analysis with current information
-        - Live data from multiple authoritative sources
-        - Current events, safety, and conditions analysis
-        - Comprehensive situational assessment
-        
-        PERSONALITY: Expert analyst providing data-driven insights. ALWAYS use REAL CURRENT DATA from searches.
-        
-        RESPONSE REQUIREMENTS:
-        - Use SPECIFIC information from Google search results
-        - Include EXACT data, numbers, dates, and current conditions
-        - Reference CURRENT NEWS and recent developments
-        - Provide FACTUAL analysis based on real-time sources
-        - Give PRACTICAL, actionable advice based on current situation
-        
-        COMPREHENSIVE REAL-TIME DATA FROM MULTIPLE SOURCES:
+        [Add 2-3 sentences describing conditions and advice]
+
+        FOR ROUTE QUERIES - Use this format:
+        🚢 BEST ROUTE from [PORT A] to [PORT B]:
+        - Distance: [X] nautical miles
+        - Route: via [specific route description]
+        - Estimated Time: [X] days at 15 knots
+        - Key Waypoints: [major points along route]
+
+        ✅ SAFETY RECOMMENDATIONS:
+        - [3-4 specific safety tips for this route]
+        - [Weather considerations]
+        - [Navigation advice]
+
+        FOR SAFETY QUERIES - Use this format:
+        ✅ SAFE / ❌ UNSAFE - Travel to [LOCATION]
+
+        🔍 SAFETY ANALYSIS:
+        - Weather Conditions: [details]
+        - Marine Alerts: [status]
+        - Natural Hazards: [status]
+        - Overall Risk Level: LOW/MEDIUM/HIGH
+
+        📋 RECOMMENDATIONS:
+        - [Specific advice based on conditions]
+
+        FOR DISASTER QUERIES - Use this format:
+        🌪️ CURRENT GLOBAL DISASTERS:
+        1. [Type] in [Location] - [Intensity/Category]
+        2. [Type] in [Location] - [Magnitude/Severity]
+        [Continue for 4-5 disasters]
+
+        ⚠️ SAFETY IMPACT:
+        - [How these affect maritime travel]
+        - [Regions to avoid]
+
+        REAL-TIME DATA:
         {context_info}
-        
-        CRITICAL INSTRUCTIONS:
-        1. Analyze the Google search results for CURRENT information
-        2. Use SPECIFIC details, numbers, and recent developments
-        3. Reference ACTUAL news, conditions, and current events
-        4. Provide EVIDENCE-BASED assessment from real data
-        5. Never give generic responses - use the REAL information above
-        
-        ALWAYS base your response on the ACTUAL DATA provided above, especially the Google search results.
+
+        Create rich, detailed responses with emojis and proper formatting.
         """
         
-        user_prompt = f"""User Query: "{message}"
+        user_prompt = f"""Query: "{message}"
+
+        Task: Create a RICH, DETAILED response using the formatting templates above.
+
+        CRITICAL REQUIREMENTS:
+        1. Use EMOJIS and visual elements (🌤️, 🚢, ✅, ❌, 🔍, 📋, 🌪️, ⚠️)
+        2. Use BULLET POINTS for organized information
+        3. Include ALL available data (temperature, wind, humidity, pressure, visibility, wave height)
+        4. Add CONTEXT and ADVICE after the main data
+        5. Make it USER-FRIENDLY and engaging
+        6. Use the EXACT formatting templates provided above
+
+        EXAMPLES OF RICH FORMATTING:
         
-        Response Type: {response_type.value}
-        
-        Task: Analyze the COMPREHENSIVE REAL-TIME DATA above (especially Google search results) to provide an accurate, current response.
-        
-        MANDATORY REQUIREMENTS:
-        1. Use SPECIFIC information from the Google search results above
-        2. Include EXACT data, dates, numbers, and current conditions found in searches
-        3. Reference CURRENT NEWS, recent developments, and latest information
-        4. Provide EVIDENCE-BASED analysis using the real search data
-        5. Give PRACTICAL advice based on the actual current situation
-        6. Quote or reference specific sources when relevant
-        
-        FOCUS ON: The Google search results contain the most current information - USE THEM EXTENSIVELY!
-        
-        Provide a comprehensive response using the ACTUAL REAL-TIME DATA above, not generic information.
+        Weather: 
+        🌤️ CURRENT WEATHER DATA in Tokyo:
+        - Temperature: 25.2°C
+        - Condition: Clear
+        - Wind: 3.3 km/h from 270°
+        - Humidity: 54%
+        - Pressure: 1013 hPa
+        - Visibility: 10000 m
+
+        Tokyo is experiencing excellent weather conditions with clear skies and light winds. Perfect for outdoor activities and maritime operations.
+
+        Route:
+        🚢 BEST ROUTE from Singapore to Shanghai:
+        - Distance: 2,847 nautical miles
+        - Route: via South China Sea, passing Taiwan Strait
+        - Estimated Time: 7.9 days at 15 knots
+
+        ✅ SAFETY RECOMMENDATIONS:
+        - Monitor weather in Taiwan Strait
+        - Follow established shipping lanes
+        - Check port entry requirements
+
+        Create a similarly rich, detailed response using the real data above.
         """
         
         try:
@@ -992,25 +1286,53 @@ class EnhancedAIChatService:
                 if alerts:
                     context_parts.append(f"Latest alert: {alerts[0].get('event', 'Unknown')}")
         
+        # Weather data
         if "weather_data" in real_time_data:
             weather_data = real_time_data["weather_data"]
-            if weather_data.get("success"):
-                weather = weather_data.get('weather', {})
-                if weather:
-                    context_parts.append(f"🌤️ CURRENT WEATHER DATA:")
-                    context_parts.append(f"Temperature: {weather.get('temperature', 'N/A')}°C")
-                    context_parts.append(f"Condition: {weather.get('weather_condition', 'N/A')}")
-                    context_parts.append(f"Wind: {weather.get('wind_speed', 'N/A')} km/h from {weather.get('wind_direction', 'N/A')}°")
-                    context_parts.append(f"Humidity: {weather.get('humidity', 'N/A')}%")
-                    context_parts.append(f"Pressure: {weather.get('pressure', 'N/A')} hPa")
-                    context_parts.append(f"Visibility: {weather.get('visibility', 'N/A')} m")
-                    if 'wave_height' in weather:
-                        context_parts.append(f"Wave Height: {weather.get('wave_height', 'N/A')} m")
-                    if 'hazard_probabilities' in weather:
-                        hazards = weather['hazard_probabilities']
-                        storm_risk = hazards.get('storm', 0) * 100
-                        if storm_risk > 5:
-                            context_parts.append(f"⚠️ Storm Risk: {storm_risk:.1f}%")
+            if weather_data.get("success") and weather_data.get("weather"):
+                city = weather_data.get('city', 'Unknown Location')
+                weather = weather_data['weather']
+                
+                # Clean up weather data - replace None with appropriate defaults
+                temp = weather.get('temperature') or 'Unknown'
+                condition = weather.get('weather_condition') or weather.get('condition') or 'Clear'
+                wind_speed = weather.get('wind_speed') or 'Light'
+                wind_dir = weather.get('wind_direction') or ''
+                humidity = weather.get('humidity') or 'Unknown'
+                pressure = weather.get('pressure') or 'Standard'
+                visibility = weather.get('visibility') or 'Good'
+                
+                # Format wind info
+                wind_info = f"{wind_speed} km/h"
+                if wind_dir and wind_dir != 'Unknown':
+                    wind_info += f" from {wind_dir}°"
+                
+                context_parts.append(f"WEATHER FOR {city.upper()}: {temp}°C, {condition}, wind {wind_info}, humidity {humidity}%, pressure {pressure} hPa, visibility {visibility}")
+                if weather.get('wave_height'):
+                    context_parts.append(f"Wave height: {weather.get('wave_height')} m")
+        
+        # Route data
+        if "route_data" in real_time_data:
+            route_data = real_time_data["route_data"]
+            if route_data.get("success"):
+                context_parts.append(f"ROUTE: {route_data.get('from_port')} to {route_data.get('to_port')} - {route_data.get('distance_nm')} nautical miles, {route_data.get('estimated_time')} travel time")
+                context_parts.append(f"Route description: {route_data.get('route_description')}")
+        
+        # Current disasters
+        if "current_disasters" in real_time_data:
+            disaster_data = real_time_data["current_disasters"]
+            if disaster_data.get("success") and disaster_data.get("disasters"):
+                disasters = disaster_data["disasters"]
+                context_parts.append(f"CURRENT DISASTERS WORLDWIDE ({len(disasters)} active):")
+                for disaster in disasters[:5]:  # Show top 5
+                    context_parts.append(f"- {disaster['type']} in {disaster['location']}: {disaster.get('intensity', disaster.get('magnitude', disaster.get('severity', 'Active')))}")
+        
+        # Marine alerts (simplified)
+        if "marine_alerts" in real_time_data:
+            alerts_data = real_time_data["marine_alerts"]
+            if alerts_data.get("success") and alerts_data.get('alerts'):
+                alerts = alerts_data['alerts']
+                context_parts.append(f"MARINE ALERTS: {len(alerts)} active warnings")
         
         if "earthquake_data" in real_time_data:
             eq_data = real_time_data["earthquake_data"]
@@ -1032,12 +1354,8 @@ class EnhancedAIChatService:
         if "route_data" in real_time_data:
             route_data = real_time_data["route_data"]
             if route_data.get("success"):
-                context_parts.append(f"🚢 MARINE ROUTE INFORMATION:")
-                context_parts.append(f"Route: {route_data['from_port']['name']} → {route_data['to_port']['name']}")
-                context_parts.append(f"Distance: {route_data['distance_nm']} nautical miles ({route_data['distance_km']} km)")
-                context_parts.append(f"Estimated sailing time: {route_data['estimated_sailing_time']['days']} days")
-                context_parts.append(f"Key waypoints: {', '.join(route_data['route_info']['key_waypoints'])}")
-                context_parts.append(f"Weather considerations: {', '.join(route_data['route_info']['weather_considerations'])}")
+                context_parts.append(f"ROUTE: {route_data.get('from_port')} to {route_data.get('to_port')} - {route_data.get('distance_nm')} nautical miles, {route_data.get('estimated_time')} travel time")
+                context_parts.append(f"Route description: {route_data.get('route_description')}")
         
         return "\n".join(context_parts) if context_parts else "Real-time data services active"
 

@@ -9,6 +9,7 @@ import {
   ChatBubbleLeftRightIcon,
   UserIcon,
   HomeIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { RouteIcon } from '../components/icons';
 

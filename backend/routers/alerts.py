@@ -8,7 +8,6 @@ from models import User, AlertPreference, AlertHistory, SavedLocation
 from schemas import AlertPreferenceCreate, AlertPreferenceResponse, AlertHistoryResponse
 from .auth import get_current_user
 from services.alert_service import AlertService
-from services.usage_service import UsageService
 
 router = APIRouter()
 alert_service = AlertService()
@@ -28,10 +27,6 @@ async def create_alert_preference(
     
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
-    
-    # Enforce plan limit for alert preferences
-    if not UsageService.can_create_alert(db, current_user):
-        raise HTTPException(status_code=403, detail=f"Alert management not available or limit reached for {current_user.plan} plan")
 
     # Create alert preference
     db_preference = AlertPreference(

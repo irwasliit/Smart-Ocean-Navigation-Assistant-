@@ -107,36 +107,6 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
-@router.get("/usage/today")
-async def get_today_usage(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Get today's usage statistics for the current user"""
-    from datetime import date
-    from models import DailyUsage
-    
-    today = date.today()
-    usage = (
-        db.query(DailyUsage)
-        .filter(DailyUsage.user_id == current_user.id, DailyUsage.date == today)
-        .first()
-    )
-    
-    if not usage:
-        return {
-            "chat_count": 0,
-            "weather_count": 0,
-            "route_count": 0,
-            "hazard_count": 0,
-            "date": today.isoformat()
-        }
-    
-    return {
-        "chat_count": usage.chat_count or 0,
-        "weather_count": usage.weather_count or 0,
-        "route_count": usage.route_count or 0,
-        "hazard_count": usage.hazard_count or 0,
-        "date": usage.date.isoformat()
-    }
-
 @router.put("/me", response_model=UserResponse)
 async def update_user_profile(
     user_update: UserUpdate,

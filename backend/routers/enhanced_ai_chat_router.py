@@ -14,7 +14,7 @@ from .auth import get_current_user
 from models import User, ChatHistory
 from schemas import ChatMessage, ChatResponse
 from services.enhanced_ai_chat_service import enhanced_ai_chat_service, process_chat_message
-from services.usage_service import UsageService
+
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -30,7 +30,6 @@ async def enhanced_chat_with_ai(
     """Enhanced AI chat with real-time data integration and Google Custom Search"""
     try:
         # Enforce daily chat limit
-        UsageService.check_and_increment(db, current_user, feature="chat")
         
         # Prepare context data
         context_data = {}
@@ -79,7 +78,6 @@ async def chat_with_location_context(
     """Chat with location context for weather and marine data"""
     try:
         # Enforce daily chat limit
-        UsageService.check_and_increment(db, current_user, feature="chat")
         
         message = request.get("message", "")
         if not message:
@@ -160,13 +158,6 @@ async def get_quick_marine_status(
 ):
     """Get quick marine status for a location"""
     try:
-        # Light usage check - don't increment for status checks
-        try:
-            UsageService.check_limit(db, current_user, feature="chat")
-        except HTTPException:
-            # If user is over limit, still allow status checks but with limited data
-            pass
-        
         location = request.get("location")
         latitude = location.get("latitude") if location else None
         longitude = location.get("longitude") if location else None

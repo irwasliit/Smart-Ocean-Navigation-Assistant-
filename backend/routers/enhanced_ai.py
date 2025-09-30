@@ -11,7 +11,7 @@ from services.multi_agent_ai_service import multi_agent_service, NavigationConte
 from services.simple_enhanced_ir_service import simple_enhanced_ir_service as enhanced_ir_service
 from services.enhanced_ai_chat_service import enhanced_ai_chat_service, process_chat_message
 from datetime import datetime
-from services.usage_service import UsageService
+
 
 router = APIRouter()
 
@@ -24,7 +24,6 @@ async def chat_with_ai(
     """Enhanced AI chat endpoint using multi-agent system"""
     try:
         # Enforce daily chat limit (AI Marine Assistant)
-        UsageService.check_and_increment(db, current_user, feature="chat")
         message = request.get("message", "")
         if not message:
             raise HTTPException(status_code=400, detail="Message is required")
