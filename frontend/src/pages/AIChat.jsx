@@ -24,13 +24,95 @@ const AIChat = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [agentStatus, setAgentStatus] = useState({});
   const [systemStatus, setSystemStatus] = useState('operational');
+  const [chatUsage, setChatUsage] = useState({ current: 0, limit: undefined });
+  const [limitReached, setLimitReached] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Plan limits
+  const planLimits = {
+    free: { daily_chat: 10 },
+    pro: { daily_chat: 50 },
+    premium: { daily_chat: null } // unlimited
+  };
 
   useEffect(() => {
     fetchChatHistory();
     fetchSuggestions();
     checkSystemStatus();
+    loadChatUsage();
   }, [user]);
+
+  // Also load usage on mount
+  useEffect(() => {
+    loadChatUsage();
+  }, []);
+
+  const loadChatUsage = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Loading chat usage, token exists:', !!token);
+      if (!token) {
+        // If no token, set default for free user
+        setChatUsage({ current: 0, limit: 10 });
+        return;
+      }
+
+      const response = await fetch('http://localhost:8000/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      console.log('Profile response status:', response.status);
+      if (response.ok) {
+        const profile = await response.json();
+        console.log('User profile:', profile);
+        const userPlan = profile.plan || 'free';
+        const limit = planLimits[userPlan]?.daily_chat;
+        
+        // For demo purposes, track usage in localStorage
+        const today = new Date().toDateString();
+        const storageKey = `chat_usage_${profile.id}_${today}`;
+        const currentUsage = parseInt(localStorage.getItem(storageKey) || '0');
+        
+        console.log('Setting usage:', { current: currentUsage, limit, plan: userPlan });
+        setChatUsage({ current: currentUsage, limit });
+        setLimitReached(limit && currentUsage >= limit);
+      } else {
+        // Fallback to free plan if auth fails
+        setChatUsage({ current: 0, limit: 10 });
+      }
+    } catch (error) {
+      console.error('Failed to load chat usage:', error);
+      // Fallback to free plan on error
+      setChatUsage({ current: 0, limit: 10 });
+    }
+  };
+
+  const updateChatUsage = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('http://localhost:8000/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const profile = await response.json();
+        const today = new Date().toDateString();
+        const storageKey = `chat_usage_${profile.id}_${today}`;
+        const newUsage = chatUsage.current + 1;
+        
+        localStorage.setItem(storageKey, newUsage.toString());
+        setChatUsage(prev => ({ ...prev, current: newUsage }));
+        
+        if (chatUsage.limit && newUsage >= chatUsage.limit) {
+          setLimitReached(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update chat usage:', error);
+    }
+  };
 
 
 
@@ -194,6 +276,12 @@ const AIChat = () => {
 
   const sendMessage = async (message = inputMessage, contextData = {}) => {
     if (!message.trim()) return;
+    
+    // Check chat limits (skip for premium users with unlimited chats)
+    if (limitReached && chatUsage.limit !== null) {
+      alert(`Daily chat limit reached (${chatUsage.limit} messages). Please upgrade your plan for more chats.`);
+      return;
+    }
 
     const userMessage = {
       id: Date.now(),
@@ -235,6 +323,9 @@ const AIChat = () => {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Update chat usage
+      updateChatUsage();
       
       // Update suggestions from AI response
       if (response.data.suggestions && response.data.suggestions.length > 0) {
@@ -338,8 +429,10 @@ const AIChat = () => {
                 {systemStatus === 'operational' ? '🚢 All Systems Operational' : '⚠️ Limited Mode'}
             </span>
             
+
+
             {Object.keys(agentStatus).length > 0 && (
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2 text-sm text-gray-600 mt-2">
                 <span>Agents:</span>
                 {Object.entries(agentStatus).map(([agent, status]) => (
                   <span key={agent} className={`px-2 py-1 rounded text-xs ${
@@ -366,6 +459,23 @@ const AIChat = () => {
                     <h2 className="text-lg font-semibold text-white">Marine AI Captain</h2>
                   </div>
                   <div className="flex items-center space-x-4">
+                    {/* Chat Usage Display */}
+                    {(chatUsage.limit !== undefined) && (
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                        limitReached 
+                          ? 'bg-red-500 text-white' 
+                          : chatUsage.limit && chatUsage.current / chatUsage.limit > 0.8
+                            ? 'bg-yellow-500 text-white'
+                            : chatUsage.limit === null
+                              ? 'bg-green-500 text-white'
+                              : 'bg-white bg-opacity-20 text-white'
+                      }`}>
+                        {chatUsage.limit === null 
+                          ? '💬 Unlimited Premium'
+                          : `💬 ${chatUsage.current}/${chatUsage.limit}`
+                        }
+                      </span>
+                    )}
                     <button
                       onClick={clearChat}
                       className="text-white hover:text-gray-200 transition-colors"

@@ -22,15 +22,12 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 def get_password_hash(password: str) -> str:
-    # Convert password to bytes and truncate to 72 bytes if necessary
     password_bytes = password.encode('utf-8')[:72]
-    # Generate salt and hash password
     salt = bcrypt.gensalt()
     password_hash = bcrypt.hashpw(password_bytes, salt)
     return password_hash.decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    # Convert passwords to bytes and truncate plain_password
     plain_password_bytes = plain_password.encode('utf-8')[:72]
     hashed_password_bytes = hashed_password.encode('utf-8')
     try:
@@ -40,10 +37,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+    expire = datetime.utcnow() + (expires_delta if expires_delta else timedelta(minutes=15))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -54,7 +48,6 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
     try:
         token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -69,54 +62,33 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         raise credentials_exception
     return user
 
+# -------------------- Endpoints --------------------
+
 @router.post("/register", response_model=UserResponse)
 async def register(user: UserCreate, db: Session = Depends(get_db)):
-    # Check if user already exists
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
     
-    # Check password length
     password_bytes = user.password.encode('utf-8')
     if len(password_bytes) > 72:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password is too long. Maximum length is 72 bytes."
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is too long. Maximum length is 72 bytes.")
     
-    # Create new user
     hashed_password = get_password_hash(user.password)
-    db_user = User(
-        email=user.email,
-        hashed_password=hashed_password,
-        full_name=user.full_name
-    )
+    db_user = User(email=user.email, hashed_password=hashed_password, full_name=user.full_name)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    
     return db_user
 
 @router.post("/login", response_model=Token)
 async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
-    # Authenticate user
     user = db.query(User).filter(User.email == user_credentials.email).first()
     if not user or not verify_password(user_credentials.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password", headers={"WWW-Authenticate": "Bearer"})
     
-    # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)}, expires_delta=access_token_expires
-    )
-    
+    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=UserResponse)
@@ -124,37 +96,39 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 @router.put("/me", response_model=UserResponse)
-async def update_user_profile(
-    user_update: UserUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Update the current user's profile"""
-    
-    # Check if email is being changed and if it's already taken
+async def update_user_profile(user_update: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if user_update.email and user_update.email != current_user.email:
         existing_user = db.query(User).filter(User.email == user_update.email).first()
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
         current_user.email = user_update.email
     
-    # Update full name if provided
     if user_update.full_name is not None:
         current_user.full_name = user_update.full_name
     
-    # Update the updated_at timestamp
     current_user.updated_at = datetime.utcnow()
     
     try:
         db.commit()
         db.refresh(current_user)
         return current_user
-    except Exception as e:
+    except Exception:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update profile")
+
+# -------------------- Your /upgrade endpoint --------------------
+@router.post("/upgrade")
+async def upgrade_plan(plan_data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    plan = plan_data.get('plan')
+    if plan not in ['free', 'pro', 'premium']:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan. Must be 'free', 'pro', or 'premium'")
+    
+    try:
+        current_user.plan = plan
+        current_user.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(current_user)
+        return {"message": f"Successfully upgraded to {plan} plan", "plan": plan}
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to upgrade plan")
