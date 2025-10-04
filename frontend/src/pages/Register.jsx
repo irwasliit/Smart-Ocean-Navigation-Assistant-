@@ -47,7 +47,7 @@ const Register = () => {
             </div>
             <h2 className="mt-6 text-3xl font-bold text-gray-900">
               <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                Join Our Fleet
+                Join with Us
               </span>
             </h2>
             <p className="mt-2 text-gray-600 flex items-center justify-center">
@@ -61,7 +61,7 @@ const Register = () => {
               <div>
                 <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="mr-2">👤</span>
-                  Captain's Name
+                  User Name
                 </label>
                 <input
                   id="fullName"
@@ -77,7 +77,7 @@ const Register = () => {
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="mr-2">📧</span>
-                  Ship's Communication
+                  Email Address
                 </label>
                 <input
                   id="email"
@@ -86,7 +86,7 @@ const Register = () => {
                   autoComplete="email"
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/80 backdrop-blur-sm"
-                  placeholder="captain@yourship.com"
+                  placeholder="captain@email.com"
                   value={formData.email}
                   onChange={handleChange}
                 />
@@ -94,7 +94,7 @@ const Register = () => {
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="mr-2">🔐</span>
-                  Navigation Code
+                  PassWord
                 </label>
                 <div className="relative">
                   <input
@@ -124,7 +124,7 @@ const Register = () => {
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
                   <span className="mr-2">🔒</span>
-                  Confirm Navigation Code
+                  Confirm Password
                 </label>
                 <div className="relative">
                   <input
@@ -167,7 +167,7 @@ const Register = () => {
                 ) : (
                   <div className="flex items-center">
                     <span className="mr-2">🚢</span>
-                    Launch My Ship
+                    Register 
                   </div>
                 )}
               </button>
@@ -175,13 +175,13 @@ const Register = () => {
 
             <div className="text-center mt-6">
               <span className="text-sm text-gray-600">
-                Already part of our fleet?{' '}
+                Already Have Account?{' '}
                 <Link
                   to="/login"
                   className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
                 >
                   <span className="mr-1">⚓</span>
-                  Board Your Ship
+                  Login
                 </Link>
               </span>
             </div>

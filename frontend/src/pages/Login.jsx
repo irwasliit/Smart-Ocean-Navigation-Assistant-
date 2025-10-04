@@ -26,7 +26,7 @@ const Login = () => {
             <span className="text-white text-3xl wave-animation">⚓</span>
           </div>
           <h2 className="mt-6 text-center text-4xl font-extrabold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-            Welcome Aboard
+            Welcome  
           </h2>
           <p className="mt-2 text-center text-lg text-gray-600">
             <span className="wave-animation">🌊</span> Marine Weather & AI Navigation Assistant <span className="wave-animation">🧭</span>
@@ -37,7 +37,7 @@ const Login = () => {
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Captain's Email
+                  User Email
                 </label>
                 <input
                   id="email"
@@ -53,7 +53,7 @@ const Login = () => {
               </div>
               <div className="relative">
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Navigation Code
+                  PassWord
                 </label>
                 <input
                   id="password"
@@ -94,7 +94,7 @@ const Login = () => {
               ) : (
                 <div className="flex items-center">
                   <span className="mr-2">⚓</span>
-                  Board the Ship
+                  Login
                 </div>
               )}
             </button>
@@ -102,13 +102,13 @@ const Login = () => {
 
           <div className="text-center mt-6">
             <span className="text-sm text-gray-600">
-              New to our fleet?{' '}
+              If You Don't Have Accoount{' '}
               <Link
                 to="/register"
                 className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
               >
                 <span className="mr-1">🚢</span>
-                Join the Crew
+                Register 
               </Link>
             </span>
           </div>

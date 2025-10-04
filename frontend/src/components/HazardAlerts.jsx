@@ -281,34 +281,7 @@ const HazardAlerts = ({ latitude, longitude, city }) => {
         ))}
       </div>
 
-      {/* Quick Links */}
-      {/* Debug Information */}
-      {apiDebugInfo && (
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="font-semibold text-blue-800 mb-2">🔧 API Debug Information</h3>
-          <div className="grid grid-cols-2 gap-2 text-sm text-blue-700">
-            <div>
-              <strong>Backend Response Time:</strong> {apiDebugInfo.timestamp}
-            </div>
-            <div>
-              <strong>Last Frontend Update:</strong> {lastUpdated?.toLocaleString()}
-            </div>
-            <div>
-              <strong>Alerts Found:</strong> {apiDebugInfo.alertCount}
-            </div>
-            <div>
-              <strong>APIs Checked:</strong> {apiDebugInfo.sources.join(', ')}
-            </div>
-            <div className="col-span-2">
-              <strong>Query Location:</strong> {JSON.stringify(apiDebugInfo.location)}
-            </div>
-          </div>
-          <p className="text-xs text-blue-600 mt-2">
-            This confirms the system is fetching REAL data from live APIs, not mock data! 
-            {apiDebugInfo.alertCount === 0 ? ' Zero alerts means your location is currently safe.' : ''}
-          </p>
-        </div>
-      )}
+
 
       {/* Emergency Resources */}
       <div className="mt-6 p-4 bg-gray-50 border rounded-lg">

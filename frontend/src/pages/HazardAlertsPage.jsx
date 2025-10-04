@@ -700,7 +700,7 @@ const HazardAlertsPage = () => {
                 className="ocean-button px-4 py-2 flex items-center"
               >
                 <span className="mr-2">🔍</span>
-                Chart New Course
+                Select Other Location
               </button>
               <button
                 onClick={() => getCurrentLocation(true)}
@@ -873,28 +873,7 @@ const HazardAlertsPage = () => {
           )}
         </div>
 
-        {/* Data Sources Info */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">📊 Data Sources</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-3 border rounded">
-              <h3 className="font-semibold text-blue-600">🇺🇸 US NWS</h3>
-              <p className="text-sm text-gray-600">Official weather alerts for the United States</p>
-            </div>
-            <div className="p-3 border rounded">
-              <h3 className="font-semibold text-green-600">🌐 Open-Meteo</h3>
-              <p className="text-sm text-gray-600">Global weather and marine conditions</p>
-            </div>
-            <div className="p-3 border rounded">
-              <h3 className="font-semibold text-red-600">🌍 USGS</h3>
-              <p className="text-sm text-gray-600">Earthquake monitoring worldwide</p>
-            </div>
-            <div className="p-3 border rounded">
-              <h3 className="font-semibold text-purple-600">🇪🇺 MeteoAlarm</h3>
-              <p className="text-sm text-gray-600">European weather warnings</p>
-            </div>
-          </div>
-        </div>
+
 
         {/* Main Hazard Alerts Component */}
         <HazardAlerts 
@@ -903,43 +882,8 @@ const HazardAlertsPage = () => {
           city={location.city}
         />
 
-        {/* API Examples */}
-        <div className="mt-8 maritime-card p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <span className="mr-2">🔗</span>
-            Maritime API Endpoints
-            <span className="ml-2">⚓</span>
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold flex items-center">
-                <span className="mr-2">📡</span>
-                Comprehensive Marine Alerts:
-              </h3>
-              <code className="block p-3 bg-blue-50 rounded-lg text-sm overflow-x-auto border border-blue-200 font-mono">
-                GET /api/hazards/alerts/comprehensive?latitude={location.latitude}&longitude={location.longitude}
-              </code>
-            </div>
-            <div>
-              <h3 className="font-semibold">Quick Alerts:</h3>
-              <code className="block p-2 bg-gray-100 rounded text-sm overflow-x-auto">
-                GET /api/hazards/alerts/quick?latitude={location.latitude}&longitude={location.longitude}
-              </code>
-            </div>
-            <div>
-              <h3 className="font-semibold">Marine Only:</h3>
-              <code className="block p-2 bg-gray-100 rounded text-sm overflow-x-auto">
-                GET /api/hazards/alerts/marine?latitude={location.latitude}&longitude={location.longitude}
-              </code>
-            </div>
-            <div>
-              <h3 className="font-semibold">Earthquakes Only:</h3>
-              <code className="block p-2 bg-gray-100 rounded text-sm overflow-x-auto">
-                GET /api/hazards/alerts/earthquake?latitude={location.latitude}&longitude={location.longitude}
-              </code>
-            </div>
-          </div>
-        </div>
+
+
       </div>
 
       {/* Location Search Modal */}
