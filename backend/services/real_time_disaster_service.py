@@ -33,8 +33,12 @@ class RealTimeDisasterService:
     def __init__(self):
         self.base_urls = {
             'gdacs': 'https://www.gdacs.org/xml/rss.xml',
+            'gdacs_api': 'https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP',
             'usgs_earthquakes': 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson',
-            'usgs_recent': 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson'
+            'usgs_recent': 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson',
+            'usgs_all_recent': 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
+            'noaa_warnings': 'https://api.weather.gov/alerts/active',
+            'eonet': 'https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=20'
         }
         
     async def get_current_disasters(self, region: str = None) -> List[DisasterInfo]:
@@ -46,7 +50,11 @@ class RealTimeDisasterService:
                 # Get disasters from multiple sources concurrently
                 tasks = [
                     self._get_gdacs_disasters(session),
+                    self._get_gdacs_api_disasters(session),
                     self._get_usgs_earthquakes(session),
+                    self._get_all_recent_earthquakes(session),
+                    self._get_nasa_eonet_disasters(session),
+                    self._get_noaa_alerts(session),
                     self._get_typhoon_data(session)
                 ]
                 
@@ -61,6 +69,9 @@ class RealTimeDisasterService:
                 # Filter by region if specified
                 if region:
                     disasters = self._filter_by_region(disasters, region)
+                
+                # Remove duplicates based on location and type
+                disasters = self._deduplicate_disasters(disasters)
                 
                 # Sort by severity and recency
                 disasters = self._sort_disasters(disasters)
@@ -181,20 +192,41 @@ class RealTimeDisasterService:
         """Classify disaster type from title"""
         title_lower = title.lower()
         
-        if any(word in title_lower for word in ['typhoon', 'hurricane', 'cyclone', 'tropical storm']):
+        # Comprehensive disaster type classification
+        if any(word in title_lower for word in ['typhoon', 'hurricane', 'cyclone', 'tropical storm', 'tropical cyclone']):
             return "storm"
-        elif any(word in title_lower for word in ['earthquake', 'quake']):
+        elif any(word in title_lower for word in ['earthquake', 'quake', 'seismic']):
             return "earthquake"
-        elif any(word in title_lower for word in ['flood', 'flooding']):
+        elif any(word in title_lower for word in ['flood', 'flooding', 'flash flood', 'river flood']):
             return "flood"
-        elif any(word in title_lower for word in ['tsunami']):
+        elif any(word in title_lower for word in ['tsunami', 'tidal wave']):
             return "tsunami"
-        elif any(word in title_lower for word in ['volcano', 'volcanic']):
-            return "volcano"
-        elif any(word in title_lower for word in ['wildfire', 'fire']):
+        elif any(word in title_lower for word in ['volcano', 'volcanic', 'eruption', 'lava']):
+            return "volcanic eruption"
+        elif any(word in title_lower for word in ['wildfire', 'forest fire', 'bush fire', 'fire']):
             return "wildfire"
+        elif any(word in title_lower for word in ['drought', 'dry', 'water shortage']):
+            return "drought"
+        elif any(word in title_lower for word in ['landslide', 'mudslide', 'rockslide', 'avalanche']):
+            return "landslide"
+        elif any(word in title_lower for word in ['tornado', 'twister']):
+            return "tornado"
+        elif any(word in title_lower for word in ['hail', 'hailstorm']):
+            return "hailstorm"
+        elif any(word in title_lower for word in ['blizzard', 'snow storm', 'ice storm']):
+            return "winter storm"
+        elif any(word in title_lower for word in ['heat wave', 'extreme heat', 'high temperature']):
+            return "heat wave"
+        elif any(word in title_lower for word in ['cold wave', 'freeze', 'frost']):
+            return "cold wave"
+        elif any(word in title_lower for word in ['dust storm', 'sandstorm']):
+            return "dust storm"
+        elif any(word in title_lower for word in ['storm surge', 'tidal surge']):
+            return "storm surge"
+        elif any(word in title_lower for word in ['warning', 'alert', 'watch']) and 'weather' in title_lower:
+            return "weather alert"
         else:
-            return "other"
+            return "natural disaster"
     
     def _determine_severity(self, title: str, description: str) -> str:
         """Determine severity from GDACS content"""
@@ -237,6 +269,192 @@ class RealTimeDisasterService:
         else:
             return "minor"
     
+    async def _get_gdacs_api_disasters(self, session: aiohttp.ClientSession) -> List[DisasterInfo]:
+        """Get disasters from GDACS API endpoint"""
+        disasters = []
+        
+        try:
+            async with session.get(self.base_urls['gdacs_api']) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    for event in data.get('features', []):
+                        props = event.get('properties', {})
+                        
+                        event_type = props.get('alertlevel', 'Unknown')
+                        event_name = props.get('name', 'Unknown Event')
+                        country = props.get('country', 'Unknown Location')
+                        description = props.get('description', 'No description available')
+                        
+                        disaster_type = self._classify_disaster_type(event_name)
+                        severity = self._map_gdacs_severity(props.get('alertlevel'))
+                        
+                        disaster = DisasterInfo(
+                            event=event_name,
+                            severity=severity,
+                            area=country,
+                            description=description,
+                            disaster_type=disaster_type,
+                            source="GDACS Alert System"
+                        )
+                        disasters.append(disaster)
+                        
+        except Exception as e:
+            logger.error(f"GDACS API error: {e}")
+        
+        return disasters
+    
+    async def _get_all_recent_earthquakes(self, session: aiohttp.ClientSession) -> List[DisasterInfo]:
+        """Get all recent earthquakes (last 24 hours) from USGS"""
+        disasters = []
+        
+        try:
+            async with session.get(self.base_urls['usgs_all_recent']) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    for feature in data.get('features', []):
+                        props = feature.get('properties', {})
+                        geometry = feature.get('geometry', {})
+                        coords = geometry.get('coordinates', [])
+                        
+                        if len(coords) >= 2:
+                            magnitude = props.get('mag', 0)
+                            place = props.get('place', 'Unknown Location')
+                            
+                            if magnitude >= 4.5:  # Moderate earthquakes
+                                severity = self._earthquake_severity(magnitude)
+                                
+                                disaster = DisasterInfo(
+                                    event=f"Earthquake M{magnitude}",
+                                    severity=severity,
+                                    area=place,
+                                    description=f"Magnitude {magnitude} earthquake in {place}. Depth: {coords[2] if len(coords) > 2 else 'Unknown'} km. Time: {datetime.fromtimestamp(props.get('time', 0)/1000).strftime('%Y-%m-%d %H:%M UTC') if props.get('time') else 'Unknown'}.",
+                                    disaster_type="earthquake",
+                                    coordinates=(coords[1], coords[0]),  # lat, lon
+                                    source="USGS Real-time Earthquakes"
+                                )
+                                disasters.append(disaster)
+                                
+        except Exception as e:
+            logger.error(f"USGS all earthquakes error: {e}")
+        
+        return disasters
+    
+    async def _get_nasa_eonet_disasters(self, session: aiohttp.ClientSession) -> List[DisasterInfo]:
+        """Get disasters from NASA EONET (Earth Observatory Natural Event Tracker)"""
+        disasters = []
+        
+        try:
+            async with session.get(self.base_urls['eonet']) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    for event in data.get('events', []):
+                        categories = event.get('categories', [])
+                        if not categories:
+                            continue
+                            
+                        event_title = event.get('title', 'Unknown Event')
+                        event_id = event.get('id', '')
+                        
+                        # Map EONET categories to disaster types
+                        category_name = categories[0].get('title', 'Unknown')
+                        disaster_type = self._map_eonet_category(category_name)
+                        
+                        # Get geometry for location
+                        geometry = event.get('geometry', [])
+                        location = "Unknown Location"
+                        coordinates = None
+                        
+                        if geometry:
+                            coords = geometry[0].get('coordinates', [])
+                            if len(coords) >= 2:
+                                coordinates = (coords[1], coords[0])  # lat, lon
+                                location = f"{coords[1]:.2f}°N, {coords[0]:.2f}°E"
+                        
+                        disaster = DisasterInfo(
+                            event=event_title,
+                            severity="moderate",  # EONET doesn't provide severity
+                            area=location,
+                            description=f"{category_name} event tracked by NASA EONET. Event ID: {event_id}",
+                            disaster_type=disaster_type,
+                            coordinates=coordinates,
+                            source="NASA EONET"
+                        )
+                        disasters.append(disaster)
+                        
+        except Exception as e:
+            logger.error(f"NASA EONET error: {e}")
+        
+        return disasters
+    
+    async def _get_noaa_alerts(self, session: aiohttp.ClientSession) -> List[DisasterInfo]:
+        """Get weather alerts from NOAA"""
+        disasters = []
+        
+        try:
+            headers = {'User-Agent': 'IRWA-Marine-Disaster-Monitor/1.0'}
+            async with session.get(self.base_urls['noaa_warnings'], headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    for feature in data.get('features', []):
+                        props = feature.get('properties', {})
+                        
+                        event_type = props.get('event', 'Weather Alert')
+                        headline = props.get('headline', 'Weather Warning')
+                        area_desc = props.get('areaDesc', 'Unknown Area')
+                        severity = props.get('severity', 'Unknown')
+                        description = props.get('description', 'No description available')
+                        
+                        # Only include severe weather events
+                        if severity.lower() in ['severe', 'extreme', 'major']:
+                            disaster_type = self._classify_disaster_type(event_type)
+                            
+                            disaster = DisasterInfo(
+                                event=headline,
+                                severity=severity.lower(),
+                                area=area_desc,
+                                description=description[:500] + "..." if len(description) > 500 else description,
+                                disaster_type=disaster_type,
+                                source="NOAA Weather Service"
+                            )
+                            disasters.append(disaster)
+                            
+        except Exception as e:
+            logger.error(f"NOAA alerts error: {e}")
+        
+        return disasters
+    
+    def _map_gdacs_severity(self, alert_level: str) -> str:
+        """Map GDACS alert levels to standard severity"""
+        mapping = {
+            'Red': 'extreme',
+            'Orange': 'severe', 
+            'Green': 'moderate',
+            'Yellow': 'moderate'
+        }
+        return mapping.get(alert_level, 'moderate')
+    
+    def _map_eonet_category(self, category: str) -> str:
+        """Map EONET categories to disaster types"""
+        mapping = {
+            'Wildfires': 'wildfire',
+            'Volcanoes': 'volcanic eruption',
+            'Severe Storms': 'storm',
+            'Floods': 'flood',
+            'Dust and Haze': 'dust storm',
+            'Droughts': 'drought',
+            'Landslides': 'landslide',
+            'Manmade': 'industrial accident',
+            'Sea and Lake Ice': 'ice hazard',
+            'Snow': 'snow storm',
+            'Temperature Extremes': 'extreme temperature',
+            'Water Color': 'water quality'
+        }
+        return mapping.get(category, category.lower())
+    
     def _filter_by_region(self, disasters: List[DisasterInfo], region: str) -> List[DisasterInfo]:
         """Filter disasters by geographic region"""
         region_lower = region.lower()
@@ -253,6 +471,31 @@ class RealTimeDisasterService:
                 filtered.append(disaster)
         
         return filtered
+    
+    def _deduplicate_disasters(self, disasters: List[DisasterInfo]) -> List[DisasterInfo]:
+        """Remove duplicate disasters based on type, location, and similarity"""
+        unique_disasters = []
+        seen_combinations = set()
+        
+        for disaster in disasters:
+            # Create a key based on disaster type, location, and basic details
+            location_key = disaster.area.lower().replace(' ', '').replace(',', '')[:50]
+            disaster_key = f"{disaster.disaster_type}_{location_key}_{disaster.severity}"
+            
+            # Check for similar disasters (avoid exact duplicates)
+            is_duplicate = False
+            for seen_key in seen_combinations:
+                if (disaster.disaster_type in seen_key and 
+                    location_key[:20] in seen_key and
+                    disaster.severity in seen_key):
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                unique_disasters.append(disaster)
+                seen_combinations.add(disaster_key)
+        
+        return unique_disasters
     
     def _sort_disasters(self, disasters: List[DisasterInfo]) -> List[DisasterInfo]:
         """Sort disasters by severity and recency"""
