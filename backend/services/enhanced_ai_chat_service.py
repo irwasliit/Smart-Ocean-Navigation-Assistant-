@@ -314,7 +314,8 @@ class GoogleSearchService:
         if not self._check_rate_limits():
             logger.warning("🚫 Skipping Google Search due to rate limits")
             all_results["success"] = False
-            all_results["error"] = "Rate limit exceeded"
+            all_results["error"] = "Google Search API rate limit exceeded. Relying on official data sources."
+            all_results["fallback_message"] = "📡 Using official monitoring systems (USGS, NOAA, GDACS) for real-time data while search API recovers."
             return all_results
         
         # Execute strategic searches - REDUCED to 2 searches to conserve quota
@@ -1330,18 +1331,119 @@ class EnhancedAIChatService:
     async def _calculate_marine_route(self, message: str) -> Dict[str, Any]:
         """Calculate marine routes and distances between ports"""
         try:
-            # Port coordinates database
+            # Comprehensive Port coordinates database - Major Maritime Ports Worldwide
             ports = {
-                'chennai': {'name': 'Chennai Port', 'lat': 13.0827, 'lon': 80.2707, 'country': 'India'},
-                'singapore': {'name': 'Singapore Port', 'lat': 1.3521, 'lon': 103.8198, 'country': 'Singapore'},
-                'mumbai': {'name': 'Mumbai Port', 'lat': 19.0760, 'lon': 72.8777, 'country': 'India'},
-                'colombo': {'name': 'Colombo Port', 'lat': 6.9271, 'lon': 79.8612, 'country': 'Sri Lanka'},
-                'jaffna': {'name': 'Jaffna Port', 'lat': 9.6615, 'lon': 80.0255, 'country': 'Sri Lanka'},
-                'karachi': {'name': 'Karachi Port', 'lat': 24.8607, 'lon': 67.0011, 'country': 'Pakistan'},
-                'dubai': {'name': 'Dubai Port', 'lat': 25.2048, 'lon': 55.2708, 'country': 'UAE'},
-                'jakarta': {'name': 'Jakarta Port', 'lat': -6.2088, 'lon': 106.8456, 'country': 'Indonesia'},
-                'manila': {'name': 'Manila Port', 'lat': 14.5995, 'lon': 120.9842, 'country': 'Philippines'},
-                'bangkok': {'name': 'Bangkok Port', 'lat': 13.7563, 'lon': 100.5018, 'country': 'Thailand'}
+                # Indian Ocean & South Asia
+                'chennai': {'name': 'Chennai Port', 'lat': 13.0827, 'lon': 80.2707, 'country': 'India', 'region': 'Bay of Bengal'},
+                'mumbai': {'name': 'Mumbai Port', 'lat': 19.0760, 'lon': 72.8777, 'country': 'India', 'region': 'Arabian Sea'},
+                'kolkata': {'name': 'Kolkata Port', 'lat': 22.5726, 'lon': 88.3639, 'country': 'India', 'region': 'Bay of Bengal'},
+                'kochi': {'name': 'Kochi Port', 'lat': 9.9312, 'lon': 76.2673, 'country': 'India', 'region': 'Arabian Sea'},
+                'tuticorin': {'name': 'Tuticorin Port', 'lat': 8.8047, 'lon': 78.1378, 'country': 'India', 'region': 'Bay of Bengal'},
+                'visakhapatnam': {'name': 'Visakhapatnam Port', 'lat': 17.6868, 'lon': 83.2185, 'country': 'India', 'region': 'Bay of Bengal'},
+                'karachi': {'name': 'Karachi Port', 'lat': 24.8607, 'lon': 67.0011, 'country': 'Pakistan', 'region': 'Arabian Sea'},
+                'gwadar': {'name': 'Gwadar Port', 'lat': 25.1216, 'lon': 62.3254, 'country': 'Pakistan', 'region': 'Arabian Sea'},
+                'colombo': {'name': 'Colombo Port', 'lat': 6.9271, 'lon': 79.8612, 'country': 'Sri Lanka', 'region': 'Indian Ocean'},
+                'hambantota': {'name': 'Hambantota Port', 'lat': 6.1241, 'lon': 81.1185, 'country': 'Sri Lanka', 'region': 'Indian Ocean'},
+                'jaffna': {'name': 'Jaffna Port', 'lat': 9.6615, 'lon': 80.0255, 'country': 'Sri Lanka', 'region': 'Bay of Bengal'},
+                'chittagong': {'name': 'Chittagong Port', 'lat': 22.3569, 'lon': 91.7832, 'country': 'Bangladesh', 'region': 'Bay of Bengal'},
+                'yangon': {'name': 'Yangon Port', 'lat': 16.7967, 'lon': 96.1610, 'country': 'Myanmar', 'region': 'Bay of Bengal'},
+
+                # Southeast Asia & Pacific
+                'singapore': {'name': 'Singapore Port', 'lat': 1.3521, 'lon': 103.8198, 'country': 'Singapore', 'region': 'Strait of Malacca'},
+                'port_klang': {'name': 'Port Klang', 'lat': 3.0319, 'lon': 101.3544, 'country': 'Malaysia', 'region': 'Strait of Malacca'},
+                'penang': {'name': 'Penang Port', 'lat': 5.4164, 'lon': 100.3327, 'country': 'Malaysia', 'region': 'Strait of Malacca'},
+                'johor': {'name': 'Port of Tanjung Pelepas', 'lat': 1.3667, 'lon': 103.5500, 'country': 'Malaysia', 'region': 'Strait of Malacca'},
+                'jakarta': {'name': 'Jakarta Port (Tanjung Priok)', 'lat': -6.1067, 'lon': 106.8833, 'country': 'Indonesia', 'region': 'Java Sea'},
+                'surabaya': {'name': 'Surabaya Port', 'lat': -7.2105, 'lon': 112.7395, 'country': 'Indonesia', 'region': 'Java Sea'},
+                'belawan': {'name': 'Belawan Port', 'lat': 3.7792, 'lon': 98.6835, 'country': 'Indonesia', 'region': 'Strait of Malacca'},
+                'bangkok': {'name': 'Bangkok Port (Laem Chabang)', 'lat': 13.0824, 'lon': 100.8831, 'country': 'Thailand', 'region': 'Gulf of Thailand'},
+                'ho_chi_minh': {'name': 'Ho Chi Minh Port', 'lat': 10.7769, 'lon': 106.7009, 'country': 'Vietnam', 'region': 'South China Sea'},
+                'haiphong': {'name': 'Haiphong Port', 'lat': 20.8449, 'lon': 106.6881, 'country': 'Vietnam', 'region': 'South China Sea'},
+                'manila': {'name': 'Manila Port', 'lat': 14.5995, 'lon': 120.9842, 'country': 'Philippines', 'region': 'South China Sea'},
+                'cebu': {'name': 'Cebu Port', 'lat': 10.3157, 'lon': 123.8854, 'country': 'Philippines', 'region': 'Philippine Sea'},
+
+                # East Asia
+                'shanghai': {'name': 'Shanghai Port', 'lat': 31.2304, 'lon': 121.4737, 'country': 'China', 'region': 'East China Sea'},
+                'ningbo': {'name': 'Ningbo-Zhoushan Port', 'lat': 29.8736, 'lon': 121.5440, 'country': 'China', 'region': 'East China Sea'},
+                'shenzhen': {'name': 'Shenzhen Port', 'lat': 22.5431, 'lon': 114.0579, 'country': 'China', 'region': 'South China Sea'},
+                'guangzhou': {'name': 'Guangzhou Port', 'lat': 23.1291, 'lon': 113.2644, 'country': 'China', 'region': 'South China Sea'},
+                'qingdao': {'name': 'Qingdao Port', 'lat': 36.0986, 'lon': 120.3719, 'country': 'China', 'region': 'Yellow Sea'},
+                'tianjin': {'name': 'Tianjin Port', 'lat': 39.0458, 'lon': 117.7219, 'country': 'China', 'region': 'Bohai Sea'},
+                'dalian': {'name': 'Dalian Port', 'lat': 38.9140, 'lon': 121.6147, 'country': 'China', 'region': 'Yellow Sea'},
+                'xiamen': {'name': 'Xiamen Port', 'lat': 24.4798, 'lon': 118.0819, 'country': 'China', 'region': 'Taiwan Strait'},
+                'hong_kong': {'name': 'Hong Kong Port', 'lat': 22.3193, 'lon': 114.1694, 'country': 'Hong Kong', 'region': 'South China Sea'},
+                'kaohsiung': {'name': 'Kaohsiung Port', 'lat': 22.6273, 'lon': 120.3014, 'country': 'Taiwan', 'region': 'Taiwan Strait'},
+                'keelung': {'name': 'Keelung Port', 'lat': 25.1276, 'lon': 121.7393, 'country': 'Taiwan', 'region': 'East China Sea'},
+                'busan': {'name': 'Busan Port', 'lat': 35.1796, 'lon': 129.0756, 'country': 'South Korea', 'region': 'Korea Strait'},
+                'incheon': {'name': 'Incheon Port', 'lat': 37.4563, 'lon': 126.7052, 'country': 'South Korea', 'region': 'Yellow Sea'},
+                'tokyo': {'name': 'Tokyo Port', 'lat': 35.6262, 'lon': 139.7595, 'country': 'Japan', 'region': 'Tokyo Bay'},
+                'yokohama': {'name': 'Yokohama Port', 'lat': 35.4437, 'lon': 139.6380, 'country': 'Japan', 'region': 'Tokyo Bay'},
+                'kobe': {'name': 'Kobe Port', 'lat': 34.6901, 'lon': 135.1956, 'country': 'Japan', 'region': 'Osaka Bay'},
+                'osaka': {'name': 'Osaka Port', 'lat': 34.6515, 'lon': 135.4349, 'country': 'Japan', 'region': 'Osaka Bay'},
+                'nagoya': {'name': 'Nagoya Port', 'lat': 35.0836, 'lon': 136.8845, 'country': 'Japan', 'region': 'Ise Bay'},
+
+                # Middle East & Persian Gulf
+                'dubai': {'name': 'Dubai Port', 'lat': 25.2048, 'lon': 55.2708, 'country': 'UAE', 'region': 'Persian Gulf'},
+                'abu_dhabi': {'name': 'Abu Dhabi Port', 'lat': 24.4539, 'lon': 54.3773, 'country': 'UAE', 'region': 'Persian Gulf'},
+                'sharjah': {'name': 'Sharjah Port', 'lat': 25.3463, 'lon': 55.4209, 'country': 'UAE', 'region': 'Persian Gulf'},
+                'kuwait': {'name': 'Kuwait Port', 'lat': 29.3759, 'lon': 47.9774, 'country': 'Kuwait', 'region': 'Persian Gulf'},
+                'doha': {'name': 'Doha Port', 'lat': 25.2854, 'lon': 51.5310, 'country': 'Qatar', 'region': 'Persian Gulf'},
+                'manama': {'name': 'Manama Port', 'lat': 26.2285, 'lon': 50.5860, 'country': 'Bahrain', 'region': 'Persian Gulf'},
+                'dammam': {'name': 'Dammam Port', 'lat': 26.4207, 'lon': 50.0888, 'country': 'Saudi Arabia', 'region': 'Persian Gulf'},
+                'jeddah': {'name': 'Jeddah Port', 'lat': 21.4858, 'lon': 39.1925, 'country': 'Saudi Arabia', 'region': 'Red Sea'},
+                'bandar_abbas': {'name': 'Bandar Abbas Port', 'lat': 27.1867, 'lon': 56.2808, 'country': 'Iran', 'region': 'Persian Gulf'},
+
+                # Africa
+                'suez': {'name': 'Suez Port', 'lat': 29.9668, 'lon': 32.5498, 'country': 'Egypt', 'region': 'Red Sea'},
+                'alexandria': {'name': 'Alexandria Port', 'lat': 31.2001, 'lon': 29.9187, 'country': 'Egypt', 'region': 'Mediterranean Sea'},
+                'port_said': {'name': 'Port Said', 'lat': 31.2653, 'lon': 32.3019, 'country': 'Egypt', 'region': 'Mediterranean Sea'},
+                'durban': {'name': 'Durban Port', 'lat': -29.8587, 'lon': 31.0218, 'country': 'South Africa', 'region': 'Indian Ocean'},
+                'cape_town': {'name': 'Cape Town Port', 'lat': -33.9249, 'lon': 18.4241, 'country': 'South Africa', 'region': 'Atlantic Ocean'},
+                'dar_es_salaam': {'name': 'Dar es Salaam Port', 'lat': -6.8235, 'lon': 39.2695, 'country': 'Tanzania', 'region': 'Indian Ocean'},
+
+                # Europe
+                'rotterdam': {'name': 'Rotterdam Port', 'lat': 51.9244, 'lon': 4.4777, 'country': 'Netherlands', 'region': 'North Sea'},
+                'antwerp': {'name': 'Antwerp Port', 'lat': 51.2194, 'lon': 4.4025, 'country': 'Belgium', 'region': 'North Sea'},
+                'hamburg': {'name': 'Hamburg Port', 'lat': 53.5511, 'lon': 9.9937, 'country': 'Germany', 'region': 'North Sea'},
+                'bremerhaven': {'name': 'Bremerhaven Port', 'lat': 53.5366, 'lon': 8.5810, 'country': 'Germany', 'region': 'North Sea'},
+                'felixstowe': {'name': 'Felixstowe Port', 'lat': 51.9642, 'lon': 1.3518, 'country': 'UK', 'region': 'North Sea'},
+                'london': {'name': 'London Port', 'lat': 51.5074, 'lon': -0.1278, 'country': 'UK', 'region': 'Thames Estuary'},
+                'le_havre': {'name': 'Le Havre Port', 'lat': 49.4944, 'lon': 0.1079, 'country': 'France', 'region': 'English Channel'},
+                'marseille': {'name': 'Marseille Port', 'lat': 43.2965, 'lon': 5.3698, 'country': 'France', 'region': 'Mediterranean Sea'},
+                'barcelona': {'name': 'Barcelona Port', 'lat': 41.3851, 'lon': 2.1734, 'country': 'Spain', 'region': 'Mediterranean Sea'},
+                'valencia': {'name': 'Valencia Port', 'lat': 39.4699, 'lon': -0.3763, 'country': 'Spain', 'region': 'Mediterranean Sea'},
+                'algeciras': {'name': 'Algeciras Port', 'lat': 36.1408, 'lon': -5.4526, 'country': 'Spain', 'region': 'Strait of Gibraltar'},
+                'genoa': {'name': 'Genoa Port', 'lat': 44.4056, 'lon': 8.9463, 'country': 'Italy', 'region': 'Mediterranean Sea'},
+                'la_spezia': {'name': 'La Spezia Port', 'lat': 44.1023, 'lon': 9.8184, 'country': 'Italy', 'region': 'Mediterranean Sea'},
+                'piraeus': {'name': 'Piraeus Port', 'lat': 37.9386, 'lon': 23.6426, 'country': 'Greece', 'region': 'Mediterranean Sea'},
+
+                # Americas
+                'los_angeles': {'name': 'Los Angeles Port', 'lat': 33.7361, 'lon': -118.2642, 'country': 'USA', 'region': 'Pacific Ocean'},
+                'long_beach': {'name': 'Long Beach Port', 'lat': 33.7653, 'lon': -118.2014, 'country': 'USA', 'region': 'Pacific Ocean'},
+                'seattle': {'name': 'Seattle Port', 'lat': 47.6062, 'lon': -122.3321, 'country': 'USA', 'region': 'Pacific Ocean'},
+                'oakland': {'name': 'Oakland Port', 'lat': 37.8044, 'lon': -122.2711, 'country': 'USA', 'region': 'Pacific Ocean'},
+                'new_york': {'name': 'New York Port', 'lat': 40.6892, 'lon': -74.0445, 'country': 'USA', 'region': 'Atlantic Ocean'},
+                'norfolk': {'name': 'Norfolk Port', 'lat': 36.8508, 'lon': -76.2859, 'country': 'USA', 'region': 'Atlantic Ocean'},
+                'charleston': {'name': 'Charleston Port', 'lat': 32.7767, 'lon': -79.9311, 'country': 'USA', 'region': 'Atlantic Ocean'},
+                'savannah': {'name': 'Savannah Port', 'lat': 32.0835, 'lon': -81.0998, 'country': 'USA', 'region': 'Atlantic Ocean'},
+                'houston': {'name': 'Houston Port', 'lat': 29.7604, 'lon': -95.3698, 'country': 'USA', 'region': 'Gulf of Mexico'},
+                'new_orleans': {'name': 'New Orleans Port', 'lat': 29.9511, 'lon': -90.0715, 'country': 'USA', 'region': 'Gulf of Mexico'},
+                'vancouver': {'name': 'Vancouver Port', 'lat': 49.2827, 'lon': -123.1207, 'country': 'Canada', 'region': 'Pacific Ocean'},
+                'montreal': {'name': 'Montreal Port', 'lat': 45.5017, 'lon': -73.5673, 'country': 'Canada', 'region': 'St. Lawrence River'},
+                'santos': {'name': 'Santos Port', 'lat': -23.9618, 'lon': -46.3322, 'country': 'Brazil', 'region': 'Atlantic Ocean'},
+                'rio_de_janeiro': {'name': 'Rio de Janeiro Port', 'lat': -22.9068, 'lon': -43.1729, 'country': 'Brazil', 'region': 'Atlantic Ocean'},
+                'buenos_aires': {'name': 'Buenos Aires Port', 'lat': -34.6118, 'lon': -58.3960, 'country': 'Argentina', 'region': 'Rio de la Plata'},
+                'valparaiso': {'name': 'Valparaiso Port', 'lat': -33.0458, 'lon': -71.6197, 'country': 'Chile', 'region': 'Pacific Ocean'},
+                'callao': {'name': 'Callao Port', 'lat': -12.0464, 'lon': -77.1428, 'country': 'Peru', 'region': 'Pacific Ocean'},
+
+                # Australia & Oceania  
+                'sydney': {'name': 'Sydney Port', 'lat': -33.8688, 'lon': 151.2093, 'country': 'Australia', 'region': 'Tasman Sea'},
+                'melbourne': {'name': 'Melbourne Port', 'lat': -37.8136, 'lon': 144.9631, 'country': 'Australia', 'region': 'Bass Strait'},
+                'brisbane': {'name': 'Brisbane Port', 'lat': -27.4698, 'lon': 153.0251, 'country': 'Australia', 'region': 'Coral Sea'},
+                'fremantle': {'name': 'Fremantle Port', 'lat': -32.0569, 'lon': 115.7439, 'country': 'Australia', 'region': 'Indian Ocean'},
+                'adelaide': {'name': 'Adelaide Port', 'lat': -34.9285, 'lon': 138.6007, 'country': 'Australia', 'region': 'Great Australian Bight'},
+                'auckland': {'name': 'Auckland Port', 'lat': -36.8485, 'lon': 174.7633, 'country': 'New Zealand', 'region': 'Tasman Sea'},
+                'wellington': {'name': 'Wellington Port', 'lat': -41.2865, 'lon': 174.7762, 'country': 'New Zealand', 'region': 'Cook Strait'}
             }
             
             # Extract port names from message
@@ -1371,13 +1473,19 @@ class EnhancedAIChatService:
                 distance_km = haversine_distance(port1['lat'], port1['lon'], port2['lat'], port2['lon'])
                 distance_nm = distance_km * 0.539957  # Convert to nautical miles
                 
-                # Estimate sailing time (average commercial vessel speed: 12-15 knots)
-                avg_speed_knots = 13
+                # Get detailed route information first
+                route_info = self._get_route_info(port1_key, port2_key)
+                
+                # Determine optimal speed based on route characteristics and season
+                speed_info = self._calculate_route_speed(distance_nm, route_info, port1_key, port2_key)
+                avg_speed_knots = speed_info['optimal_speed']
+                
+                # Calculate sailing time with more accuracy
                 sailing_time_hours = distance_nm / avg_speed_knots
                 sailing_days = sailing_time_hours / 24
                 
-                # Determine general route direction and key waypoints
-                route_info = self._get_route_info(port1_key, port2_key)
+                # Calculate fuel consumption estimate
+                fuel_consumption = self._estimate_fuel_consumption(distance_nm, avg_speed_knots, route_info)
                 
                 return {
                     "success": True,
@@ -1387,10 +1495,20 @@ class EnhancedAIChatService:
                     "distance_nm": round(distance_nm, 1),
                     "estimated_sailing_time": {
                         "hours": round(sailing_time_hours, 1),
-                        "days": round(sailing_days, 1)
+                        "days": round(sailing_days, 1),
+                        "detailed": f"{int(sailing_days)} days {int((sailing_days % 1) * 24)} hours"
                     },
                     "route_info": route_info,
-                    "avg_vessel_speed": f"{avg_speed_knots} knots"
+                    "speed_analysis": speed_info,
+                    "fuel_analysis": fuel_consumption,
+                    "avg_vessel_speed": f"{avg_speed_knots} knots",
+                    "detailed_routing": {
+                        "route_description": route_info.get('description', 'Direct maritime route'),
+                        "major_waypoints": route_info.get('key_waypoints', []),
+                        "navigation_considerations": route_info.get('navigation_notes', []),
+                        "seasonal_factors": route_info.get('weather_patterns', []),
+                        "alternative_options": route_info.get('alternative_routes', [])
+                    }
                 }
             
             return {"success": False, "error": "Could not identify two ports in the message"}
@@ -1400,44 +1518,286 @@ class EnhancedAIChatService:
             return {"success": False, "error": str(e)}
     
     def _get_route_info(self, port1: str, port2: str) -> Dict[str, Any]:
-        """Get route-specific information and waypoints"""
+        """Get comprehensive route-specific information with detailed maritime routing"""
         
+        # Comprehensive route database with specific maritime routing details
         route_data = {
+            # Indian Ocean & Bay of Bengal Routes
             ('chennai', 'singapore'): {
-                "route_name": "Chennai-Singapore Route",
-                "description": "Major shipping route through Bay of Bengal and Strait of Malacca",
-                "key_waypoints": ["Palk Strait", "Strait of Malacca", "Singapore Strait"],
-                "weather_considerations": ["Monsoon seasons (Jun-Sep, Dec-Mar)", "Cyclone season (Apr-Dec)"],
-                "navigation_notes": ["Heavy traffic in Malacca Strait", "Piracy risk areas", "Traffic separation schemes"],
-                "best_seasons": ["October to March (Northeast Monsoon)", "April to May (Inter-monsoon)"]
+                "route_name": "Chennai-Singapore Major Shipping Route",
+                "description": "Southeast via Bay of Bengal through Strait of Malacca to Singapore Port",
+                "distance_breakdown": "Chennai → Palk Strait (120 NM) → Strait of Malacca entry (720 NM) → Singapore (180 NM)",
+                "key_waypoints": ["10°N 80°30'E (Palk Strait)", "05°N 95°E (Nicobar Passage)", "01°20'N 103°50'E (Singapore Strait East)"],
+                "major_straits": ["Palk Strait", "Ten Degree Channel", "Strait of Malacca", "Singapore Strait"],
+                "shipping_lanes": ["Great Circle Route via Bay of Bengal", "TSS Malacca Strait", "Singapore Port Approach"],
+                "navigation_notes": ["Heavy merchant traffic in Malacca Strait", "Mandatory pilot in Singapore waters", "Speed restrictions in strait approaches"],
+                "weather_patterns": ["SW Monsoon (Jun-Sep): Rough seas, heavy rain", "NE Monsoon (Dec-Mar): Calmer conditions", "Inter-monsoon (Apr-May, Oct-Nov): Variable"],
+                "seasonal_speeds": {"optimal": "14-16 knots", "monsoon": "12-14 knots", "rough_weather": "10-12 knots"},
+                "fuel_considerations": "Refueling available at Singapore - major bunkering hub",
+                "alternative_routes": ["Via Sunda Strait (add 200 NM)", "Via Lombok Strait (add 350 NM)"],
+                "hazards": ["Piracy risk areas near Malacca Strait", "Dense fishing traffic", "Underwater obstacles near Palk Strait"]
             },
-            ('singapore', 'chennai'): {
-                "route_name": "Singapore-Chennai Route", 
-                "description": "Return route from Singapore through Strait of Malacca to Bay of Bengal",
-                "key_waypoints": ["Singapore Strait", "Strait of Malacca", "Palk Strait"],
-                "weather_considerations": ["Southwest Monsoon (Jun-Sep)", "Northeast Monsoon (Dec-Mar)"],
-                "navigation_notes": ["Traffic density in Singapore waters", "Strait of Malacca congestion"],
-                "best_seasons": ["October to March", "Avoid peak monsoon periods"]
+            ('singapore', 'mumbai'): {
+                "route_name": "Singapore-Mumbai Trans-Indian Ocean Route", 
+                "description": "Northwest via Strait of Malacca, across Indian Ocean to Arabian Sea and Mumbai",
+                "distance_breakdown": "Singapore → Malacca Strait exit (180 NM) → Indian Ocean crossing (1,240 NM) → Mumbai approach (120 NM)",
+                "key_waypoints": ["01°20'N 103°50'E (Singapore Strait)", "06°N 95°E (Malacca exit)", "08°N 73°E (Mumbai approach)"],
+                "major_straits": ["Singapore Strait", "Strait of Malacca", "Nine Degree Channel"],
+                "shipping_lanes": ["Great Circle Route across Indian Ocean", "Mumbai Port Traffic Separation Scheme"],
+                "navigation_notes": ["Open ocean navigation for 1,200+ NM", "Mumbai pilot mandatory", "Traffic density increases near Lakshadweep"],
+                "weather_patterns": ["SW Monsoon (Jun-Sep): Head winds and rough seas", "Post-monsoon (Oct-Nov): Optimal conditions"],
+                "seasonal_speeds": {"optimal": "15-17 knots", "monsoon": "11-13 knots", "cyclone_season": "10-12 knots"},
+                "fuel_considerations": "Long ocean crossing - ensure adequate fuel or plan bunkering at Colombo",
+                "alternative_routes": ["Via Colombo (add 150 NM for refueling)", "Via Maldives (tourist/fishing traffic)"],
+                "hazards": ["Cyclone season Apr-Dec", "Fishing vessels near Lakshadweep", "Commercial traffic convergence near Mumbai"]
+            },
+            ('dubai', 'mumbai'): {
+                "route_name": "Dubai-Mumbai Arabian Sea Direct Route",
+                "description": "Southeast across Arabian Sea from Persian Gulf to Mumbai",
+                "distance_breakdown": "Dubai → Persian Gulf exit (120 NM) → Arabian Sea crossing (750 NM) → Mumbai (80 NM)",
+                "key_waypoints": ["25°12'N 55°16'E (Dubai Port)", "24°N 59°E (Strait of Hormuz)", "19°05'N 72°50'E (Mumbai)"],
+                "major_straits": ["Strait of Hormuz"],  
+                "shipping_lanes": ["Persian Gulf TSS", "Arabian Sea Shipping Route", "Mumbai Approach Channel"],
+                "navigation_notes": ["Heavy tanker traffic in Persian Gulf", "Open Arabian Sea navigation", "Mumbai pilot required"],
+                "weather_patterns": ["Shamal winds (Jun-Jul): Strong NW winds", "Monsoon (Jun-Sep): Rough seas", "Winter (Dec-Feb): Calm conditions"],
+                "seasonal_speeds": {"winter": "16-18 knots", "shamal_season": "13-15 knots", "monsoon": "11-13 knots"},
+                "fuel_considerations": "Dubai major bunkering hub - top off before departure",
+                "alternative_routes": ["Via Karachi (add 200 NM)", "Via Gwadar (add 100 NM)"],
+                "hazards": ["Dense tanker traffic", "Fishing dhows", "Potential political tensions in Persian Gulf"]
+            },
+            ('shanghai', 'singapore'): {
+                "route_name": "Shanghai-Singapore East Asia Major Trade Route",
+                "description": "South via East China Sea, Taiwan Strait, South China Sea to Singapore",
+                "distance_breakdown": "Shanghai → Taiwan Strait (520 NM) → South China Sea (680 NM) → Singapore (250 NM)",
+                "key_waypoints": ["31°14'N 121°28'E (Shanghai)", "23°30'N 118°E (Taiwan Strait)", "01°20'N 103°50'E (Singapore)"],
+                "major_straits": ["Taiwan Strait", "Singapore Strait"],
+                "shipping_lanes": ["East China Sea Shipping Route", "Taiwan Strait TSS", "South China Sea Main Route", "Singapore Strait TSS"],
+                "navigation_notes": ["Extremely heavy container traffic", "Taiwan Strait weather restrictions", "Singapore pilot mandatory"],
+                "weather_patterns": ["Typhoon season (May-Nov): Route disruptions possible", "Winter (Dec-Feb): Stable conditions", "Spring (Mar-Apr): Variable weather"],
+                "seasonal_speeds": {"winter": "16-18 knots", "typhoon_season": "12-15 knots", "optimal": "15-17 knots"},
+                "fuel_considerations": "Singapore major bunkering hub - efficient fuel pricing",
+                "alternative_routes": ["Via Luzon Strait (add 180 NM)", "Via Balabac Strait (add 220 NM)"],
+                "hazards": ["Typhoons May-November", "Dense commercial traffic", "Fishing vessel interactions"]
+            },
+            ('busan', 'los_angeles'): {
+                "route_name": "Busan-Los Angeles Trans-Pacific Container Route",
+                "description": "Great Circle Route across North Pacific Ocean",
+                "distance_breakdown": "Busan → Aleutian routing (3,200 NM) → California approach (2,100 NM)",
+                "key_waypoints": ["35°11'N 129°04'E (Busan)", "45°N 160°E (North Pacific)", "33°44'N 118°16'W (Los Angeles)"],
+                "major_straits": ["Korea Strait (departure)", "San Pedro Channel (arrival)"],
+                "shipping_lanes": ["Great Circle Trans-Pacific Route", "North Pacific Traffic Lanes", "Los Angeles TSS"],
+                "navigation_notes": ["Long ocean passage 14-16 days", "Weather routing essential", "Los Angeles pilot required"],
+                "weather_patterns": ["North Pacific storms (Oct-Mar)", "Summer (Jun-Aug): Calmer conditions", "Typhoon influence (Jul-Oct)"],
+                "seasonal_speeds": {"summer": "18-20 knots", "winter": "14-16 knots", "storm_season": "12-15 knots"},
+                "fuel_considerations": "Major ocean crossing - full bunkers required, no intermediate fuel stops",
+                "alternative_routes": ["Great Circle High Route (shorter in summer)", "Southern Route via Hawaii (longer but calmer)"],
+                "hazards": ["North Pacific storms", "Fog near Aleutians", "Heavy traffic near LA approaches"]
+            },
+            ('rotterdam', 'new_york'): {
+                "route_name": "Rotterdam-New York North Atlantic Container Route",
+                "description": "Southwest across North Atlantic via Great Circle routing",
+                "distance_breakdown": "Rotterdam → English Channel (180 NM) → Atlantic crossing (2,900 NM) → New York (120 NM)",
+                "key_waypoints": ["51°55'N 04°29'E (Rotterdam)", "50°N 02°W (English Channel)", "40°41'N 74°03'W (New York)"],
+                "major_straits": ["English Channel", "The Narrows (New York Harbor)"],
+                "shipping_lanes": ["English Channel TSS", "North Atlantic Shipping Lanes", "New York Approach"],
+                "navigation_notes": ["Heavy traffic in English Channel", "Weather routing across Atlantic", "New York pilot mandatory"],
+                "weather_patterns": ["Atlantic storms (Oct-Mar)", "Summer (Jun-Aug): Generally favorable", "Winter gales common"],
+                "seasonal_speeds": {"summer": "18-20 knots", "winter": "15-17 knots", "gale_conditions": "12-14 knots"},
+                "fuel_considerations": "Rotterdam major bunkering hub - competitive pricing",
+                "alternative_routes": ["Southern Route via Azores (add 300 NM)", "Northern Route (summer only, shorter)"],
+                "hazards": ["Atlantic storms", "Icebergs (Mar-Jul northern routes)", "Dense traffic in approaches"]
+            },
+            ('jeddah', 'mumbai'): {
+                "route_name": "Jeddah-Mumbai Red Sea to Arabian Sea Route",
+                "description": "Southeast via Red Sea, Arabian Sea to Mumbai",
+                "distance_breakdown": "Jeddah → Bab el-Mandeb (420 NM) → Arabian Sea (780 NM) → Mumbai (90 NM)",
+                "key_waypoints": ["21°29'N 39°11'E (Jeddah)", "12°35'N 43°20'E (Bab el-Mandeb)", "19°05'N 72°50'E (Mumbai)"],
+                "major_straits": ["Bab el-Mandeb Strait"],
+                "shipping_lanes": ["Red Sea Main Channel", "Arabian Sea Shipping Route", "Mumbai TSS"],
+                "navigation_notes": ["Suez Canal approach traffic", "Bab el-Mandeb congestion", "Mumbai pilot required"],
+                "weather_patterns": ["Red Sea: Hot, dry conditions year-round", "Arabian Sea: Monsoon Jun-Sep", "Shamal winds (summer)"],
+                "seasonal_speeds": {"winter": "16-18 knots", "monsoon": "13-15 knots", "summer": "14-16 knots"},
+                "fuel_considerations": "Jeddah available for bunkering - premium pricing",
+                "alternative_routes": ["Via Suez Canal to Mediterranean (container routes)", "Via Aden for refueling"],
+                "hazards": ["Red Sea coral reefs", "Piracy near Bab el-Mandeb", "Fishing traffic"]
+            },
+            ('hong_kong', 'vancouver'): {
+                "route_name": "Hong Kong-Vancouver Trans-Pacific Route",
+                "description": "Northeast across Pacific via Great Circle routing to Vancouver",
+                "distance_breakdown": "Hong Kong → North Pacific (4,100 NM) → Vancouver approach (300 NM)",
+                "key_waypoints": ["22°19'N 114°10'E (Hong Kong)", "40°N 170°E (Mid-Pacific)", "49°17'N 123°07'W (Vancouver)"],
+                "major_straits": ["Victoria Harbor (departure)", "Juan de Fuca Strait (arrival)"],
+                "shipping_lanes": ["South China Sea exit", "North Pacific Great Circle", "Vancouver TSS"],
+                "navigation_notes": ["Long ocean passage 13-15 days", "Weather routing critical", "Vancouver pilot required"],
+                "weather_patterns": ["Typhoons Jun-Nov (departure)", "North Pacific storms Oct-Mar", "Summer generally favorable"],
+                "seasonal_speeds": {"summer": "17-19 knots", "winter": "14-16 knots", "storm_season": "12-15 knots"},
+                "fuel_considerations": "Full ocean crossing - ensure maximum bunkers at Hong Kong",
+                "alternative_routes": ["Northern Great Circle (summer)", "Southern route via Hawaii (add 500 NM)"],
+                "hazards": ["Typhoons in South China Sea", "North Pacific storms", "Fog near Vancouver"]
             }
         }
         
-        # Check both directions
-        key = (port1, port2)
-        reverse_key = (port2, port1)
+        # Generate route key combinations (both directions)
+        key1 = (port1, port2)
+        key2 = (port2, port1)
         
-        if key in route_data:
-            return route_data[key]
-        elif reverse_key in route_data:
-            return route_data[reverse_key]
+        # Check for exact route match
+        if key1 in route_data:
+            return route_data[key1]
+        elif key2 in route_data:
+            # Reverse the route but maintain accuracy
+            route = route_data[key2].copy()
+            route["route_name"] = f"{port1.title()}-{port2.title()} " + route["route_name"].split('-', 1)[1] if '-' in route["route_name"] else f"{port1.title()}-{port2.title()} Route"
+            return route
         else:
-            return {
-                "route_name": f"{port1.title()}-{port2.title()} Route",
-                "description": f"Maritime route between {port1.title()} and {port2.title()}",
-                "key_waypoints": ["Specific waypoints depend on chosen route"],
-                "weather_considerations": ["Check seasonal weather patterns", "Monitor tropical systems"],
-                "navigation_notes": ["Follow international shipping lanes", "Check for local restrictions"],
-                "best_seasons": ["Consult regional weather patterns"]
-            }
+            # Generate intelligent default based on port regions
+            return self._generate_intelligent_route_info(port1, port2)
+    
+    def _generate_intelligent_route_info(self, port1: str, port2: str) -> Dict[str, Any]:
+        """Generate intelligent route information based on port locations and regions"""
+        # This would analyze the port regions and generate appropriate routing information
+        return {
+            "route_name": f"{port1.title()}-{port2.title()} Maritime Route",
+            "description": f"Direct maritime route from {port1.title()} to {port2.title()} following international shipping lanes",
+            "distance_breakdown": "Route analysis based on great circle distance with port approach considerations",
+            "key_waypoints": ["Departure port approach", "Open ocean waypoints", "Destination port approach"],
+            "major_straits": ["Route-specific straits and channels based on geographic location"],
+            "shipping_lanes": ["International shipping lanes", "Regional traffic separation schemes"],
+            "navigation_notes": ["Follow IMO regulations", "Check local pilot requirements", "Monitor weather conditions"],
+            "weather_patterns": ["Seasonal weather patterns vary by region and route"],
+            "seasonal_speeds": {"optimal": "15-17 knots", "adverse": "12-14 knots", "severe": "10-12 knots"},
+            "fuel_considerations": "Plan fuel requirements based on distance and no intermediate stops",
+            "alternative_routes": ["Alternative routing options depend on weather and traffic"],
+            "hazards": ["Standard maritime hazards", "Regional weather patterns", "Commercial traffic areas"]
+        }
+    
+    def _calculate_route_speed(self, distance_nm: float, route_info: Dict, port1: str, port2: str) -> Dict[str, Any]:
+        """Calculate optimal speed based on route characteristics, distance, and seasonal factors"""
+        
+        # Base speeds by route type and conditions
+        base_speed = 15  # Standard container vessel speed
+        
+        # Adjust speed based on route characteristics
+        speed_adjustments = {
+            "strait_heavy_traffic": -2,  # Malacca Strait, Singapore Strait
+            "open_ocean_long": +2,       # Trans-Pacific, Trans-Atlantic  
+            "monsoon_season": -3,        # Monsoon affected routes
+            "winter_north_atlantic": -2, # Winter storms
+            "persian_gulf_summer": -1,   # Extreme heat effects
+            "piracy_areas": -1,          # Speed reduction for security
+            "canal_approach": -3,        # Suez/Panama approaches
+            "port_congestion": -2        # Busy port approaches
+        }
+        
+        # Route-specific speed calculations
+        optimal_speed = base_speed
+        speed_factors = []
+        
+        # Check for specific route characteristics
+        if any(strait in route_info.get('major_straits', []) for strait in ['Strait of Malacca', 'Singapore Strait']):
+            optimal_speed += speed_adjustments["strait_heavy_traffic"]
+            speed_factors.append("Heavy traffic straits")
+            
+        if distance_nm > 3000:  # Long ocean routes
+            optimal_speed += speed_adjustments["open_ocean_long"]
+            speed_factors.append("Long ocean passage")
+            
+        if any(pattern in route_info.get('weather_patterns', []) for pattern in ['Monsoon', 'monsoon']):
+            optimal_speed += speed_adjustments["monsoon_season"]
+            speed_factors.append("Monsoon considerations")
+            
+        if 'North Atlantic' in route_info.get('description', '') and 'winter' in route_info.get('seasonal_speeds', {}):
+            optimal_speed += speed_adjustments["winter_north_atlantic"] 
+            speed_factors.append("North Atlantic winter")
+            
+        if any(gulf_port in [port1, port2] for gulf_port in ['dubai', 'kuwait', 'dammam', 'bandar_abbas']):
+            optimal_speed += speed_adjustments["persian_gulf_summer"]
+            speed_factors.append("Persian Gulf conditions")
+            
+        if 'piracy' in str(route_info.get('hazards', [])).lower():
+            optimal_speed += speed_adjustments["piracy_areas"]
+            speed_factors.append("Security considerations")
+        
+        # Ensure reasonable speed bounds
+        optimal_speed = max(10, min(20, optimal_speed))
+        
+        # Seasonal speed variations
+        seasonal_speeds = route_info.get('seasonal_speeds', {})
+        if seasonal_speeds:
+            try:
+                # Parse seasonal speeds if they exist in route_info
+                optimal_range = seasonal_speeds.get('optimal', f"{optimal_speed}-{optimal_speed+2} knots")
+                if '-' in optimal_range:
+                    speeds = optimal_range.split('-')
+                    optimal_speed = (float(speeds[0]) + float(speeds[1].split()[0])) / 2
+            except:
+                pass  # Use calculated speed if parsing fails
+        
+        return {
+            'optimal_speed': round(optimal_speed, 1),
+            'speed_range': f"{optimal_speed-2:.1f}-{optimal_speed+2:.1f} knots",
+            'speed_factors': speed_factors,
+            'seasonal_variations': seasonal_speeds
+        }
+    
+    def _estimate_fuel_consumption(self, distance_nm: float, speed_knots: float, route_info: Dict) -> Dict[str, Any]:
+        """Estimate fuel consumption based on distance, speed, and route conditions"""
+        
+        # Base fuel consumption rate (tons per day for typical container vessel)
+        base_consumption_per_day = {
+            'container_large': 200,    # 15,000+ TEU
+            'container_medium': 120,   # 8,000-15,000 TEU  
+            'container_small': 80,     # Under 8,000 TEU
+            'bulk_carrier': 150,       # Typical bulk carrier
+            'tanker': 180             # Oil tanker
+        }
+        
+        # Assume medium container vessel as default
+        daily_consumption = base_consumption_per_day['container_medium']
+        
+        # Calculate voyage time in days
+        voyage_hours = distance_nm / speed_knots
+        voyage_days = voyage_hours / 24
+        
+        # Base fuel consumption
+        base_fuel = daily_consumption * voyage_days
+        
+        # Adjust for route conditions
+        fuel_adjustments = {
+            'rough_weather': 1.15,     # 15% increase
+            'head_currents': 1.10,     # 10% increase
+            'port_delays': 1.05,       # 5% increase for potential delays
+            'optimal_conditions': 0.95, # 5% decrease
+            'strait_slow_speed': 1.08   # 8% increase due to speed restrictions
+        }
+        
+        adjustment_factor = 1.0
+        consumption_notes = []
+        
+        # Apply adjustments based on route characteristics
+        if 'storm' in str(route_info.get('weather_patterns', [])).lower() or 'rough' in str(route_info.get('weather_patterns', [])).lower():
+            adjustment_factor *= fuel_adjustments['rough_weather']
+            consumption_notes.append("Rough weather conditions")
+            
+        if any(strait in route_info.get('major_straits', []) for strait in ['Strait of Malacca', 'Singapore Strait', 'English Channel']):
+            adjustment_factor *= fuel_adjustments['strait_slow_speed']
+            consumption_notes.append("Speed restrictions in straits")
+            
+        if 'optimal' in str(route_info.get('weather_patterns', [])).lower():
+            adjustment_factor *= fuel_adjustments['optimal_conditions']
+            consumption_notes.append("Favorable weather conditions")
+            
+        # Calculate final fuel consumption
+        total_fuel = base_fuel * adjustment_factor
+        
+        return {
+            'total_fuel_tons': round(total_fuel, 1),
+            'daily_consumption_tons': round(daily_consumption, 1),
+            'voyage_days': round(voyage_days, 2),
+            'fuel_cost_estimate_usd': round(total_fuel * 650, -3),  # Approximate fuel cost per ton
+            'consumption_factors': consumption_notes,
+            'bunkering_recommendations': route_info.get('fuel_considerations', 'Standard bunkering planning required')
+        }
     
     async def _generate_openai_response(self, message: str, response_type: ResponseType, 
                                       real_time_data: Dict, context_data: Dict = None) -> Dict[str, Any]:
@@ -1516,21 +1876,42 @@ class EnhancedAIChatService:
         ⚠️ SAFETY IMPACT:
         - [How current weather conditions affect maritime activities]
 
-        FOR ROUTE QUERIES ONLY - Use this format:
+        FOR ROUTE QUERIES ONLY - Use this comprehensive format:
         🚢 BEST ROUTE from [PORT A] to [PORT B]:
-        - Distance: [X] nautical miles
-        - Route: via [specific route description]
-        - Estimated Time: [X] days at 15 knots
-        - Key Waypoints: [major points along route]
-
-        ✅ SAFETY RECOMMENDATIONS:
-        - [3-4 specific safety tips for this route]
-        - [Weather considerations from real-time data]
-        - [Navigation advice]
+        
+        📏 ROUTE SPECIFICATIONS:
+        - Distance: [X] nautical miles ([X] km)
+        - Route Description: [Specific detailed route with straits, channels, waypoints]
+        - Estimated Time: [X days Y hours] at [optimal speed] knots
+        - Speed Analysis: [Speed range based on conditions] knots
+        
+        🗺️ DETAILED ROUTING:
+        - Major Waypoints: [Specific coordinates and navigation points]
+        - Key Straits/Channels: [All major waterways to transit]
+        - Shipping Lanes: [Specific TSS and shipping routes]
+        - Distance Breakdown: [Segment-by-segment breakdown]
+        
+        ⛽ OPERATIONAL ANALYSIS:
+        - Fuel Consumption: [X] tons ([estimated cost])
+        - Daily Consumption: [X] tons per day
+        - Bunkering Strategy: [Where to refuel, fuel considerations]
+        - Speed Factors: [What affects vessel speed on this route]
+        
+        🌊 MARITIME CONDITIONS:
+        - Seasonal Patterns: [Weather patterns affecting this route]
+        - Optimal Seasons: [Best times to transit this route]
+        - Navigation Hazards: [Specific risks and considerations]
+        - Traffic Density: [Expected vessel traffic levels]
+        
+        🛡️ SAFETY & ALTERNATIVES:
+        - Primary Hazards: [Route-specific risks and mitigation]
+        - Alternative Routes: [Other routing options with distances]
+        - Weather Routing: [Seasonal recommendations]
         - [CHECK CURRENT DISASTERS: If any disasters affect the departure, destination, or route area, warn about them]
 
-        ⚠️ DISASTER WARNINGS:
+        ⚠️ CURRENT ROUTE WARNINGS:
         - [If current disasters affect this route, list them with specific risks and alternative suggestions]
+        - [Real-time hazards from weather and marine alerts]
 
         FOR SAFETY QUERIES - Use this format:
         ✅ SAFE / ❌ UNSAFE - Travel to [LOCATION]
@@ -1550,11 +1931,49 @@ class EnhancedAIChatService:
         
         FOR GENERAL DISASTER OVERVIEW:
         🌪️ CURRENT GLOBAL DISASTERS:
-        1. [Type] in [Enhanced Location] - [Magnitude/Intensity/Severity]
-        2. [Type] in [Enhanced Location] - [Details from monitoring systems]
-        [List all available disasters from real-time data - use enhanced_location for precision]
-
+        
+        🌍 EARTHQUAKES:
+        • [Enhanced Location with city/region] - Magnitude [X.X] ([Severity Level])
+        • [Enhanced Location with city/region] - Magnitude [X.X] ([Severity Level])
+        
+        🌊 STORMS & TYPHOONS:
+        • [Storm Name/Type] affecting [Enhanced Location with cities/regions] - [Intensity/Category]
+        • [Specific areas impacted, wind speeds, movement direction]
+        
+        💧 FLOODS & WATER HAZARDS:
+        • [Enhanced Location with cities/regions] - [Severity Level]
+        • [Specific affected areas, water levels, duration]
+        
+        🔥 OTHER NATURAL DISASTERS:
+        • [Type] in [Enhanced Location] - [Severity/Details]
+        
         📊 DATA SOURCES: [List the actual monitoring sources like USGS, GDACS, etc.]
+        
+        ⚠️ MARITIME IMPACT BY DISASTER TYPE:
+        🌍 Earthquake Zones:
+        - [Specific shipping lanes affected, tsunami risk, port closures]
+        
+        🌊 Storm Systems:
+        - [Affected shipping routes, wind/wave conditions, port operations]
+        
+        💧 Flood Areas:
+        - [River mouth closures, coastal flooding impacts, harbor conditions]
+        
+        🚢 NAVIGATION RECOMMENDATIONS:
+        - Avoid: [Specific areas/coordinates to avoid]
+        - Alternative routes: [Suggested routing changes]
+        - Monitor: [Areas requiring increased vigilance]
+
+        🕐 LAST UPDATED: Real-time monitoring active
+
+        CRITICAL FOR GENERAL DISASTER OVERVIEWS: 
+        - Organize disasters BY TYPE (Earthquakes, Storms, Floods, etc.) with clear category headers
+        - Provide EQUAL treatment for ALL disasters within each category
+        - Include SPECIFIC LOCATION details: cities, regions, countries, coordinates when available
+        - Add SEVERITY CONTEXT: magnitude levels for earthquakes, categories for storms, impact levels for floods
+        - Provide TYPE-SPECIFIC maritime impact information for each disaster category
+        - Keep each disaster entry informative but concise (1-2 lines per disaster)
+        - Reserve detailed reports ONLY for specific disaster detail requests
 
         FOR SPECIFIC DISASTER DETAIL REQUESTS (like "tell me about earthquake in Japan"):
         🔍 DETAILED DISASTER REPORT:
@@ -1580,7 +1999,7 @@ class EnhancedAIChatService:
 
         🕐 LAST UPDATED: Real-time monitoring active
 
-        CRITICAL: For disaster queries, ONLY use the above format. Use enhanced location details for precision. For detail requests, provide comprehensive information from the disaster description.
+        CRITICAL: For general disaster overviews, treat ALL disasters equally with brief one-line entries. For detail requests, provide comprehensive information from the disaster description.
 
         REAL-TIME DATA (ANALYZE AND SYNTHESIZE - DO NOT SHOW RAW):
         {context_info}
@@ -1603,7 +2022,17 @@ class EnhancedAIChatService:
         6. Use the EXACT formatting templates provided above
         7. NEVER mix different response formats in a single response
         8. For disaster queries, use ONLY the disaster format - no travel safety assessments
-        9. **DISASTER INTELLIGENCE**: Always cross-reference current disaster data with location queries:
+        9. **DISASTER BALANCE**: For general disaster overviews, treat ALL disasters EQUALLY:
+           - List each disaster with the SAME level of detail (one line each)
+           - Do NOT provide detailed descriptions for any single disaster
+           - Do NOT focus on or prioritize any specific location (like Fiji Islands)
+           - All disasters should get equal treatment in the overview list
+        10. **ENHANCED LOCATION REPORTING**: For each disaster, provide comprehensive location context:
+           - Include nearest major cities, regions, and countries
+           - Add geographical context (e.g., "127 km E of Petropavlovsk-Kamchatsky, Russia, Kamchatka Peninsula")
+           - Mention marine areas affected (shipping lanes, straits, coastal regions)
+           - Include coordinates when available for precise navigation
+        11. **DISASTER INTELLIGENCE**: Always cross-reference current disaster data with location queries:
            - If user asks "is it safe to go to [LOCATION]" → Check if any current disasters affect that location
            - If user asks for routes to/from [LOCATION] → Check if disasters affect the route
            - If disasters exist: Mark as UNSAFE/HIGH RISK and explain the specific disaster threats
@@ -1725,8 +2154,78 @@ class EnhancedAIChatService:
             disasters = real_time_data["current_disasters"].get("disasters", [])
             if disasters:
                 response_parts.append(f"🌪️ {len(disasters)} active disasters currently monitored worldwide from real-time sources.")
+                response_parts.append("🌍 CURRENT GLOBAL DISASTERS:")
+                
+                # Categorize disasters by type
+                disaster_categories = {
+                    'earthquakes': [],
+                    'storms': [],
+                    'floods': [],
+                    'other': []
+                }
+                
+                for disaster in disasters[:8]:  # Process top 8 disasters
+                    disaster_type = disaster.get('type', 'Unknown').lower()
+                    location = disaster.get('location', 'Unknown location')
+                    enhanced_location = disaster.get('enhanced_location', location)
+                    
+                    # Get severity information
+                    magnitude = disaster.get('magnitude', '')
+                    severity = disaster.get('severity', '')
+                    intensity = disaster.get('intensity', '')
+                    
+                    if 'earthquake' in disaster_type:
+                        severity_info = f"Magnitude {magnitude}" if magnitude else f"Severity: {severity}"
+                        if magnitude:
+                            # Add severity level based on magnitude
+                            mag_float = float(magnitude) if str(magnitude).replace('.', '').isdigit() else 0
+                            if mag_float >= 7.0:
+                                severity_level = "(Major)"
+                            elif mag_float >= 6.0:
+                                severity_level = "(Strong)" 
+                            elif mag_float >= 5.0:
+                                severity_level = "(Moderate)"
+                            else:
+                                severity_level = "(Minor)"
+                            severity_info += f" {severity_level}"
+                        disaster_categories['earthquakes'].append(f"• {enhanced_location} - {severity_info}")
+                    elif any(storm_type in disaster_type for storm_type in ['storm', 'typhoon', 'hurricane', 'cyclone']):
+                        detail = intensity or severity or 'Monitoring'
+                        disaster_categories['storms'].append(f"• {enhanced_location} - {detail}")
+                    elif 'flood' in disaster_type:
+                        detail = severity or intensity or 'Active flooding'
+                        disaster_categories['floods'].append(f"• {enhanced_location} - {detail}")
+                    else:
+                        detail = severity or intensity or magnitude or 'Active'
+                        disaster_categories['other'].append(f"• {disaster_type.title()} in {enhanced_location} - {detail}")
+                
+                # Display categorized disasters
+                if disaster_categories['earthquakes']:
+                    response_parts.append("\n🌍 EARTHQUAKES:")
+                    response_parts.extend(disaster_categories['earthquakes'])
+                
+                if disaster_categories['storms']:
+                    response_parts.append("\n🌊 STORMS & TYPHOONS:")
+                    response_parts.extend(disaster_categories['storms'])
+                
+                if disaster_categories['floods']:
+                    response_parts.append("\n💧 FLOODS & WATER HAZARDS:")
+                    response_parts.extend(disaster_categories['floods'])
+                
+                if disaster_categories['other']:
+                    response_parts.append("\n🔥 OTHER NATURAL DISASTERS:")
+                    response_parts.extend(disaster_categories['other'])
+                
+                response_parts.append("\n📊 DATA SOURCES: USGS, GDACS, Global Disaster Monitoring")
+                
             elif real_time_data["current_disasters"].get("message"):
                 response_parts.append(f"🌪️ {real_time_data['current_disasters']['message']}")
+        
+        # Handle rate limiting gracefully
+        if "comprehensive_search" in real_time_data and not real_time_data["comprehensive_search"].get("success"):
+            search_error = real_time_data["comprehensive_search"].get("error", "")
+            if "rate limit" in search_error.lower():
+                response_parts.append("📡 Using official monitoring systems (USGS, NOAA, GDACS) for real-time data while search API recovers.")
         
         if not response_parts:
             response_parts.append("🌊 Marine Weather & Disaster Assistant: Real-time monitoring active for global marine conditions, weather patterns, and natural disasters from USGS, GDACS, and other official sources.")
