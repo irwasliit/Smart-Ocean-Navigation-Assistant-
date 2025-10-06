@@ -191,3 +191,37 @@ async def get_quick_marine_status(
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }
+
+@router.post("/test-public-chat", response_model=ChatResponse)
+async def test_public_enhanced_chat(
+    message: ChatMessage,
+    db: Session = Depends(get_db)
+):
+    """Public test endpoint for enhanced AI chat - for testing response cleaning"""
+    try:
+        logger.info(f"🧪 TEST PUBLIC CHAT: {message.message[:50]}...")
+        
+        # Prepare minimal context data for testing
+        context_data = {}
+        if hasattr(message, 'context_location') and message.context_location:
+            context_data["location"] = message.context_location
+        
+        # Process message with enhanced service
+        response_data = await process_chat_message(
+            message=message.message,
+            context_data=context_data
+        )
+        
+        logger.info(f"✅ Test response generated: {len(response_data.get('response', ''))} chars")
+        
+        # Return ChatResponse format
+        return ChatResponse(
+            response=response_data["response"],
+            confidence=response_data.get("confidence"),
+            context_data=response_data.get("real_time_data"),
+            timestamp=datetime.fromisoformat(response_data["timestamp"])
+        )
+        
+    except Exception as e:
+        logger.error(f"Test public chat error: {e}")
+        raise HTTPException(status_code=500, detail=f"Test chat processing failed: {str(e)}")

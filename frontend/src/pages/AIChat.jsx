@@ -504,7 +504,12 @@ const AIChat = () => {
                             <button
                               key={index}
                               onClick={() => sendMessage(suggestion)}
-                              className="px-4 py-2 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 text-sm rounded-lg hover:from-blue-100 hover:to-cyan-100 transition-all duration-200 border border-blue-200 hover:border-blue-300 hover:scale-105"
+                              disabled={limitReached}
+                              className={`px-4 py-2 text-sm rounded-lg transition-all duration-200 border disabled:opacity-50 disabled:cursor-not-allowed ${
+                                limitReached 
+                                  ? 'bg-red-50 text-red-400 border-red-200' 
+                                  : 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 border-blue-200 hover:from-blue-100 hover:to-cyan-100 hover:border-blue-300 hover:scale-105'
+                              }`}
                             >
                               <span className="mr-1">🧭</span>
                               {suggestion}
@@ -595,26 +600,51 @@ const AIChat = () => {
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="🌊 Ask about marine weather, routes, hazards, or navigation safety..."
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    disabled={loading}
+                    placeholder={limitReached ? "🚫 Daily chat limit reached" : "🌊 Ask about marine weather, routes, hazards, or navigation safety..."}
+                    className={`flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${
+                      limitReached 
+                        ? 'border-red-300 bg-red-50 text-red-500 placeholder-red-400' 
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
+                    disabled={loading || limitReached}
                   />
                   <button
                     type="submit"
-                    disabled={loading || !inputMessage.trim()}
-                    className="ocean-button flex items-center space-x-2 px-6 py-3"
+                    disabled={loading || !inputMessage.trim() || limitReached}
+                    className={`flex items-center space-x-2 px-6 py-3 ${
+                      limitReached 
+                        ? 'bg-red-100 text-red-400 cursor-not-allowed border border-red-200' 
+                        : 'ocean-button'
+                    }`}
                   >
                     {loading ? (
                       <LoadingSpinner type="compass" size="xs" />
+                    ) : limitReached ? (
+                      <span className="text-red-500">🚫</span>
                     ) : (
                       <PaperAirplaneIcon className="h-5 w-5" />
                     )}
-                    <span>{loading ? 'Analyzing...' : 'Send'}</span>
+                    <span>{loading ? 'Analyzing...' : limitReached ? 'Limit Reached' : 'Send'}</span>
                   </button>
                 </form>
                 
+                {/* Limit Reached Warning */}
+                {limitReached && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center">
+                      <span className="mr-2 text-red-500">🚫</span>
+                      <div>
+                        <h4 className="text-red-800 font-medium">Daily Chat Limit Reached</h4>
+                        <p className="text-red-600 text-sm mt-1">
+                          You've used all {chatUsage.limit} daily chats. Upgrade to Premium for unlimited conversations!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Quick Suggestions */}
-                {suggestions.length > 0 && (
+                {suggestions.length > 0 && !limitReached && (
                   <div className="mt-4">
                     <p className="text-sm text-gray-500 mb-2">Suggested questions:</p>
                     <div className="flex flex-wrap gap-2">
@@ -622,8 +652,12 @@ const AIChat = () => {
                         <button
                           key={index}
                           onClick={() => sendMessage(suggestion)}
-                          disabled={loading}
-                          className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-gray-200 transition-colors disabled:opacity-50"
+                          disabled={loading || limitReached}
+                          className={`px-3 py-1 text-sm rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            limitReached 
+                              ? 'bg-red-100 text-red-400 border border-red-200' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
                         >
                           {suggestion}
                         </button>

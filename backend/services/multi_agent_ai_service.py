@@ -1791,9 +1791,9 @@ class MultiAgentAIService:
             r'hazard|danger|risk|safe|safety|warning|alert',
             r'current.*conditions|current.*situation|current.*status',
             r'can.*go|safe.*travel|safe.*navigate|conditions.*for',
-            r'disaster|typhoon|hurricane|cyclone|earthquake|tsunami',
+            r'disaster|diaster|diasters|disasters|typhoon|hurricane|cyclone|earthquake|tsunami',
             r'ragasa|taiwan.*safe|china.*safe|affected.*countries',
-            r'current.*disasters|happening.*now|natural.*disaster',
+            r'current.*disasters|curretly.*happened|happening.*now|natural.*disaster|natural.*diasters',
             r'is.*it.*safe|should.*i.*go|travel.*warning'
         ]
         
@@ -1944,8 +1944,8 @@ class MultiAgentAIService:
                     agent_responses.append(hazard_response)
             
         # Enhanced disaster detection with better keyword matching
-        disaster_keywords = ['disaster', 'earthquake', 'tsunami', 'hurricane', 'typhoon', 'storm', 'cyclone', 'flood', 'volcanic', 'wildfire', 'drought']
-        current_keywords = ['now', 'current', 'currently', 'today', 'happening', 'active', 'affecting', 'recent', 'latest', 'any country', 'countries', 'what', 'which', 'where']
+        disaster_keywords = ['disaster', 'diaster', 'diasters', 'disasters', 'earthquake', 'tsunami', 'hurricane', 'typhoon', 'storm', 'cyclone', 'flood', 'volcanic', 'wildfire', 'drought']
+        current_keywords = ['now', 'current', 'currently', 'curretly', 'today', 'happening', 'happened', 'active', 'affecting', 'recent', 'latest', 'any country', 'countries', 'what', 'which', 'where']
         
         if any(word in query_lower for word in disaster_keywords + current_keywords + ['natural']):
             print(f"🔍 DISASTER QUERY DETECTED: '{user_query[:50]}...'")

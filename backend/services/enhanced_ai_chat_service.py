@@ -50,6 +50,7 @@ class ResponseType(Enum):
     HAZARD_ALERT = "hazard_alert"
     GENERAL_CHAT = "general_chat"
     ROUTE_GUIDANCE = "route_guidance"
+    SAFETY_ASSESSMENT = "safety_assessment"
     REAL_TIME_DATA = "real_time_data"
 
 @dataclass
@@ -154,7 +155,7 @@ class CityCoordinatesService:
         return None
 
 class GoogleSearchService:
-    """Google Custom Search service with dual API key fallback"""
+    """Google Custom Search service with dual API key fallback and rate limiting"""
     
     def __init__(self):
         # Your two Google Custom Search API keys
@@ -163,6 +164,13 @@ class GoogleSearchService:
             "AIzaSyDYmkSBnM8t88ZdjtAZP8kXqV6aMuNdV3w"
         ]
         self.current_key_index = 0
+        
+        # Rate limiting - track API usage
+        self.search_count = 0
+        self.daily_search_limit = 80  # Conservative limit per day
+        self.last_reset = datetime.now().date()
+        self.consecutive_429_errors = 0
+        self.rate_limit_backoff = 0  # Seconds to wait
         
         # Custom Search Engine IDs - Your marine weather search engine
         self.search_engines = {
@@ -178,36 +186,148 @@ class GoogleSearchService:
             logger.info("💡 Using environment variable CSE ID")
         else:
             logger.info("💡 Using provided CSE ID: 26e3060604a3247e0")
+            
+    def _check_rate_limits(self) -> bool:
+        """Check if we can make search requests"""
+        current_date = datetime.now().date()
+        
+        # Reset daily counter if it's a new day
+        if current_date > self.last_reset:
+            self.search_count = 0
+            self.last_reset = current_date
+            self.consecutive_429_errors = 0
+            self.rate_limit_backoff = 0
+            
+        # Check daily limit
+        if self.search_count >= self.daily_search_limit:
+            logger.warning(f"📊 Google Search daily limit reached ({self.daily_search_limit})")
+            return False
+            
+        # Check backoff period
+        if self.rate_limit_backoff > 0:
+            logger.warning(f"⏳ Rate limit backoff active for {self.rate_limit_backoff} seconds")
+            return False
+            
+        return True
+        
+    def _handle_rate_limit_error(self):
+        """Handle 429 rate limit errors with exponential backoff"""
+        self.consecutive_429_errors += 1
+        
+        # Exponential backoff: 30s, 60s, 120s, 300s
+        backoff_times = [30, 60, 120, 300]
+        backoff_index = min(self.consecutive_429_errors - 1, len(backoff_times) - 1)
+        self.rate_limit_backoff = backoff_times[backoff_index]
+        
+        logger.warning(f"🔄 Rate limit hit! Backing off for {self.rate_limit_backoff}s (attempt {self.consecutive_429_errors})")
+        
+    def _reset_rate_limit_success(self):
+        """Reset rate limit counters on successful request"""
+        if self.consecutive_429_errors > 0:
+            logger.info("✅ Rate limit recovered!")
+            self.consecutive_429_errors = 0
+            self.rate_limit_backoff = 0
         
     async def search_comprehensive_data(self, query: str, search_types: List[str] = None) -> Dict[str, Any]:
-        """Comprehensive search using multiple targeted queries to maximize API usage"""
+        """MAXIMIZED comprehensive search using multiple targeted queries across different domains"""
         
         if not search_types:
             search_types = ["current_events", "safety_info", "real_time_conditions"]
         
-        all_results = {"success": True, "searches": {}, "combined_data": []}
+        all_results = {"success": True, "searches": {}, "combined_data": [], "search_categories": {}}
         
-        # Generate multiple targeted search queries
+        # 🎯 MAXIMIZED SEARCH STRATEGY - Generate highly targeted search queries
         search_queries = []
         
-        if "current_events" in search_types:
+        # Extract location/subject from query for better targeting
+        query_lower = query.lower()
+        
+        # Weather-specific searches
+        if "weather_conditions" in search_types:
             search_queries.extend([
-                f"{query} current situation today 2025"
+                f"{query} weather forecast today 2025",
+                f"{query} current weather conditions marine",
+                f"{query} meteorological report latest"
             ])
         
+        # Disaster and emergency searches
+        if "disaster_updates" in search_types:
+            search_queries.extend([
+                f"{query} disaster alert current emergency 2025",
+                f"{query} natural disaster happening now",
+                f"{query} emergency situation latest update"
+            ])
+        
+        # Safety and travel advisory searches
         if "safety_info" in search_types:
             search_queries.extend([
-                f"{query} safety conditions current"
+                f"{query} travel advisory safety alert 2025",
+                f"{query} security situation current",
+                f"{query} safe to travel latest advisory"
             ])
-            
+        
+        # Maritime and shipping searches
+        if "maritime_conditions" in search_types:
+            search_queries.extend([
+                f"{query} maritime conditions shipping alert",
+                f"{query} port status vessel traffic",
+                f"{query} marine navigation hazard"
+            ])
+        
+        # Current events and news searches
+        if "current_events" in search_types:
+            search_queries.extend([
+                f"{query} latest news today 2025",
+                f"{query} current situation update",
+                f"{query} breaking news recent"
+            ])
+        
+        # Port and infrastructure searches
+        if "port_status" in search_types:
+            search_queries.extend([
+                f"{query} port operations status current",
+                f"{query} harbor conditions today"
+            ])
+        
+        # Impact assessment searches
+        if "impact_assessment" in search_types:
+            search_queries.extend([
+                f"{query} impact assessment damage report",
+                f"{query} affected areas casualties"
+            ])
+        
+        # Navigation and routing searches
+        if "navigation_hazards" in search_types:
+            search_queries.extend([
+                f"{query} navigation warning marine hazard",
+                f"{query} shipping lane closure"
+            ])
+        
+        # Real-time condition searches (fallback)
         if "real_time_conditions" in search_types:
             search_queries.extend([
-                f"{query} current weather conditions today"
+                f"{query} real time conditions current",
+                f"{query} live update status now"
             ])
-
-        # Execute fewer searches to avoid rate limits but make them more targeted
+        
+        # Check rate limits before making searches
+        if not self._check_rate_limits():
+            logger.warning("🚫 Skipping Google Search due to rate limits")
+            all_results["success"] = False
+            all_results["error"] = "Rate limit exceeded"
+            return all_results
+        
+        # Execute strategic searches - REDUCED to 2 searches to conserve quota
         search_tasks = []
-        for search_query in search_queries[:3]:  # Limit to 3 searches to avoid rate limits
+        unique_queries = list(set(search_queries))  # Remove duplicates
+        
+        # Prioritize most relevant searches based on query content
+        prioritized_queries = self._prioritize_search_queries(unique_queries, query_lower)
+        
+        # REDUCED from 5 to 2 searches to prevent rate limiting
+        max_searches = min(2, len(prioritized_queries))
+        
+        for search_query in prioritized_queries[:max_searches]:
             search_tasks.append(self._single_search(search_query))
         
         try:
@@ -221,7 +341,7 @@ class GoogleSearchService:
                         all_results["combined_data"].extend(result["data"]["items"][:3])  # Top 3 results each
                     successful_searches += 1
             
-            logger.info(f"✅ Executed {successful_searches}/{len(search_queries)} Google searches successfully")
+            logger.info(f"✅ Executed {successful_searches}/{max_searches} Google searches successfully (quota: {self.search_count}/{self.daily_search_limit})")
             
             if successful_searches == 0:
                 all_results["success"] = False
@@ -235,7 +355,11 @@ class GoogleSearchService:
         return all_results
     
     async def _single_search(self, search_query: str) -> Dict[str, Any]:
-        """Execute a single search query with API key rotation"""
+        """Execute a single search query with API key rotation and rate limit handling"""
+        
+        # Check if we can make this search
+        if not self._check_rate_limits():
+            return {"success": False, "error": "Rate limit exceeded", "query": search_query}
         
         for attempt in range(len(self.api_keys)):
             try:
@@ -254,6 +378,9 @@ class GoogleSearchService:
                     'sort': 'date'
                 }
                 
+                # Increment search count before making request
+                self.search_count += 1
+                
                 start_time = asyncio.get_event_loop().time()
                 async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8)) as session:
                     async with session.get(url, params=params) as response:
@@ -261,6 +388,7 @@ class GoogleSearchService:
                         
                         if response.status == 200:
                             data = await response.json()
+                            self._reset_rate_limit_success()
                             
                             return {
                                 "success": True,
@@ -268,6 +396,11 @@ class GoogleSearchService:
                                 "source": f"google_api_{self.current_key_index + 1}",
                                 "query": search_query
                             }
+                        elif response.status == 429:
+                            # Rate limit hit
+                            self._handle_rate_limit_error()
+                            logger.warning(f"❌ Search failed: {response.status} for query: {search_query[:50]}")
+                            return {"success": False, "error": "Rate limited", "query": search_query}
                         else:
                             logger.warning(f"❌ Search failed: {response.status} for query: {search_query[:50]}")
                             
@@ -278,6 +411,86 @@ class GoogleSearchService:
             self.current_key_index = (self.current_key_index + 1) % len(self.api_keys)
         
         return {"success": False, "error": "Search failed", "query": search_query}
+    
+    def _prioritize_search_queries(self, queries: List[str], original_query: str) -> List[str]:
+        """Prioritize search queries based on original query content for maximum relevance"""
+        prioritized = []
+        medium_priority = []
+        low_priority = []
+        
+        for query in queries:
+            query_lower = query.lower()
+            
+            # High priority: Direct matches with original query terms
+            if any(word in query_lower for word in original_query.split() if len(word) > 3):
+                prioritized.append(query)
+            # Medium priority: Contains relevant keywords
+            elif any(word in query_lower for word in ['current', 'latest', 'today', '2025', 'alert', 'emergency']):
+                medium_priority.append(query)
+            # Low priority: General searches
+            else:
+                low_priority.append(query)
+        
+        return prioritized + medium_priority + low_priority
+    
+    async def search_specific_topic(self, topic: str, location: str = None, search_type: str = "general") -> Dict[str, Any]:
+        """Search for specific topics with location context - Additional API usage maximization"""
+        
+        search_query = topic
+        if location:
+            search_query = f"{topic} {location}"
+        
+        # Add search type specific terms
+        if search_type == "safety":
+            search_query += " safety advisory alert"
+        elif search_type == "weather":
+            search_query += " weather conditions forecast"
+        elif search_type == "disaster":
+            search_query += " disaster emergency situation"
+        elif search_type == "marine":
+            search_query += " maritime marine shipping"
+        elif search_type == "current":
+            search_query += " current latest today 2025"
+        
+        return await self._single_search(search_query)
+    
+    async def search_multi_angle(self, base_query: str) -> Dict[str, Any]:
+        """Multi-angle search approach for comprehensive coverage - Maximum API utilization"""
+        
+        all_results = {"success": True, "multi_angle_data": [], "search_angles": {}}
+        
+        # Define different search angles for the same topic
+        search_angles = {
+            "news_angle": f"{base_query} news latest breaking",
+            "official_angle": f"{base_query} official report government",
+            "safety_angle": f"{base_query} safety warning advisory",
+            "real_time_angle": f"{base_query} real time live current",
+            "impact_angle": f"{base_query} impact effect consequence"
+        }
+        
+        search_tasks = []
+        for angle_name, search_query in search_angles.items():
+            search_tasks.append(self._single_search(search_query))
+        
+        try:
+            results = await asyncio.gather(*search_tasks, return_exceptions=True)
+            
+            for i, (angle_name, result) in enumerate(zip(search_angles.keys(), results)):
+                if isinstance(result, dict) and result.get("success"):
+                    all_results["search_angles"][angle_name] = result
+                    if "items" in result.get("data", {}):
+                        all_results["multi_angle_data"].extend(result["data"]["items"][:2])  # Top 2 per angle
+            
+            if not all_results["multi_angle_data"]:
+                all_results["success"] = False
+                all_results["error"] = "No successful multi-angle searches"
+                    
+        except Exception as e:
+            logger.error(f"Multi-angle search failed: {e}")
+            all_results["success"] = False
+            all_results["error"] = str(e)
+        
+        return all_results
 
 class RealTimeDataService:
     """Service to get real-time marine data from multiple sources"""
@@ -590,6 +803,9 @@ class EnhancedAIChatService:
         # Initialize services
         self.geocoding_service = CityCoordinatesService()
         self.real_time_data = RealTimeDataService()
+        self.google_search = GoogleSearchService()  # 🔥 MAXIMIZE Google Search API usage
+        
+        logger.info("🔍 Google Search API service initialized for maximum usage")
         
     def _setup_alternative(self) -> str:
         """Setup alternative AI providers"""
@@ -611,7 +827,31 @@ class EnhancedAIChatService:
         response_type = self._determine_response_type(message_lower)
         
         # Gather real-time data based on intent
-        real_time_data = await self._gather_real_time_data(message_lower, context_data)
+        real_time_data = await self._gather_real_time_data(message_lower, context_data, response_type)
+        
+        # Check if this is a detailed disaster report request
+        detail_keywords = ['tell me about', 'details about', 'more about', 'information about', 'report on', 'what happened in']
+        disaster_keywords = ['earthquake', 'storm', 'typhoon', 'flood', 'disaster', 'cyclone', 'hurricane', 'tsunami']
+        
+        is_detailed_disaster_request = (
+            response_type == ResponseType.HAZARD_ALERT and
+            any(detail in message_lower for detail in detail_keywords) and
+            any(disaster in message_lower for disaster in disaster_keywords)
+        )
+        
+        # If it's a detailed disaster request, generate special detailed report
+        if is_detailed_disaster_request and "current_disasters" in real_time_data:
+            disaster_data = real_time_data["current_disasters"]
+            if disaster_data.get("success") and disaster_data.get("disasters"):
+                detailed_report = await self._generate_detailed_disaster_report(disaster_data["disasters"], message)
+                return ChatResponse(
+                    content=detailed_report,
+                    response_type=response_type,
+                    confidence=0.95,
+                    data_sources=real_time_data.get("sources", []),
+                    real_time_data=real_time_data,
+                    timestamp=datetime.now()
+                )
         
         # Generate AI response
         if self.client and self.ai_provider == "openai":
@@ -623,8 +863,11 @@ class EnhancedAIChatService:
         else:
             ai_response = self._generate_fallback_response(message, response_type, real_time_data)
         
+        # Clean the response to remove raw search results and incomplete content
+        cleaned_content = self._clean_ai_response(ai_response["content"])
+        
         return ChatResponse(
-            content=ai_response["content"],
+            content=cleaned_content,
             response_type=response_type,
             confidence=ai_response["confidence"],
             data_sources=real_time_data.get("sources", []),
@@ -637,8 +880,14 @@ class EnhancedAIChatService:
         
         weather_patterns = ['weather', 'temperature', 'wind', 'rain', 'storm', 'forecast', 'climate', 'humidity', 'pressure', 'visibility']
         marine_patterns = ['wave', 'tide', 'current', 'sea', 'ocean', 'marine', 'sailing', 'boat', 'ship', 'vessel', 'port', 'harbor', 'coast', 'coastal', 'navigation', 'maritime']
-        hazard_patterns = ['danger', 'hazard', 'risk', 'safe', 'safety', 'warning', 'alert', 'disaster', 'emergency', 'natural disaster', 'affected', 'countries', 'earthquake', 'tsunami', 'hurricane', 'cyclone', 'typhoon']
-        route_patterns = ['route', 'navigate', 'navigation', 'direction', 'from', 'to', 'travel', 'journey', 'distance', 'between', 'port', 'shipping', 'cargo']
+        hazard_patterns = [
+            'danger', 'hazard', 'risk', 'safe', 'safety', 'warning', 'alert', 
+            'disaster', 'diaster', 'diasters', 'disasters', 'natural disaster', 'natural diasters',
+            'emergency', 'affected', 'countries', 'earthquake', 'tsunami', 'hurricane', 'cyclone', 'typhoon',
+            'currently happened', 'curretly happened', 'happening', 'currently affecting', 'active disasters'
+        ]
+        route_patterns = ['best route', 'route from', 'route to', 'navigate from', 'navigate to', 'navigation from', 'direction from', 'travel from', 'journey from', 'distance from', 'distance between', 'route between', 'shipping route', 'cargo route']
+        safety_patterns = ['is it safe', 'safe to go', 'safe to travel', 'safe to visit', 'can i go', 'should i go', 'travel safety', 'is safe', 'safe for travel', 'travel to']
         
         # Check if the message is related to marine/weather/disaster topics
         message_lower = message.lower()
@@ -647,6 +896,7 @@ class EnhancedAIChatService:
             any(pattern in message_lower for pattern in marine_patterns) or
             any(pattern in message_lower for pattern in hazard_patterns) or
             any(pattern in message_lower for pattern in route_patterns) or
+            any(pattern in message_lower for pattern in safety_patterns) or
             # Location-based queries that could be marine related
             any(location in message_lower for location in ['jaffna', 'colombo', 'chennai', 'singapore', 'mumbai', 'karachi', 'dubai', 'jakarta', 'manila', 'bangkok', 'china', 'india', 'sri lanka', 'ocean', 'bay', 'strait', 'gulf']) or
             # General marine context words
@@ -656,22 +906,82 @@ class EnhancedAIChatService:
         if not is_marine_related:
             return ResponseType.GENERAL_CHAT  # Will be handled as out-of-scope
             
-        if any(pattern in message_lower for pattern in hazard_patterns):
-            return ResponseType.HAZARD_ALERT
+        # Enhanced disaster detection with pattern combinations
+        disaster_keywords = ['diaster', 'diasters', 'disaster', 'disasters', 'natural']
+        happening_keywords = ['happened', 'happening', 'curretly', 'currently', 'now', 'today', 'active', 'current']
+        world_keywords = ['world', 'global', 'countries', 'anywhere']
+        
+        # Check for specific disaster detail queries (e.g., "tell me about earthquake in Japan")
+        detail_keywords = ['tell me about', 'details about', 'more about', 'information about', 'report on', 'what happened in']
+        location_keywords = ['china', 'taiwan', 'japan', 'philippines', 'india', 'russia', 'venezuela', 'indonesia', 'sri lanka']
+        
+        is_disaster_detail_query = (
+            any(detail in message_lower for detail in detail_keywords) and
+            any(disaster in message_lower for disaster in ['earthquake', 'storm', 'typhoon', 'flood', 'disaster']) and
+            any(location in message_lower for location in location_keywords)
+        )
+        
+        # Check for disaster queries with fuzzy matching
+        is_disaster_query = (
+            any(pattern in message_lower for pattern in hazard_patterns) or
+            is_disaster_detail_query or
+            # Check for combinations like "natural disasters currently happening"
+            (any(d in message_lower for d in disaster_keywords) and 
+             any(h in message_lower for h in happening_keywords)) or
+            # Check for "disasters in the world" type queries
+            (any(d in message_lower for d in disaster_keywords) and 
+             any(w in message_lower for w in world_keywords))
+        )
+        
+        # Check for safety queries first (more specific)
+        if any(pattern in message_lower for pattern in safety_patterns):
+            return ResponseType.SAFETY_ASSESSMENT
+        # Prioritize weather queries to avoid false route detection
+        elif any(pattern in message_lower for pattern in weather_patterns) and not is_disaster_query:
+            return ResponseType.WEATHER
+        elif is_disaster_query:
+            return ResponseType.HAZARD_ALERT  
         elif any(pattern in message_lower for pattern in route_patterns):
             return ResponseType.ROUTE_GUIDANCE
         elif any(pattern in message_lower for pattern in marine_patterns):
             return ResponseType.MARINE_CONDITIONS
-        elif any(pattern in message_lower for pattern in weather_patterns):
-            return ResponseType.WEATHER
         else:
             return ResponseType.REAL_TIME_DATA
     
-    async def _gather_real_time_data(self, message: str, context_data: Dict = None) -> Dict[str, Any]:
-        """Gather REAL weather data using proper APIs instead of garbage Google searches"""
+    async def _gather_real_time_data(self, message: str, context_data: Dict = None, response_type: ResponseType = None) -> Dict[str, Any]:
+        """Gather REAL-TIME data from multiple sources INCLUDING maximized Google Search API usage"""
         
         data = {"sources": []}
         tasks = []
+        
+        # 🔍 MAXIMIZE GOOGLE SEARCH API USAGE - Always use for comprehensive information
+        logger.info("🔍 MAXIMIZING Google Search API usage for comprehensive real-time data")
+        
+        # Determine search types based on query type
+        search_types = []
+        message_lower = message.lower()
+        
+        if any(word in message_lower for word in ['weather', 'temperature', 'climate', 'condition', 'forecast']):
+            search_types.extend(["weather_conditions", "current_events", "safety_info"])
+        elif any(word in message_lower for word in ['disaster', 'earthquake', 'tsunami', 'hurricane', 'storm']):
+            search_types.extend(["disaster_updates", "current_events", "safety_info", "impact_assessment"])
+        elif any(word in message_lower for word in ['safe', 'safety', 'travel', 'visit']):
+            search_types.extend(["safety_info", "current_events", "travel_advisory", "security_updates"])
+        elif any(word in message_lower for word in ['route', 'navigation', 'shipping', 'port']):
+            search_types.extend(["maritime_conditions", "port_status", "shipping_updates", "navigation_hazards"])
+        else:
+            search_types.extend(["current_events", "real_time_conditions", "safety_info"])
+        
+        # 🔥 Smart Google Search Usage - Only if within rate limits
+        if self.google_search._check_rate_limits():
+            logger.info("✅ Google Search available - making targeted search")
+            tasks.append(self.google_search.search_comprehensive_data(message, search_types))
+        else:
+            logger.warning("⚠️ Google Search rate limited - relying on other data sources")
+            
+        # REMOVED: Additional Google Search calls to prevent rate limiting
+        # The system will now rely on a single targeted search when available
+        # and fall back to official data sources when rate limited
         
         # Check if this is a weather query
         is_weather_query = any(word in message.lower() for word in ['weather', 'temperature', 'climate', 'condition', 'forecast'])
@@ -687,8 +997,9 @@ class EnhancedAIChatService:
         # Always get marine alerts for safety
         tasks.append(self.real_time_data.get_noaa_marine_alerts())
         
-        # Get disaster data for disaster queries
-        if any(word in message.lower() for word in ['disaster', 'earthquake', 'tsunami', 'natural disaster', 'hazard', 'happening', 'current']):
+        # Get disaster data for disaster queries, safety assessments, and route planning
+        if (response_type in [ResponseType.HAZARD_ALERT, ResponseType.SAFETY_ASSESSMENT, ResponseType.ROUTE_GUIDANCE] or
+            any(word in message.lower() for word in ['disaster', 'earthquake', 'tsunami', 'natural disaster', 'hazard', 'happening', 'current', 'safe', 'safety'])):
             tasks.append(self.real_time_data.get_earthquake_data())
             tasks.append(self.real_time_data.get_global_disaster_info())
             tasks.append(self._get_current_disasters())
@@ -703,7 +1014,24 @@ class EnhancedAIChatService:
                 continue
                 
             if isinstance(result, dict) and result.get("success"):
-                if "city" in result and "weather" in result:  # Real weather data
+                # � PROCESS ALL GOOGLE SEARCH RESULTS (Maximum Priority)
+                if "combined_data" in result and "searches" in result:  # Comprehensive Google Search results
+                    data["comprehensive_search"] = result
+                    data["sources"].append("google_comprehensive_search")
+                    search_count = len(result.get("combined_data", []))
+                    logger.info(f"✅ Got {search_count} Google Search results from comprehensive search")
+                elif "multi_angle_data" in result and "search_angles" in result:  # Multi-angle Google Search
+                    data["multi_angle_search"] = result
+                    data["sources"].append("google_multi_angle_search")
+                    angle_count = len(result.get("multi_angle_data", []))
+                    logger.info(f"✅ Got {angle_count} Google Search results from multi-angle search")
+                elif "data" in result and result.get("source", "").startswith("google_api"):  # Single specific search
+                    if "specific_search_results" not in data:
+                        data["specific_search_results"] = []
+                    data["specific_search_results"].append(result)
+                    data["sources"].append("google_specific_search")
+                    logger.info(f"✅ Got specific Google Search result: {result.get('query', 'Unknown query')[:50]}")
+                elif "city" in result and "weather" in result:  # Real weather data
                     data["weather_data"] = result
                     data["sources"].append("weather_api")
                     logger.info(f"✅ Got REAL weather data for {result.get('city')}")
@@ -724,46 +1052,141 @@ class EnhancedAIChatService:
                 elif "disasters" in result:  # Global disaster information
                     data["disaster_data"] = result
                     data["sources"].append(result.get("source", "disaster_data"))
+                elif "port_name" in result and result.get("port_name") == "Port of Singapore":  # Singapore maritime data
+                    data["singapore_maritime"] = result
+                    data["sources"].append("singapore_maritime_data")
+                    logger.info(f"✅ Got Singapore maritime data with weather conditions")
         
-        # Get route data for route queries
-        if any(word in message for word in ['route', 'distance', 'port', 'from', 'to', 'between']):
-            route_data = await self._calculate_marine_route(message)
-            if route_data:
-                data["route_data"] = route_data
-                data["sources"].append("marine_route_calculator")
-        
-        # Get route data for route queries
-        if any(word in message.lower() for word in ['route', 'distance', 'from', 'to', 'between', 'port', 'best route']):
-            route_data = await self._calculate_smart_route(message)
-            if route_data:
-                data["route_data"] = route_data
-                data["sources"].append("marine_route_calculator")
+        # Only get route data for ROUTE QUERIES, not weather queries
+        if response_type == ResponseType.ROUTE_GUIDANCE:
+            route_keywords = ['best route', 'route from', 'route to', 'navigate from', 'navigate to', 'distance from', 'distance between', 'route between', 'shipping route']
+            if any(keyword in message.lower() for keyword in route_keywords):
+                route_data = await self._calculate_marine_route(message)
+                if route_data:
+                    data["route_data"] = route_data
+                    data["sources"].append("marine_route_calculator")
+            
+            if any(keyword in message.lower() for keyword in route_keywords):
+                route_data = await self._calculate_smart_route(message)
+                if route_data:
+                    data["route_data"] = route_data
+                    data["sources"].append("marine_route_calculator")
+
+        # Add specific port weather data for major maritime hubs
+        port_keywords = ['singapore port', 'port of singapore', 'singapore maritime', 'singapore shipping']
+        if any(keyword in message_lower for keyword in port_keywords):
+            singapore_data = await self._get_singapore_maritime_data()
+            if singapore_data.get("success"):
+                data["singapore_maritime"] = singapore_data
+                data["sources"].append("singapore_maritime_data")
 
         logger.info(f"📊 Gathered data from {len(data['sources'])} sources: {data['sources']}")
         return data
     
     async def _get_current_disasters(self) -> Dict[str, Any]:
-        """Get current disasters happening worldwide"""
+        """Get current disasters happening worldwide using real-time data"""
         try:
-            # Sample current disasters - in real implementation, this would fetch from disaster APIs
-            current_disasters = [
-                {"type": "Hurricane", "location": "Gulf of Mexico", "intensity": "Category 2", "affected": "Louisiana coast"},
-                {"type": "Earthquake", "location": "Japan", "magnitude": "6.1", "affected": "Honshu region"},
-                {"type": "Flooding", "location": "Bangladesh", "severity": "Severe", "affected": "Dhaka region"},
-                {"type": "Wildfire", "location": "California", "extent": "15,000 acres", "affected": "Riverside County"},
-                {"type": "Typhoon", "location": "Philippines", "intensity": "Category 3", "affected": "Luzon island"}
-            ]
+            # Import the real-time disaster service
+            from .real_time_disaster_service import disaster_service
             
-            return {
-                "success": True,
-                "disasters": current_disasters,
-                "total_count": len(current_disasters),
-                "source": "global_disaster_monitoring"
-            }
+            # Get real disaster data from multiple sources
+            real_disasters = await disaster_service.get_current_disasters()
+            
+            if real_disasters:
+                # Convert DisasterInfo objects to dictionaries with enhanced location details
+                current_disasters = []
+                for disaster in real_disasters[:8]:  # Limit to top 8 disasters
+                    # Enhanced location processing for better precision
+                    location = disaster.area
+                    enhanced_location = self._enhance_location_details(location, disaster.event)
+                    
+                    disaster_dict = {
+                        "type": disaster.disaster_type,
+                        "location": location,
+                        "enhanced_location": enhanced_location,
+                        "severity": disaster.severity,
+                        "description": disaster.description,
+                        "event": disaster.event,
+                        "source": disaster.source,
+                        "coordinates": disaster.coordinates
+                    }
+                    
+                    # Add magnitude for earthquakes or intensity for storms
+                    if disaster.disaster_type.lower() == 'earthquake' and 'M ' in disaster.event:
+                        try:
+                            magnitude = disaster.event.split('M ')[1].split(' ')[0]
+                            disaster_dict["magnitude"] = magnitude
+                        except:
+                            pass
+                    elif disaster.disaster_type.lower() in ['hurricane', 'typhoon', 'cyclone']:
+                        disaster_dict["intensity"] = disaster.severity
+                    
+                    current_disasters.append(disaster_dict)
+                
+                return {
+                    "success": True,
+                    "disasters": current_disasters,
+                    "total_count": len(current_disasters),
+                    "source": "real_time_disaster_monitoring",
+                    "last_updated": datetime.now().isoformat()
+                }
+            else:
+                # Fallback to minimal real data if no disasters found
+                return {
+                    "success": True,
+                    "disasters": [],
+                    "total_count": 0,
+                    "source": "real_time_disaster_monitoring",
+                    "message": "No significant disasters currently active",
+                    "last_updated": datetime.now().isoformat()
+                }
+                
         except Exception as e:
-            logger.error(f"Error getting current disasters: {e}")
-            return {"success": False, "error": str(e)}
-    
+            logger.error(f"Error getting real disaster data: {e}")
+            # Fallback response indicating real-time monitoring is active
+            return {
+                "success": False, 
+                "error": str(e),
+                "message": "Real-time disaster monitoring active - check official sources for latest updates"
+            }
+
+    def _enhance_location_details(self, location: str, event: str) -> str:
+        """Enhance location details for better precision"""
+        try:
+            # Extract more specific location from event description if available
+            location_lower = location.lower()
+            event_lower = event.lower()
+            
+            # For earthquakes, event usually contains precise location
+            if 'earthquake' in event_lower or 'M ' in event:
+                # Extract location after magnitude info
+                if ' - ' in event:
+                    parts = event.split(' - ')
+                    if len(parts) > 1:
+                        precise_location = parts[1].strip()
+                        if len(precise_location) > len(location):
+                            return precise_location
+            
+            # For storms/typhoons, enhance with region info
+            storm_regions = {
+                'china': 'Eastern China Region',
+                'taiwan': 'Taiwan Region',
+                'philippines': 'Philippine Islands',
+                'india': 'Indian Subcontinent',
+                'japan': 'Japanese Islands',
+                'indonesia': 'Indonesian Islands'
+            }
+            
+            for country, enhanced in storm_regions.items():
+                if country in location_lower and enhanced not in location:
+                    return f"{location} ({enhanced})"
+            
+            return location
+            
+        except Exception as e:
+            logger.error(f"Error enhancing location: {e}")
+            return location
+
     async def _calculate_smart_route(self, message: str) -> Dict[str, Any]:
         """Calculate smart maritime routes between ports"""
         try:
@@ -1033,9 +1456,33 @@ class EnhancedAIChatService:
         
         system_prompt = f"""You are an EXPERT marine and weather AI agent providing rich, detailed, user-friendly responses.
 
+        CRITICAL INSTRUCTION: You must ANALYZE and SYNTHESIZE all the provided real-time data to give CLEAN, PROFESSIONAL answers. DO NOT show raw search results, snippets, or unrelated content. Process the information intelligently and provide only relevant, complete answers.
+
+        GOOGLE SEARCH AVAILABILITY: {"🟢 Available" if self.google_search._check_rate_limits() else "🔴 Rate Limited"}
+        
+        DATA SOURCE PRIORITY:
+        1. Official weather APIs (NOAA, weather services)
+        2. Government disaster monitoring (USGS, GDACS, NASA EONET)  
+        3. Real-time maritime data
+        4. Google Search (when available and relevant)
+        
+        CRITICAL PROCESSING RULES:
+        1. NEVER show raw Google search results, titles, or snippets to the user
+        2. ANALYZE and SYNTHESIZE all search information into professional answers
+        3. IGNORE incomplete phrases, promotional content, and unrelated information
+        4. EXTRACT only relevant facts that directly answer the user's question
+        5. PROVIDE clean, complete sentences - no broken or unfinished phrases
+        6. FOCUS on maritime, weather, safety, and disaster information only
+        7. If search results are irrelevant, rate limited, or incomplete, use official data sources
+        8. NEVER include categories like "📋 OFFICIAL REPORTS:" or "🏛️" with raw snippets
+
+        CRITICAL RULE: Only respond with the information that matches the user's query type. Do NOT mix weather and route information.
+
         RESPONSE FORMATTING RULES:
 
-        FOR WEATHER QUERIES - Use this EXACT format:
+        FOR WEATHER QUERIES ONLY - Use this EXACT format:
+        
+        IF SPECIFIC CITY PROVIDED:
         🌤️ CURRENT WEATHER DATA in [CITY]:
         - Temperature: [X]°C
         - Condition: [condition or "Clear" if unknown]
@@ -1045,6 +1492,15 @@ class EnhancedAIChatService:
         - Visibility: [X] [or "Good visibility" if unknown]
         - Wave Height: [X] m [if available]
 
+        IF ONLY COUNTRY PROVIDED (like "India", "China", "Sri Lanka"):
+        🌤️ WEATHER REQUEST CLARIFICATION:
+        Weather varies significantly across different regions of [COUNTRY]. For accurate maritime weather information, please specify a city or port:
+        
+        📍 MAJOR MARITIME CITIES IN [COUNTRY]:
+        - [List 3-4 major coastal cities with ports]
+        
+        💡 EXAMPLE: "Current weather in Mumbai, India" or "Weather conditions in Colombo, Sri Lanka"
+
         IMPORTANT: Never show "N/A", "None", or null values. Use descriptive alternatives:
         - Unknown pressure → "Normal (1013 hPa)"
         - Unknown visibility → "Good visibility"
@@ -1052,7 +1508,15 @@ class EnhancedAIChatService:
         
         [Add 2-3 sentences describing conditions and advice]
 
-        FOR ROUTE QUERIES - Use this format:
+        ✅ SAFETY RECOMMENDATIONS:
+        - [3-4 specific safety tips based on weather conditions]
+        - [Marine weather considerations]
+        - [Navigation advice based on current conditions]
+
+        ⚠️ SAFETY IMPACT:
+        - [How current weather conditions affect maritime activities]
+
+        FOR ROUTE QUERIES ONLY - Use this format:
         🚢 BEST ROUTE from [PORT A] to [PORT B]:
         - Distance: [X] nautical miles
         - Route: via [specific route description]
@@ -1061,35 +1525,69 @@ class EnhancedAIChatService:
 
         ✅ SAFETY RECOMMENDATIONS:
         - [3-4 specific safety tips for this route]
-        - [Weather considerations]
+        - [Weather considerations from real-time data]
         - [Navigation advice]
+        - [CHECK CURRENT DISASTERS: If any disasters affect the departure, destination, or route area, warn about them]
+
+        ⚠️ DISASTER WARNINGS:
+        - [If current disasters affect this route, list them with specific risks and alternative suggestions]
 
         FOR SAFETY QUERIES - Use this format:
         ✅ SAFE / ❌ UNSAFE - Travel to [LOCATION]
 
         🔍 SAFETY ANALYSIS:
-        - Weather Conditions: [details]
-        - Marine Alerts: [status]
-        - Natural Hazards: [status]
+        - Weather Conditions: [details from real-time weather data]
+        - Marine Alerts: [status from marine alerts]
+        - Natural Hazards: [CHECK CURRENT DISASTER DATA - if location matches any active disasters, mention them here]
         - Overall Risk Level: LOW/MEDIUM/HIGH
 
         📋 RECOMMENDATIONS:
-        - [Specific advice based on conditions]
+        - [Specific advice based on current conditions AND active disasters]
+        
+        CRITICAL: Always check if the queried location has any active disasters from the real-time data. If disasters exist in or near the location, rate as UNSAFE and explain the specific disaster risks.
 
-        FOR DISASTER QUERIES - Use this format:
+        FOR DISASTER QUERIES - Use ONLY this format for REAL-TIME data:
+        
+        FOR GENERAL DISASTER OVERVIEW:
         🌪️ CURRENT GLOBAL DISASTERS:
-        1. [Type] in [Location] - [Intensity/Category]
-        2. [Type] in [Location] - [Magnitude/Severity]
-        [Continue for 4-5 disasters]
+        1. [Type] in [Enhanced Location] - [Magnitude/Intensity/Severity]
+        2. [Type] in [Enhanced Location] - [Details from monitoring systems]
+        [List all available disasters from real-time data - use enhanced_location for precision]
 
-        ⚠️ SAFETY IMPACT:
-        - [How these affect maritime travel]
-        - [Regions to avoid]
+        📊 DATA SOURCES: [List the actual monitoring sources like USGS, GDACS, etc.]
 
-        REAL-TIME DATA:
+        FOR SPECIFIC DISASTER DETAIL REQUESTS (like "tell me about earthquake in Japan"):
+        🔍 DETAILED DISASTER REPORT:
+        
+        🌍 EVENT: [Disaster Type] in [Enhanced Location]
+        📊 MAGNITUDE/SEVERITY: [Specific details]
+        📅 TIMELINE: [When it occurred/is occurring]
+        📍 PRECISE LOCATION: [Exact coordinates or detailed location from enhanced_location]
+        🔬 SOURCE: [Official monitoring agency]
+        
+        📝 DESCRIPTION:
+        [Full description from disaster.description - include all available details]
+        
+        ⚠️ MARITIME IMPACT:
+        - [Specific impact on nearby ports and shipping lanes]
+        - [Risk assessment for maritime activities in the region]
+        - [Recommended safety measures for vessels in the area]
+
+        ⚠️ MARITIME SAFETY IMPACT:
+        - Specific impacts on shipping lanes and coastal areas
+        - Regions currently unsafe for maritime travel
+        - Alternative route recommendations if applicable
+
+        🕐 LAST UPDATED: Real-time monitoring active
+
+        CRITICAL: For disaster queries, ONLY use the above format. Use enhanced location details for precision. For detail requests, provide comprehensive information from the disaster description.
+
+        REAL-TIME DATA (ANALYZE AND SYNTHESIZE - DO NOT SHOW RAW):
         {context_info}
 
-        Create rich, detailed responses with emojis and proper formatting.
+        FINAL INSTRUCTION: Create rich, detailed responses with emojis and proper formatting. 
+        ABSOLUTELY NEVER show raw search results, incomplete phrases, or irrelevant content.
+        Process all real-time data intelligently and provide only clean, professional answers.
         """
         
         user_prompt = f"""Query: "{message}"
@@ -1099,10 +1597,17 @@ class EnhancedAIChatService:
         CRITICAL REQUIREMENTS:
         1. Use EMOJIS and visual elements (🌤️, 🚢, ✅, ❌, 🔍, 📋, 🌪️, ⚠️)
         2. Use BULLET POINTS for organized information
-        3. Include ALL available data (temperature, wind, humidity, pressure, visibility, wave height)
+        3. Include ALL available data from the real-time sources
         4. Add CONTEXT and ADVICE after the main data
         5. Make it USER-FRIENDLY and engaging
         6. Use the EXACT formatting templates provided above
+        7. NEVER mix different response formats in a single response
+        8. For disaster queries, use ONLY the disaster format - no travel safety assessments
+        9. **DISASTER INTELLIGENCE**: Always cross-reference current disaster data with location queries:
+           - If user asks "is it safe to go to [LOCATION]" → Check if any current disasters affect that location
+           - If user asks for routes to/from [LOCATION] → Check if disasters affect the route
+           - If disasters exist: Mark as UNSAFE/HIGH RISK and explain the specific disaster threats
+           - If no disasters: Mark as SAFE/LOW RISK but mention real-time monitoring is active
 
         EXAMPLES OF RICH FORMATTING:
         
@@ -1215,14 +1720,23 @@ class EnhancedAIChatService:
             if quakes:
                 response_parts.append(f"🌍 {len(quakes)} significant earthquakes detected in the last 24 hours.")
         
+        # Check current disasters
+        if "current_disasters" in real_time_data and real_time_data["current_disasters"].get("success"):
+            disasters = real_time_data["current_disasters"].get("disasters", [])
+            if disasters:
+                response_parts.append(f"🌪️ {len(disasters)} active disasters currently monitored worldwide from real-time sources.")
+            elif real_time_data["current_disasters"].get("message"):
+                response_parts.append(f"🌪️ {real_time_data['current_disasters']['message']}")
+        
         if not response_parts:
-            response_parts.append("🌊 Marine Weather & Disaster Assistant: Real-time monitoring active for global marine conditions, weather patterns, and natural disasters.")
+            response_parts.append("🌊 Marine Weather & Disaster Assistant: Real-time monitoring active for global marine conditions, weather patterns, and natural disasters from USGS, GDACS, and other official sources.")
         
         base_responses = {
             ResponseType.WEATHER: "🌤️ Current Weather Data: ",
             ResponseType.MARINE_CONDITIONS: "🌊 Marine Conditions Report: ",
             ResponseType.HAZARD_ALERT: "⚠️ Disaster & Safety Alert: ",
             ResponseType.ROUTE_GUIDANCE: "🧭 Maritime Navigation: ",
+            ResponseType.SAFETY_ASSESSMENT: "🔍 Safety Assessment: ",
             ResponseType.REAL_TIME_DATA: "📊 Real-Time Marine Data: ",
             ResponseType.GENERAL_CHAT: "🌊 Marine Assistant: "
         }
@@ -1238,45 +1752,119 @@ class EnhancedAIChatService:
         """Build comprehensive context information from real-time data including Google search results"""
         context_parts = []
         
-        # 🔍 PROCESS COMPREHENSIVE GOOGLE SEARCH RESULTS FIRST (Maximize usage)
+        # � MAXIMIZED GOOGLE SEARCH RESULTS PROCESSING (Priority #1)
         if "comprehensive_search" in real_time_data:
             search_data = real_time_data["comprehensive_search"]
             if search_data.get("success") and search_data.get("combined_data"):
-                context_parts.append("🔍 REAL-TIME GOOGLE SEARCH RESULTS:")
+                context_parts.append("🔍 COMPREHENSIVE GOOGLE SEARCH INTELLIGENCE:")
                 
-                # Process and extract key information from search results
+                # Advanced processing and categorization of search results
                 search_results = search_data["combined_data"]
-                current_info = []
-                safety_info = []
-                conditions_info = []
                 
-                for result in search_results[:10]:  # Process top 10 results
+                # Enhanced categorization with more granular classification
+                categories = {
+                    "breaking_news": [],
+                    "official_reports": [],
+                    "safety_alerts": [],
+                    "weather_conditions": [],
+                    "maritime_updates": [],
+                    "disaster_reports": [],
+                    "travel_advisories": [],
+                    "current_situation": []
+                }
+                
+                for result in search_results[:15]:  # Process more results for maximum coverage
                     title = result.get("title", "")
                     snippet = result.get("snippet", "")
+                    link = result.get("link", "")
                     
-                    # Categorize information based on content
+                    # Enhanced content analysis
                     content = f"{title} {snippet}".lower()
                     
-                    if any(word in content for word in ['safe', 'danger', 'risk', 'advisory', 'warning', 'security']):
-                        safety_info.append(f"• {title}: {snippet[:100]}...")
-                    elif any(word in content for word in ['current', 'today', 'now', '2025', 'latest', 'recent']):
-                        current_info.append(f"• {title}: {snippet[:100]}...")
-                    elif any(word in content for word in ['condition', 'weather', 'temperature', 'climate']):
-                        conditions_info.append(f"• {title}: {snippet[:100]}...")
+                    # Classify into multiple categories with priority scoring
+                    if any(word in content for word in ['breaking', 'urgent', 'alert', 'emergency', 'immediate']):
+                        categories["breaking_news"].append(f"🚨 {title}: {snippet[:120]}...")
+                    elif any(word in content for word in ['government', 'official', 'ministry', 'department', 'authority']):
+                        categories["official_reports"].append(f"🏛️ {title}: {snippet[:120]}...")
+                    elif any(word in content for word in ['warning', 'advisory', 'caution', 'danger', 'risk', 'avoid']):
+                        categories["safety_alerts"].append(f"⚠️ {title}: {snippet[:120]}...")
+                    elif any(word in content for word in ['weather', 'temperature', 'climate', 'forecast', 'meteorological']):
+                        categories["weather_conditions"].append(f"🌤️ {title}: {snippet[:120]}...")
+                    elif any(word in content for word in ['maritime', 'shipping', 'port', 'vessel', 'marine', 'navigation']):
+                        categories["maritime_updates"].append(f"🚢 {title}: {snippet[:120]}...")
+                    elif any(word in content for word in ['disaster', 'earthquake', 'tsunami', 'hurricane', 'flood', 'storm']):
+                        categories["disaster_reports"].append(f"🌪️ {title}: {snippet[:120]}...")
+                    elif any(word in content for word in ['travel', 'tourism', 'visit', 'entry', 'border', 'visa']):
+                        categories["travel_advisories"].append(f"✈️ {title}: {snippet[:120]}...")
+                    elif any(word in content for word in ['current', 'latest', 'today', '2025', 'now', 'recent']):
+                        categories["current_situation"].append(f"📊 {title}: {snippet[:120]}...")
                 
-                if current_info:
-                    context_parts.append("CURRENT SITUATION:")
-                    context_parts.extend(current_info[:3])  # Top 3 current info
+                # Display categorized results with priority order
+                priority_order = ["breaking_news", "safety_alerts", "disaster_reports", "official_reports", 
+                                "weather_conditions", "maritime_updates", "travel_advisories", "current_situation"]
                 
-                if safety_info:
-                    context_parts.append("SAFETY & ADVISORY INFO:")
-                    context_parts.extend(safety_info[:3])  # Top 3 safety info
-                    
-                if conditions_info:
-                    context_parts.append("CONDITIONS & WEATHER:")  
-                    context_parts.extend(conditions_info[:2])  # Top 2 conditions
+                total_results_shown = 0
+                for category in priority_order:
+                    if categories[category] and total_results_shown < 12:  # Show up to 12 categorized results
+                        category_name = category.replace("_", " ").title()
+                        context_parts.append(f"\n📋 {category_name.upper()}:")
+                        
+                        # Show top results from this category
+                        for item in categories[category][:3]:  # Top 3 per category
+                            if total_results_shown < 12:
+                                context_parts.append(f"  {item}")
+                                total_results_shown += 1
                 
-                context_parts.append(f"📊 Google Search Analysis: {len(search_results)} sources processed")
+                # Add comprehensive analysis summary
+                search_count = len(search_results)
+                categories_found = sum(1 for cat in categories.values() if cat)
+                context_parts.append(f"\n📊 GOOGLE SEARCH INTELLIGENCE SUMMARY:")
+                context_parts.append(f"  • {search_count} sources analyzed across {categories_found} information categories")
+                context_parts.append(f"  • {total_results_shown} prioritized results integrated into analysis")
+                
+                # Add search query information for transparency
+                if "searches" in search_data:
+                    search_types = list(search_data["searches"].keys())
+                    context_parts.append(f"  • Search strategy: {len(search_types)} comprehensive queries executed")
+                
+                context_parts.append("  • Real-time web intelligence maximally integrated ✅")
+        
+        # 🎯 ADDITIONAL GOOGLE SEARCH RESULTS - Multi-angle and specific searches
+        if "multi_angle_search" in real_time_data:
+            multi_angle_data = real_time_data["multi_angle_search"]
+            if multi_angle_data.get("success") and multi_angle_data.get("multi_angle_data"):
+                context_parts.append("\n🔍 MULTI-ANGLE SEARCH INTELLIGENCE:")
+                
+                angle_results = multi_angle_data["multi_angle_data"]
+                for i, result in enumerate(angle_results[:6], 1):  # Top 6 multi-angle results
+                    title = result.get("title", "")
+                    snippet = result.get("snippet", "")
+                    context_parts.append(f"  {i}. 📰 {title}")
+                    if snippet:
+                        context_parts.append(f"     {snippet[:100]}...")
+                
+                context_parts.append(f"  • Multi-perspective analysis: {len(angle_results)} different angles covered")
+        
+        # 🎯 SPECIFIC LOCATION/TOPIC SEARCH RESULTS
+        if "specific_search_results" in real_time_data:
+            specific_results = real_time_data["specific_search_results"]
+            if specific_results:
+                context_parts.append("\n🔍 TARGETED SPECIFIC SEARCH RESULTS:")
+                
+                for search_result in specific_results[:2]:  # Top 2 specific searches
+                    if search_result.get("success") and "data" in search_result:
+                        query = search_result.get("query", "Specific search")
+                        items = search_result["data"].get("items", [])
+                        
+                        context_parts.append(f"  🎯 {query[:60]}:")
+                        for item in items[:2]:  # Top 2 items per specific search
+                            title = item.get("title", "")
+                            snippet = item.get("snippet", "")
+                            context_parts.append(f"    • {title}")
+                            if snippet:
+                                context_parts.append(f"      {snippet[:80]}...")
+                
+                context_parts.append(f"  • Targeted intelligence: {len(specific_results)} specialized searches")
         
         if "marine_alerts" in real_time_data:
             alerts_data = real_time_data["marine_alerts"]
@@ -1318,14 +1906,74 @@ class EnhancedAIChatService:
                 context_parts.append(f"ROUTE: {route_data.get('from_port')} to {route_data.get('to_port')} - {route_data.get('distance_nm')} nautical miles, {route_data.get('estimated_time')} travel time")
                 context_parts.append(f"Route description: {route_data.get('route_description')}")
         
-        # Current disasters
+        # Current disasters - Real-time data with enhanced locations and categories
         if "current_disasters" in real_time_data:
             disaster_data = real_time_data["current_disasters"]
             if disaster_data.get("success") and disaster_data.get("disasters"):
                 disasters = disaster_data["disasters"]
-                context_parts.append(f"CURRENT DISASTERS WORLDWIDE ({len(disasters)} active):")
-                for disaster in disasters[:5]:  # Show top 5
-                    context_parts.append(f"- {disaster['type']} in {disaster['location']}: {disaster.get('intensity', disaster.get('magnitude', disaster.get('severity', 'Active')))}")
+                
+                # Categorize disasters by type
+                disaster_types = {}
+                for disaster in disasters:
+                    disaster_type = disaster.get('type', 'Unknown')
+                    if disaster_type not in disaster_types:
+                        disaster_types[disaster_type] = []
+                    disaster_types[disaster_type].append(disaster)
+                
+                context_parts.append(f"🌍 REAL-TIME GLOBAL DISASTERS ({len(disasters)} active across {len(disaster_types)} categories):")
+                
+                # Show disasters by category
+                for disaster_type, type_disasters in disaster_types.items():
+                    if len(type_disasters) > 1:
+                        context_parts.append(f"📊 {disaster_type.upper()}S ({len(type_disasters)} active):")
+                    else:
+                        context_parts.append(f"📊 {disaster_type.upper()}:")
+                    
+                    for disaster in type_disasters[:3]:  # Top 3 per category
+                        # Use enhanced location if available, otherwise fallback to original
+                        location = disaster.get('enhanced_location') or disaster.get('location', 'Unknown location')
+                        
+                        # Format intensity/magnitude appropriately
+                        if disaster.get('magnitude'):
+                            intensity = f"M {disaster['magnitude']}"
+                        elif disaster.get('intensity'):
+                            intensity = disaster['intensity']
+                        elif disaster.get('severity'):
+                            intensity = disaster['severity']
+                        else:
+                            intensity = "Active"
+                        
+                        source = disaster.get('source', 'Monitoring System')
+                        
+                        context_parts.append(f"  • {location} - {intensity} (Source: {source})")
+                        
+                        # Add brief description for context
+                        description = disaster.get('description', '')
+                        if description and len(description) > 20:
+                            brief_desc = description[:80] + '...' if len(description) > 80 else description
+                            context_parts.append(f"    Details: {brief_desc}")
+                
+                # Add data source summary
+                sources = set()
+                for disaster in disasters:
+                    source = disaster.get('source', 'Unknown')
+                    if 'USGS' in source:
+                        sources.add('USGS')
+                    elif 'GDACS' in source:
+                        sources.add('GDACS')
+                    elif 'NASA' in source:
+                        sources.add('NASA EONET')
+                    elif 'NOAA' in source:
+                        sources.add('NOAA')
+                    else:
+                        sources.add(source.split()[0] if source != 'Unknown' else 'Monitoring System')
+                
+                context_parts.append(f"📡 DATA SOURCES: {', '.join(sorted(sources))}")
+                
+            elif disaster_data.get("message"):
+                context_parts.append(f"🌍 DISASTER MONITORING: {disaster_data['message']}")
+            elif not disaster_data.get("success"):
+                context_parts.append("🌍 DISASTER MONITORING: Real-time monitoring active - check official sources")
         
         # Marine alerts (simplified)
         if "marine_alerts" in real_time_data:
@@ -1333,6 +1981,26 @@ class EnhancedAIChatService:
             if alerts_data.get("success") and alerts_data.get('alerts'):
                 alerts = alerts_data['alerts']
                 context_parts.append(f"MARINE ALERTS: {len(alerts)} active warnings")
+        
+        # Singapore Maritime Data (Enhanced Port Information)
+        if "singapore_maritime" in real_time_data:
+            sg_data = real_time_data["singapore_maritime"]
+            if sg_data.get("success"):
+                context_parts.append("🇸🇬 SINGAPORE PORT MARITIME DATA:")
+                
+                # Weather conditions
+                if "weather_data" in sg_data and sg_data["weather_data"].get("success"):
+                    weather = sg_data["weather_data"]["weather"]
+                    context_parts.append(f"🌤️ Current Weather: {weather.get('temperature', 'N/A')}°C, {weather.get('condition', 'Clear')}")
+                    context_parts.append(f"💨 Wind: {weather.get('wind_speed', 'Light')} km/h, Visibility: {weather.get('visibility', 'Good')}")
+                
+                # Maritime conditions
+                maritime = sg_data.get("maritime_conditions", {})
+                context_parts.append(f"🚢 Port Status: {maritime.get('port_status', 'Active')}")
+                context_parts.append(f"⚓ Traffic Level: {maritime.get('vessel_traffic', 'Moderate')}")
+                context_parts.append(f"🏗️ Facilities: {maritime.get('facilities', 'Full service port')}")
+                context_parts.append(f"📍 Strategic Position: {maritime.get('strategic_location', 'Major hub')}")
+                context_parts.append(f"🏛️ Authority: {maritime.get('port_authority', 'Port Authority')}")
         
         if "earthquake_data" in real_time_data:
             eq_data = real_time_data["earthquake_data"]
@@ -1358,6 +2026,256 @@ class EnhancedAIChatService:
                 context_parts.append(f"Route description: {route_data.get('route_description')}")
         
         return "\n".join(context_parts) if context_parts else "Real-time data services active"
+    
+    async def _enhance_disaster_location_details(self, disasters: List[Dict]) -> List[Dict]:
+        """Enhance disaster location details with more precise information"""
+        enhanced_disasters = []
+        
+        for disaster in disasters:
+            enhanced_disaster = disaster.copy()
+            
+            try:
+                # Get more specific location information
+                location = disaster.get('location', '')
+                
+                # If only country is provided, try to get more specific details
+                if location and ',' not in location:
+                    # Try to extract coordinates for more precise location
+                    coordinates = disaster.get('coordinates')
+                    if coordinates:
+                        lat, lon = coordinates.get('lat'), coordinates.get('lon')
+                        if lat and lon:
+                            # Use reverse geocoding or location service to get more details
+                            enhanced_location = await self._get_precise_location(lat, lon)
+                            if enhanced_location:
+                                enhanced_disaster['enhanced_location'] = enhanced_location
+                
+                enhanced_disasters.append(enhanced_disaster)
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to enhance location for disaster: {str(e)}")
+                enhanced_disasters.append(disaster)
+        
+        return enhanced_disasters
+    
+    async def _generate_detailed_disaster_report(self, disasters: List[Dict], query: str) -> str:
+        """Generate detailed disaster report based on specific user query"""
+        if not disasters:
+            return "No current disasters found matching your query."
+        
+        # Enhance location details first
+        enhanced_disasters = await self._enhance_disaster_location_details(disasters)
+        
+        report_parts = []
+        report_parts.append(f"📊 DETAILED DISASTER REPORT ({len(enhanced_disasters)} active disasters)")
+        report_parts.append("=" * 60)
+        
+        for i, disaster in enumerate(enhanced_disasters[:8], 1):  # Show top 8 for detailed report
+            disaster_type = disaster.get('type', 'Unknown')
+            location = disaster.get('enhanced_location') or disaster.get('location', 'Unknown location')
+            
+            report_parts.append(f"\n{i}. {disaster_type.upper()}")
+            report_parts.append(f"   📍 Location: {location}")
+            
+            # Add magnitude/intensity with context
+            if disaster.get('magnitude'):
+                report_parts.append(f"   📊 Magnitude: {disaster['magnitude']} (Richter Scale)")
+            elif disaster.get('intensity'):
+                report_parts.append(f"   ⚡ Intensity: {disaster['intensity']}")
+            elif disaster.get('severity'):
+                report_parts.append(f"   🔥 Severity: {disaster['severity']}")
+            
+            # Add timing information
+            if disaster.get('time'):
+                report_parts.append(f"   ⏰ Time: {disaster['time']}")
+            
+            # Add coordinates for precise location
+            if disaster.get('coordinates'):
+                coords = disaster['coordinates']
+                if coords.get('lat') and coords.get('lon'):
+                    report_parts.append(f"   🧭 Coordinates: {coords['lat']:.3f}°N, {coords['lon']:.3f}°E")
+            
+            # Add description if available
+            if disaster.get('description'):
+                description = disaster['description'][:200] + '...' if len(disaster['description']) > 200 else disaster['description']
+                report_parts.append(f"   📝 Details: {description}")
+            
+            # Add source information
+            source = disaster.get('source', 'Monitoring System')
+            report_parts.append(f"   📡 Source: {source}")
+            
+            # Add potential marine impact
+            if any(keyword in query.lower() for keyword in ['marine', 'ocean', 'sea', 'coast', 'ship', 'vessel']):
+                impact = self._assess_marine_impact(disaster)
+                if impact:
+                    report_parts.append(f"   🌊 Marine Impact: {impact}")
+        
+        return "\n".join(report_parts)
+    
+    async def _get_precise_location(self, lat: float, lon: float) -> str:
+        """Get precise location details from coordinates"""
+        try:
+            # Simple implementation - can be enhanced with geocoding service
+            # For now, format coordinates with direction indicators
+            lat_dir = "N" if lat >= 0 else "S"
+            lon_dir = "E" if lon >= 0 else "W"
+            
+            # Basic region detection based on coordinates
+            regions = {
+                "Pacific Ring of Fire": (lat >= -60 and lat <= 60 and ((lon >= 120 and lon <= 180) or (lon >= -180 and lon <= -60))),
+                "Atlantic Basin": (lon >= -80 and lon <= 20),
+                "Indian Ocean Region": (lat >= -60 and lat <= 30 and lon >= 20 and lon <= 120),
+                "Mediterranean Region": (lat >= 30 and lat <= 50 and lon >= -10 and lon <= 40),
+                "Arctic Region": (lat >= 60),
+                "Antarctic Region": (lat <= -60)
+            }
+            
+            for region, condition in regions.items():
+                if condition:
+                    return f"{abs(lat):.2f}°{lat_dir}, {abs(lon):.2f}°{lon_dir} ({region})"
+            
+            return f"{abs(lat):.2f}°{lat_dir}, {abs(lon):.2f}°{lon_dir}"
+        
+        except Exception as e:
+            self.logger.warning(f"Failed to get precise location: {str(e)}")
+            return None
+    
+    def _assess_marine_impact(self, disaster: Dict) -> str:
+        """Assess potential marine impact of a disaster"""
+        disaster_type = disaster.get('type', '').lower()
+        location = disaster.get('location', '').lower()
+        
+        # Check if disaster is coastal or marine-related
+        coastal_indicators = ['coast', 'sea', 'ocean', 'bay', 'gulf', 'strait', 'island']
+        is_coastal = any(indicator in location for indicator in coastal_indicators)
+        
+        if disaster_type == 'earthquake':
+            magnitude = disaster.get('magnitude', 0)
+            if magnitude >= 7.0 and is_coastal:
+                return "HIGH - Tsunami risk for coastal areas and shipping"
+            elif magnitude >= 6.0 and is_coastal:
+                return "MODERATE - Possible local tsunami, monitor marine conditions"
+            elif magnitude >= 5.0:
+                return "LOW - Monitor for aftershocks"
+        
+        elif disaster_type in ['tsunami', 'storm surge']:
+            return "CRITICAL - Immediate threat to all marine operations"
+        
+        elif disaster_type in ['cyclone', 'hurricane', 'typhoon']:
+            return "HIGH - Severe weather conditions, avoid navigation"
+        
+        elif disaster_type in ['volcanic eruption', 'volcano']:
+            if is_coastal:
+                return "HIGH - Ash clouds, potential tsunami, navigation hazards"
+            return "MODERATE - Monitor ash clouds affecting visibility"
+        
+        elif disaster_type in ['flood', 'flooding']:
+            if is_coastal:
+                return "MODERATE - Port operations may be affected"
+        
+        return "Monitor conditions and follow maritime safety protocols"
+    
+    def _clean_ai_response(self, response_content: str) -> str:
+        """Clean AI response to remove raw search results and incomplete content"""
+        
+        # Remove problematic patterns that show raw search results
+        patterns_to_remove = [
+            r'📋 OFFICIAL REPORTS:\s*🏛️[^:]*:[^\.]*\.\.\.',
+            r'📋 BREAKING NEWS:\s*🚨[^:]*:[^\.]*\.\.\.',
+            r'📋 SAFETY ALERTS:\s*⚠️[^:]*:[^\.]*\.\.\.',
+            r'📋 WEATHER CONDITIONS:\s*🌤️[^:]*:[^\.]*\.\.\.',
+            r'📋 MARITIME UPDATES:\s*🚢[^:]*:[^\.]*\.\.\.',
+            r'📋 [A-Z\s]+:\s*[🔥🚨⚠️🌤️🚢🌪️✈️📊][^:]*:[^\.]*\.\.\.',
+            r'🏛️[^:]*: \d+ hours ago[^\.]*\.\.\.',
+            r'🚨[^:]*: \d+ hours ago[^\.]*\.\.\.',
+            r'⚠️[^:]*: \d+ hours ago[^\.]*\.\.\.',
+            r'🌤️[^:]*: \d+ hours ago[^\.]*\.\.\.',
+            r'🚢[^:]*: \d+ hours ago[^\.]*\.\.\.',
+        ]
+        
+        import re
+        cleaned_content = response_content
+        
+        for pattern in patterns_to_remove:
+            cleaned_content = re.sub(pattern, '', cleaned_content, flags=re.MULTILINE | re.DOTALL)
+        
+        # Remove empty sections and clean up formatting
+        lines = cleaned_content.split('\n')
+        cleaned_lines = []
+        skip_next = False
+        
+        for line in lines:
+            # Skip empty category headers
+            if line.strip().startswith('📋') and ':' in line:
+                # Check if this is followed by actual content or just search snippets
+                skip_next = True
+                continue
+            
+            # Skip lines with incomplete phrases or search artifacts
+            if (line.strip().endswith('...') and 
+                ('hours ago' in line or len(line.strip()) < 100) and
+                any(emoji in line for emoji in ['🏛️', '🚨', '⚠️', '🌤️', '🚢'])):
+                continue
+            
+            # Skip google search intelligence sections that show raw results
+            if 'GOOGLE SEARCH INTELLIGENCE' in line.upper() and 'SUMMARY' not in line:
+                skip_next = True
+                continue
+                
+            if skip_next and line.strip().startswith(('•', '-', '  •', '  -')):
+                continue
+            
+            skip_next = False
+            cleaned_lines.append(line)
+        
+        # Join and clean up extra whitespace
+        cleaned_content = '\n'.join(cleaned_lines)
+        
+        # Remove multiple consecutive empty lines
+        cleaned_content = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_content)
+        
+        return cleaned_content.strip()
+    
+    async def _get_singapore_maritime_data(self) -> Dict[str, Any]:
+        """Get specific maritime data for Singapore port"""
+        try:
+            # Singapore maritime data from multiple sources
+            singapore_data = {
+                "success": True,
+                "port_name": "Port of Singapore",
+                "maritime_conditions": {},
+                "weather_data": {},
+                "sources": []
+            }
+            
+            # Get weather data specifically for Singapore
+            singapore_weather = await self._get_weather_for_city("Singapore")
+            if singapore_weather.get("success"):
+                singapore_data["weather_data"] = singapore_weather
+                singapore_data["sources"].append("singapore_weather_api")
+            
+            # Add maritime-specific information
+            singapore_data["maritime_conditions"] = {
+                "port_status": "Active - Major Maritime Hub",
+                "vessel_traffic": "High - One of world's busiest ports",
+                "facilities": "Container terminals, oil refining, ship repair",
+                "strategic_location": "Southeast Asia gateway, Strait of Malacca",
+                "port_authority": "Maritime and Port Authority of Singapore (MPA)",
+                "coordinates": {"lat": 1.3521, "lng": 103.8198},
+                "time_zone": "Singapore Standard Time (GMT+8)"
+            }
+            
+            singapore_data["sources"].append("port_authority_data")
+            
+            return singapore_data
+            
+        except Exception as e:
+            self.logger.error(f"Error getting Singapore maritime data: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Singapore maritime data temporarily unavailable"
+            }
 
 # Initialize the service
 enhanced_ai_chat_service = EnhancedAIChatService()
