@@ -80,6 +80,8 @@ class RouteAnalysisCreate(BaseModel):
     start_longitude: float
     end_latitude: float
     end_longitude: float
+    start_harbor: Optional[str] = None  # Harbor name for start point
+    end_harbor: Optional[str] = None    # Harbor name for end point
     route_name: Optional[str] = None
     # Optional vessel parameters for safety and fuel planning
     vessel_type: Optional[str] = None
