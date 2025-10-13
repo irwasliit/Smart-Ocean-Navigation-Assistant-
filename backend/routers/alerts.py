@@ -10,7 +10,7 @@ from .auth import get_current_user
 from services.alert_service import AlertService
 
 router = APIRouter()
-alert_service = AlertService()
+alert_service = AlertService() 
 
 @router.post("/preferences", response_model=AlertPreferenceResponse)
 async def create_alert_preference(
@@ -182,7 +182,7 @@ async def test_email_notification(
         location = db.query(SavedLocation).filter(
             SavedLocation.user_id == current_user.id
         ).first()
-        
+          
         location_name = location.name if location else "Test Location"
         
         # Send test notification

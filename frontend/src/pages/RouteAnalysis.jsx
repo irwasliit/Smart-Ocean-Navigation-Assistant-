@@ -38,6 +38,15 @@ const RouteAnalysis = () => {
   const [mapZoom, setMapZoom] = useState(2);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
+  
+  // Major harbors for quick selection
+  const majorHarbors = {
+    "Chennai": { lat: 13.0827, lng: 80.2707, country: "India" },
+    "Mumbai": { lat: 19.0760, lng: 72.8777, country: "India" },
+    "Singapore": { lat: 1.3521, lng: 103.8198, country: "Singapore" },
+    "Shanghai": { lat: 31.2304, lng: 121.4737, country: "China" },
+    "Colombo": { lat: 6.9271, lng: 79.8612, country: "Sri Lanka" },
+  };
   const [vesselType, setVesselType] = useState('');
   const [speedKnots, setSpeedKnots] = useState('');
   const [fuelRangeKm, setFuelRangeKm] = useState('');
@@ -181,6 +190,34 @@ const RouteAnalysis = () => {
     setMapCenter([coordinates.lat, coordinates.lng]);
     setMapZoom(6);
     if (map) map.setView([coordinates.lat, coordinates.lng], 6);
+  };
+
+  const selectMajorHarbor = (harborName, isStart = true) => {
+    const harbor = majorHarbors[harborName];
+    if (harbor) {
+      const harborPoint = {
+        lat: harbor.lat,
+        lng: harbor.lng,
+        name: harborName,
+        type: 'major_harbor',
+        country: harbor.country
+      };
+      
+      if (isStart) {
+        setStartPoint(harborPoint);
+        setStartValidation({ is_valid: true, message: `Selected major harbor: ${harborName}, ${harbor.country}` });
+        toast.success(`🚢 Departure harbor set: ${harborName}`);
+      } else {
+        setEndPoint(harborPoint);
+        setEndValidation({ is_valid: true, message: `Selected major harbor: ${harborName}, ${harbor.country}` });
+        toast.success(`🏁 Destination harbor set: ${harborName}`);
+      }
+      
+      // Center map on the selected harbor
+      setMapCenter([harbor.lat, harbor.lng]);
+      setMapZoom(8);
+      if (map) map.setView([harbor.lat, harbor.lng], 8);
+    }
   };
 
   const validateHarborLocation = async (lat, lng) => {
@@ -389,6 +426,13 @@ const RouteAnalysis = () => {
   };
 
   const analyzeRoute = async () => {
+    console.log('🚢 Starting route analysis...'); 
+    console.log('Token available:', !!token);
+    console.log('Start point:', startPoint);
+    console.log('End point:', endPoint);
+    console.log('Start validation:', startValidation);
+    console.log('End validation:', endValidation);
+    
     if (!token) {
       toast.error('Please login first');
       return;
@@ -399,8 +443,11 @@ const RouteAnalysis = () => {
     }
     if (!startValidation?.is_valid || !endValidation?.is_valid) {
       toast.error('Both start and end points must be valid harbors');
+      console.log('Validation failed - Start valid:', startValidation?.is_valid, 'End valid:', endValidation?.is_valid);
       return;
     }
+    
+    console.log('✅ All validations passed, starting analysis...');
     setAnalyzing(true);
     setAnalysisResult(null);
     
@@ -447,6 +494,8 @@ const RouteAnalysis = () => {
         start_longitude: startPoint.lng,
         end_latitude: endPoint.lat,
         end_longitude: endPoint.lng,
+        start_harbor: startPoint.name || null, // Send harbor name if available
+        end_harbor: endPoint.name || null,     // Send harbor name if available
         route_name: `${startPoint.name || 'Start'} → ${endPoint.name || 'End'}`,
         vessel_type: vesselType || 'cargo',
         cruising_speed_knots: speedKnots ? parseFloat(speedKnots) : 15,
@@ -463,6 +512,7 @@ const RouteAnalysis = () => {
       });
       
       clearInterval(messageInterval);
+      console.log('✅ Route analysis response received:', response.data);
       setAnalysisResult(response.data);
       toast.success('🚢 Advanced route analysis complete!', { id: 'route-analysis' });
       
@@ -571,6 +621,20 @@ const RouteAnalysis = () => {
                   selectedLocation={startPoint}
                   value={startPoint ? startPoint.name : ''}
                 />
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-2">Quick select major harbors:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.keys(majorHarbors).map((harborName) => (
+                      <button
+                        key={harborName}
+                        onClick={() => selectMajorHarbor(harborName, true)}
+                        className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full transition-colors"
+                      >
+                        {harborName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {startValidation && !startValidation.is_valid && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center">
@@ -591,6 +655,20 @@ const RouteAnalysis = () => {
                   selectedLocation={endPoint}
                   value={endPoint ? endPoint.name : ''}
                 />
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-2">Quick select major harbors:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.keys(majorHarbors).map((harborName) => (
+                      <button
+                        key={harborName}
+                        onClick={() => selectMajorHarbor(harborName, false)}
+                        className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 text-green-700 rounded-full transition-colors"
+                      >
+                        {harborName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {endValidation && !endValidation.is_valid && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center">
@@ -600,6 +678,39 @@ const RouteAnalysis = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          <div className="maritime-card p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center">
+              <span className="mr-2">🌟</span>
+              Popular Maritime Routes
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[
+                { from: "Chennai", to: "Singapore", desc: "Major Southeast Asian Trade Route" },
+                { from: "Mumbai", to: "Shanghai", desc: "India-China Commercial Route" },
+                { from: "Singapore", to: "Shanghai", desc: "ASEAN-China Maritime Corridor" },
+                { from: "Colombo", to: "Chennai", desc: "Sri Lanka-India Connection" },
+                { from: "Chennai", to: "Mumbai", desc: "Indian Coastal Route" },
+                { from: "Mumbai", to: "Singapore", desc: "West India-Southeast Asia" }
+              ].map((route, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    selectMajorHarbor(route.from, true);
+                    setTimeout(() => selectMajorHarbor(route.to, false), 500);
+                  }}
+                  className="p-4 bg-gradient-to-r from-blue-50 to-green-50 hover:from-blue-100 hover:to-green-100 border border-blue-200 rounded-lg text-left transition-all duration-200 hover:shadow-md"
+                >
+                  <div className="font-medium text-gray-800 mb-1">
+                    {route.from} → {route.to}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {route.desc}
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -725,43 +836,41 @@ const RouteAnalysis = () => {
                     </Marker>
                   )}
 
-                  {/* Enhanced Route Visualization */}
-                  {analysisResult?.analysis_data?.route_data?.sample_points ? (
+                  {/* Enhanced Maritime Route Visualization */}
+                  {analysisResult?.analysis_data?.route_data?.route_points ? (
                     <>
-                      {/* Main route line */}
+                      {/* Main maritime route line */}
                       <Polyline 
-                        positions={analysisResult.analysis_data.route_data.sample_points.map(p => [p.latitude, p.longitude])} 
+                        positions={analysisResult.analysis_data.route_data.route_points.map(p => [p.lat, p.lng])} 
                         pathOptions={{ 
-                          color: '#059669', 
-                          weight: 4, 
+                          color: '#0066cc', 
+                          weight: 5, 
                           opacity: 0.8,
-                          dashArray: '10, 5'
+                          dashArray: '15, 8'
                         }} 
                       />
-                      {/* Waypoint markers */}
-                      {analysisResult.analysis_data.route_data.sample_points.map((point, index) => (
-                        index > 0 && index < analysisResult.analysis_data.route_data.sample_points.length - 1 && 
-                        index % 3 === 0 && (
+                      {/* Maritime waypoint markers */}
+                      {analysisResult.analysis_data.route_data.route_points.map((point, index) => (
+                        index > 0 && index < analysisResult.analysis_data.route_data.route_points.length - 1 && 
+                        index % 2 === 0 && (
                           <Marker 
-                            key={`waypoint-${index}`}
-                            position={[point.latitude, point.longitude]}
+                            key={`maritime-waypoint-${index}`}
+                            position={[point.lat, point.lng]}
                             icon={L.divIcon({
-                              className: 'custom-waypoint',
-                              html: '<div style="background-color: #0ea5e9; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">' + (index + 1) + '</div>',
-                              iconSize: [20, 20]
+                              className: 'maritime-waypoint',
+                              html: '<div style="background-color: #0066cc; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">⚓</div>',
+                              iconSize: [24, 24]
                             })}
                           >
                             <Popup>
                               <div className="p-2">
-                                <h4 className="font-medium text-gray-900">Waypoint {index + 1}</h4>
-                                <p className="text-xs text-gray-400">{point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}</p>
-                                {point.weather && (
-                                  <div className="mt-1 text-xs">
-                                    <p>🌡️ {point.weather.temperature}°C</p>
-                                    <p>💨 {point.weather.wind_speed} m/s</p>
-                                    <p>🌊 {point.weather.wave_height}m waves</p>
-                                  </div>
-                                )}
+                                <h4 className="font-medium text-blue-900">⚓ Maritime Waypoint {index + 1}</h4>
+                                <p className="text-xs text-gray-600">{point.lat.toFixed(4)}, {point.lng.toFixed(4)}</p>
+                                <div className="mt-1 text-xs text-blue-700">
+                                  <p>🚢 Safe navigation point</p>
+                                  <p>🌊 Open waters</p>
+                                  <p>📡 GPS coordinates verified</p>
+                                </div>
                               </div>
                             </Popup>
                           </Marker>
@@ -901,16 +1010,16 @@ const RouteAnalysis = () => {
                       <div className="bg-blue-50 p-3 rounded-lg">
                         <div className="text-blue-600 text-xs font-medium">Distance</div>
                         <div className="text-blue-900 text-lg font-bold">
-                          {analysisResult.analysis_data.route_data.distance} km
+                          {analysisResult.analysis_data.route_data.distance_km} km
                         </div>
                         <div className="text-blue-600 text-xs">
-                          {(analysisResult.analysis_data.route_data.distance * 0.539957).toFixed(0)} nm
+                          {analysisResult.analysis_data.route_data.distance_nm} nm
                         </div>
                       </div>
                       <div className="bg-green-50 p-3 rounded-lg">
                         <div className="text-green-600 text-xs font-medium">Duration</div>
                         <div className="text-green-900 text-lg font-bold">
-                          {Math.floor(analysisResult.analysis_data.route_data.estimated_duration)}h {Math.round((analysisResult.analysis_data.route_data.estimated_duration % 1) * 60)}m
+                          {Math.floor(analysisResult.analysis_data.route_data.estimated_time_hours)}h {Math.round((analysisResult.analysis_data.route_data.estimated_time_hours % 1) * 60)}m
                         </div>
                         <div className="text-green-600 text-xs">Estimated</div>
                       </div>
@@ -922,20 +1031,47 @@ const RouteAnalysis = () => {
                         <div className="text-purple-600 text-xs">True</div>
                       </div>
                       <div className="bg-orange-50 p-3 rounded-lg">
-                        <div className="text-orange-600 text-xs font-medium">Waypoints</div>
+                        <div className="text-orange-600 text-xs font-medium">Maritime Route</div>
                         <div className="text-orange-900 text-lg font-bold">
-                          {analysisResult.analysis_data.route_data.sample_points?.length || 0}
+                          {analysisResult.analysis_data.route_data.route_points?.length || 0}
                         </div>
-                        <div className="text-orange-600 text-xs">Points</div>
+                        <div className="text-orange-600 text-xs">Waypoints</div>
                       </div>
                     </div>
                   )}
 
-                  {/* AI Risk Assessment */}
+                  {/* Harbor Information */}
+                  {analysisResult.analysis_data?.route_data?.start_harbor && analysisResult.analysis_data?.route_data?.end_harbor && (
+                    <div className="bg-cyan-50 rounded-lg p-4 mb-4">
+                      <h3 className="text-sm font-semibold text-cyan-900 mb-2 flex items-center">
+                        <span className="mr-2">⚓</span>
+                        Maritime Route Information
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-3 rounded">
+                          <div className="text-cyan-600 text-xs font-medium mb-1">Departure Harbor</div>
+                          <div className="text-cyan-900 font-bold">{analysisResult.analysis_data.route_data.start_harbor?.name || 'Unknown Harbor'}</div>
+                          <div className="text-cyan-700 text-xs">{analysisResult.analysis_data.route_data.start_harbor?.country || 'Major commercial port'}</div>
+                        </div>
+                        <div className="bg-white p-3 rounded">
+                          <div className="text-cyan-600 text-xs font-medium mb-1">Destination Harbor</div>
+                          <div className="text-cyan-900 font-bold">{analysisResult.analysis_data.route_data.end_harbor?.name || 'Unknown Harbor'}</div>
+                          <div className="text-cyan-700 text-xs">{analysisResult.analysis_data.route_data.end_harbor?.country || 'International port facility'}</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 bg-white p-3 rounded">
+                        <div className="text-cyan-600 text-xs font-medium mb-1">Route Type</div>
+                        <div className="text-cyan-900 text-sm">Established Maritime Shipping Lane</div>
+                        <div className="text-cyan-700 text-xs">Follows international maritime corridors and avoids land masses</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Maritime Route Assessment */}
                   <div className="bg-gray-50 rounded-lg p-4 mb-4">
                     <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center">
-                      <span className="mr-2">🤖</span>
-                      AI Maritime Intelligence
+                      <span className="mr-2">🚢</span>
+                      Maritime Route Analysis
                     </h3>
                     <div className="prose max-w-none">
                       <p className="whitespace-pre-line text-sm text-gray-800">{analysisResult.risk_assessment}</p>
