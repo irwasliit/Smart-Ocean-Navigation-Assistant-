@@ -112,8 +112,7 @@ const Upgrade = () => {
       ],
       limitations: [
         'Limited chat interactions',
-        'Basic AI responses',
-        'No priority support'
+        
       ],
       popular: false
     },
@@ -125,12 +124,9 @@ const Upgrade = () => {
       description: 'Enhanced features for professional mariners and enthusiasts',
       features: [
         '50 AI chat messages per day',
-        'Advanced weather analytics',
-        'Optimized route planning',
-        'Priority hazard notifications',
-        'Historical weather data',
-        'Email weather alerts',
-        'Priority support'
+        'save 5 location for weather',
+        'save 5 location for Alerts'
+       
       ],
       limitations: [
         'Daily chat limit applies'
@@ -145,15 +141,9 @@ const Upgrade = () => {
       description: 'Complete marine intelligence solution for professionals',
       features: [
         'Unlimited AI chat messages',
-        'Real-time weather monitoring',
-        'Advanced route optimization',
-        'Predictive hazard analysis',
-        'Custom weather models',
-        'Multi-location tracking',
-        'Disaster prediction alerts',
-        'API access',
-        'Dedicated support',
-        'Priority processing'
+        'Unlimited Weather Location Save',
+        'Unlimited Alert Location Save'
+       
       ],
       limitations: [],
       popular: false
