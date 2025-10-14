@@ -4,40 +4,32 @@ Database setup script for Marine Weather & AI Hazard Assistant
 Run this script to create the database and tables
 """
 
-import mysql.connector
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import os
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
 def create_database():
-    """Create the database if it doesn't exist"""
+    """Create the SQLite database if it doesn't exist"""
     try:
-        # Connect to MySQL server (without specifying database)
-        connection = mysql.connector.connect(
-            host='localhost',
-            user='root',
-            password='1234',  # Database password
-            port=3306
-        )
+        # For SQLite, the database file will be created automatically
+        # when we create the engine, so no need for manual database creation
+        database_url = os.getenv('DATABASE_URL', 'sqlite:///marine_weather.db')
+        print(f"Using database: {database_url}")
         
-        cursor = connection.cursor()
+        # Create the engine - this will create the SQLite file if it doesn't exist
+        engine = create_engine(database_url)
         
-        # Create database
-        cursor.execute("CREATE DATABASE IF NOT EXISTS marine_weather")
-        print("✅ Database 'marine_weather' created successfully")
+        print("✅ Database connection established successfully")
         
-        cursor.close()
-        connection.close()
+        return engine
         
-    except mysql.connector.Error as err:
-        print(f"❌ Error creating database: {err}")
-        return False
-    
-    return True
+    except Exception as err:
+        print(f"❌ Error setting up database: {err}")
+        return None
 
 def create_tables():
     """Create all tables using SQLAlchemy"""
@@ -148,8 +140,9 @@ def main():
     print("=" * 60)
     
     # Step 1: Create database
-    print("\n1. Creating database...")
-    if not create_database():
+    print("\n1. Setting up database...")
+    engine = create_database()
+    if not engine:
         return
     
     # Step 2: Create tables
@@ -157,17 +150,18 @@ def main():
     if not create_tables():
         return
     
-    # Step 3: Insert sample data
+    # Step 3: Insert sample data (optional)
     print("\n3. Inserting sample data...")
     if not insert_sample_data():
-        return
+        print("⚠️  Sample data insertion failed, but database is ready for use")
+        print("   You can register a new account through the frontend")
     
     print("\n" + "=" * 60)
     print("🎉 Database setup completed successfully!")
     print("\nNext steps:")
-    print("1. Start the backend server: python backend/main.py")
-    print("2. Start the frontend: cd frontend && npm start")
-    print("3. Visit http://localhost:3000 and login with demo credentials")
+    print("1. Start the backend server: python start_backend.py")
+    print("2. Start the frontend: cd frontend && npm start") 
+    print("3. Visit http://localhost:3000 and register/login")
 
 if __name__ == "__main__":
     main()

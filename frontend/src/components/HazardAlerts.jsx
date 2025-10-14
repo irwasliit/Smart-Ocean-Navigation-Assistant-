@@ -33,8 +33,28 @@ const HazardAlerts = ({ latitude, longitude, city }) => {
       const data = response.data;
 
       console.log('API Response:', data); // Debug log
-      
-      setAlerts(data.alerts || data.top_alerts || []);
+
+      // Ensure all disaster types are mapped and shown
+      let allAlerts = [];
+      if (data.alerts) {
+        allAlerts = data.alerts;
+      } else if (data.top_alerts) {
+        allAlerts = data.top_alerts;
+      }
+      // If backend returns disasters array, merge it in
+      if (data.disasters && Array.isArray(data.disasters)) {
+        allAlerts = allAlerts.concat(data.disasters.map(d => ({
+          alert_type: d.type?.toLowerCase() || 'other',
+          event: d.event || d.type,
+          area: d.location,
+          severity: d.severity || 'unknown',
+          description: d.impact || d.description || '',
+          advice: d.advice || '',
+          source: data.source || 'global_disaster_monitor',
+          start_time: d.time || '',
+        })));
+      }
+      setAlerts(allAlerts);
       setCurrentWeather(data.current_weather);
       setMarineConditions(data.marine_conditions);
       setSafetyStatus(data.safety_status);
@@ -43,7 +63,7 @@ const HazardAlerts = ({ latitude, longitude, city }) => {
       setApiDebugInfo({
         timestamp: data.timestamp,
         location: data.location,
-        alertCount: Object.keys(data.alerts || {}).length,
+        alertCount: allAlerts.length,
         sources: ['US NWS', 'Open-Meteo', 'USGS', 'MeteoAlarm']
       });
     } catch (error) {
