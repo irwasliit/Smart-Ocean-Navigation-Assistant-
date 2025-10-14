@@ -21,6 +21,7 @@ from models import Base
 from routers import auth
 from routers import weather
 from routers import routes
+from routers import enhanced_routes
 from routers import alerts
 from routers import ai_chat
 from routers import enhanced_ai
@@ -92,6 +93,7 @@ security = HTTPBearer()
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(weather.router, prefix="/api/weather", tags=["weather"])
 app.include_router(routes.router, prefix="/api/routes", tags=["routes"])
+app.include_router(enhanced_routes.router, prefix="/api/enhanced-routes", tags=["enhanced-routes"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(ai_chat.router, prefix="/api/ai", tags=["ai-chat"])
 app.include_router(enhanced_ai.router, prefix="/api/enhanced-ai", tags=["enhanced-ai-multi-agent"])

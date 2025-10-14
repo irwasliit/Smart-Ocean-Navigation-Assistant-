@@ -237,6 +237,17 @@ const RouteAnalysis = () => {
     }
   };
 
+  // Format coordinates as compact JSON for display in error/info messages
+  const formatLatLngJSON = (lat, lng) => {
+    try {
+      const latNum = typeof lat === 'number' ? lat : parseFloat(lat);
+      const lngNum = typeof lng === 'number' ? lng : parseFloat(lng);
+      return JSON.stringify({ lat: Number(latNum.toFixed(6)), lng: Number(lngNum.toFixed(6)) });
+    } catch (e) {
+      return `{ \"lat\": ${lat}, \"lng\": ${lng} }`;
+    }
+  };
+
   const getNearestHarbor = async (lat, lng) => {
     try {
       const response = await axios.get(`/api/weather/harbors/nearest`, {
@@ -283,18 +294,19 @@ const RouteAnalysis = () => {
             if (map) map.setView([nearest.lat, nearest.lon], 6);
             return;
           }
+          const coordJson = formatLatLngJSON(lat, lng);
           if (validation.is_land) {
-            toast.error('🚫 Cannot select land location. Please select a harbor or port.', {
-              duration: 5000
+            toast.error(`🚫 Cannot select land location. Please select a harbor or port. ${coordJson}`, {
+              duration: 7000
             });
             if (validation.nearest_harbor) {
-              toast.info(`💡 Nearest harbor: ${validation.nearest_harbor.name} (${validation.nearest_harbor.distance_km.toFixed(1)} km away)`, {
-                duration: 8000
+              toast.info(`💡 Nearest harbor: ${validation.nearest_harbor.name} (${validation.nearest_harbor.distance_km.toFixed(1)} km away) — ${coordJson}`, {
+                duration: 10000
               });
             }
           } else {
-            toast.error('🚫 Location is in water but not near a known harbor. Please select a proper port/harbor.', {
-              duration: 5000
+            toast.error(`🚫 Location is in water but not near a known harbor. Please select a proper port/harbor. ${coordJson}`, {
+              duration: 7000
             });
           }
           return;
@@ -343,18 +355,19 @@ const RouteAnalysis = () => {
         toast.success(`Snapped to nearest harbor: ${nearest.name}`);
         return;
       }
+      const coordJson = formatLatLngJSON(coordinates.lat, coordinates.lng);
       if (validation.is_land) {
-        toast.error('🚫 Cannot select land location. Please select a harbor or port.', {
-          duration: 5000
+        toast.error(`🚫 Cannot select land location. Please select a harbor or port. ${coordJson}`, {
+          duration: 7000
         });
         if (validation.nearest_harbor) {
-          toast.info(`💡 Nearest harbor: ${validation.nearest_harbor.name} (${validation.nearest_harbor.distance_km.toFixed(1)} km away)`, {
-            duration: 8000
+          toast.info(`💡 Nearest harbor: ${validation.nearest_harbor.name} (${validation.nearest_harbor.distance_km.toFixed(1)} km away) — ${coordJson}`, {
+            duration: 10000
           });
         }
       } else {
-        toast.error('🚫 Location is in water but not near a known harbor. Please select a proper port/harbor.', {
-          duration: 5000
+        toast.error(`🚫 Location is in water but not near a known harbor. Please select a proper port/harbor. ${coordJson}`, {
+          duration: 7000
         });
       }
       return;
@@ -395,18 +408,19 @@ const RouteAnalysis = () => {
         toast.success(`Snapped to nearest harbor: ${nearest.name}`);
         return;
       }
+      const coordJson = formatLatLngJSON(coordinates.lat, coordinates.lng);
       if (validation.is_land) {
-        toast.error('🚫 Cannot select land location. Please select a harbor or port.', {
-          duration: 5000
+        toast.error(`🚫 Cannot select land location. Please select a harbor or port. ${coordJson}`, {
+          duration: 7000
         });
         if (validation.nearest_harbor) {
-          toast.info(`💡 Nearest harbor: ${validation.nearest_harbor.name} (${validation.nearest_harbor.distance_km.toFixed(1)} km away)`, {
-            duration: 8000
+          toast.info(`💡 Nearest harbor: ${validation.nearest_harbor.name} (${validation.nearest_harbor.distance_km.toFixed(1)} km away) — ${coordJson}`, {
+            duration: 10000
           });
         }
       } else {
-        toast.error('🚫 Location is in water but not near a known harbor. Please select a proper port/harbor.', {
-          duration: 5000
+        toast.error(`🚫 Location is in water but not near a known harbor. Please select a proper port/harbor. ${coordJson}`, {
+          duration: 7000
         });
       }
       return;
@@ -489,7 +503,7 @@ const RouteAnalysis = () => {
     }, 5000);
     
     try {
-      const response = await axios.post('/api/routes/analyze', {
+      const response = await axios.post('/api/enhanced-routes/analyze', {
         start_latitude: startPoint.lat,
         start_longitude: startPoint.lng,
         end_latitude: endPoint.lat,
@@ -621,20 +635,7 @@ const RouteAnalysis = () => {
                   selectedLocation={startPoint}
                   value={startPoint ? startPoint.name : ''}
                 />
-                <div className="mt-3">
-                  <p className="text-xs text-gray-500 mb-2">Quick select major harbors:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.keys(majorHarbors).map((harborName) => (
-                      <button
-                        key={harborName}
-                        onClick={() => selectMajorHarbor(harborName, true)}
-                        className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full transition-colors"
-                      >
-                        {harborName}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+               
                 {startValidation && !startValidation.is_valid && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center">
@@ -655,20 +656,7 @@ const RouteAnalysis = () => {
                   selectedLocation={endPoint}
                   value={endPoint ? endPoint.name : ''}
                 />
-                <div className="mt-3">
-                  <p className="text-xs text-gray-500 mb-2">Quick select major harbors:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.keys(majorHarbors).map((harborName) => (
-                      <button
-                        key={harborName}
-                        onClick={() => selectMajorHarbor(harborName, false)}
-                        className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 text-green-700 rounded-full transition-colors"
-                      >
-                        {harborName}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+               
                 {endValidation && !endValidation.is_valid && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center">
@@ -681,100 +669,82 @@ const RouteAnalysis = () => {
             </div>
           </div>
 
-          <div className="maritime-card p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center">
-              <span className="mr-2">🌟</span>
-              Popular Maritime Routes
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[
-                { from: "Chennai", to: "Singapore", desc: "Major Southeast Asian Trade Route" },
-                { from: "Mumbai", to: "Shanghai", desc: "India-China Commercial Route" },
-                { from: "Singapore", to: "Shanghai", desc: "ASEAN-China Maritime Corridor" },
-                { from: "Colombo", to: "Chennai", desc: "Sri Lanka-India Connection" },
-                { from: "Chennai", to: "Mumbai", desc: "Indian Coastal Route" },
-                { from: "Mumbai", to: "Singapore", desc: "West India-Southeast Asia" }
-              ].map((route, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    selectMajorHarbor(route.from, true);
-                    setTimeout(() => selectMajorHarbor(route.to, false), 500);
-                  }}
-                  className="p-4 bg-gradient-to-r from-blue-50 to-green-50 hover:from-blue-100 hover:to-green-100 border border-blue-200 rounded-lg text-left transition-all duration-200 hover:shadow-md"
-                >
-                  <div className="font-medium text-gray-800 mb-1">
-                    {route.from} → {route.to}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {route.desc}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          
 
           <div className="maritime-card p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center">
-              <span className="mr-2">⚙️</span>
-              Vessel Configuration
-            </h2>
-              <div>
-                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                  <span className="mr-2">🚢</span>
-                  Vessel Type
-                </label>
-                <input
-                  type="text"
-                  value={vesselType}
-                  onChange={(e) => setVesselType(e.target.value)}
-                  placeholder="e.g., Fishing boat, Cargo, Sail"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                />
-              </div>
-              <div>
-                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                  <span className="mr-2">⚡</span>
-                  Speed (knots)
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={speedKnots}
-                  onChange={(e) => setSpeedKnots(e.target.value)}
-                  placeholder="e.g., 12"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                />
-              </div>
-              <div>
-                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                  <span className="mr-2">⛽</span>
-                  Fuel Range (km)
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={fuelRangeKm}
-                  onChange={(e) => setFuelRangeKm(e.target.value)}
-                  placeholder="e.g., 600"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                />
-              </div>
-              <div>
-                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                  <span className="mr-2">🛡️</span>
-                  Reserve (%)
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={fuelReservePct}
-                  onChange={(e) => setFuelReservePct(e.target.value)}
-                  placeholder="e.g., 20"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                />
-              </div>
-            </div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center">
+            <span className="mr-2">⚙️</span>
+            Vessel Configuration
+          </h2>
+          
+          <div>
+            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+              <span className="mr-2">🚢</span>
+              Vessel Type
+            </label>
+            <select
+              value={vesselType}
+              onChange={(e) => setVesselType(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            >
+              <option value="">Select vessel type...</option>
+              <option value="Fishing Boat">Fishing Boat</option>
+              <option value="Cargo Ship">Cargo Ship</option>
+              <option value="Container Ship">Container Ship</option>
+             
+              <option value="Passenger Ship">Passenger Ship</option>
+              
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+              <span className="mr-2">⚡</span>
+              Speed (knots)
+            </label>
+            <input
+              type="number"
+              step="any"
+              value={speedKnots}
+              onChange={(e) => setSpeedKnots(e.target.value)}
+              placeholder="e.g., 12"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            />
+          </div>
+          
+          <div>
+            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+              <span className="mr-2">⛽</span>
+              Fuel Range (km)
+            </label>
+            <input
+              type="number"
+              step="any"
+              value={fuelRangeKm}
+              onChange={(e) => setFuelRangeKm(e.target.value)}
+              placeholder="e.g., 600"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            />
+          </div>
+          
+          <div>
+            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+              <span className="mr-2">🛡️</span>
+              Reserve (%)
+            </label>
+            <input
+              type="number"
+              step="any"
+              value={fuelReservePct}
+              onChange={(e) => setFuelReservePct(e.target.value)}
+              placeholder="e.g., 20"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            />
+          </div>
+        </div>
+
+
           </div>
 
         <br></br><br></br><br></br> <br></br> <br></br>
@@ -992,6 +962,109 @@ const RouteAnalysis = () => {
 
             {analysisResult && (
               <div id="analysis-results" className="space-y-6">
+                {/* Critical Alerts Section */}
+                {(analysisResult.analysis_data?.alerts || analysisResult.analysis_data?.weather_alerts || analysisResult.analysis_data?.hazards) && (
+                  <div className="bg-gradient-to-r from-red-50 to-orange-50 border-l-4 border-red-500 rounded-lg p-4">
+                    <div className="flex items-center mb-3">
+                      <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mr-2" />
+                      <h3 className="text-lg font-bold text-red-900">⚠️ Critical Safety Alerts</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Weather Alerts from Backend */}
+                      {analysisResult.analysis_data?.weather_alerts?.map((alert, index) => (
+                        <div key={`weather-${index}`} className={`p-3 rounded-lg border ${
+                          alert.severity === 'high' ? 'bg-red-100 border-red-200' : 
+                          alert.severity === 'medium' ? 'bg-orange-100 border-orange-200' : 
+                          'bg-yellow-100 border-yellow-200'
+                        }`}>
+                          <div className="flex items-center mb-2">
+                            <span className={`font-bold text-sm ${
+                              alert.severity === 'high' ? 'text-red-600' : 
+                              alert.severity === 'medium' ? 'text-orange-600' : 
+                              'text-yellow-600'
+                            }`}>
+                              {alert.type === 'wind' ? '🌪️' : alert.type === 'storm' ? '⛈️' : alert.type === 'fog' ? '🌫️' : '🌊'} 
+                              {alert.title || 'WEATHER WARNING'}
+                            </span>
+                          </div>
+                          <p className={`text-sm ${
+                            alert.severity === 'high' ? 'text-red-800' : 
+                            alert.severity === 'medium' ? 'text-orange-800' : 
+                            'text-yellow-800'
+                          }`}>{alert.message || alert.description}</p>
+                        </div>
+                      )) || (
+                        analysisResult.analysis_data?.weather_conditions?.alerts?.map((alert, index) => (
+                          <div key={`weather-cond-${index}`} className="bg-red-100 p-3 rounded-lg border border-red-200">
+                            <div className="flex items-center mb-2">
+                              <span className="text-red-600 font-bold text-sm">🌪️ WEATHER WARNING</span>
+                            </div>
+                            <p className="text-red-800 text-sm">{alert}</p>
+                          </div>
+                        ))
+                      )}
+                      
+                      {/* Navigation Hazards from Backend */}
+                      {analysisResult.analysis_data?.hazards?.map((hazard, index) => (
+                        <div key={`hazard-${index}`} className={`p-3 rounded-lg border ${
+                          hazard.severity === 'high' ? 'bg-red-100 border-red-200' : 
+                          hazard.severity === 'medium' ? 'bg-orange-100 border-orange-200' : 
+                          'bg-yellow-100 border-yellow-200'
+                        }`}>
+                          <div className="flex items-center mb-2">
+                            <span className={`font-bold text-sm ${
+                              hazard.severity === 'high' ? 'text-red-600' : 
+                              hazard.severity === 'medium' ? 'text-orange-600' : 
+                              'text-yellow-600'
+                            }`}>
+                              {hazard.type === 'shallow' ? '⚓' : hazard.type === 'traffic' ? '🚢' : hazard.type === 'restricted' ? '🚫' : '⚠️'} 
+                              {hazard.title || 'NAVIGATION HAZARD'}
+                            </span>
+                          </div>
+                          <p className={`text-sm ${
+                            hazard.severity === 'high' ? 'text-red-800' : 
+                            hazard.severity === 'medium' ? 'text-orange-800' : 
+                            'text-yellow-800'
+                          }`}>{hazard.message || hazard.description}</p>
+                        </div>
+                      )) || (
+                        analysisResult.analysis_data?.navigation_warnings?.map((warning, index) => (
+                          <div key={`nav-${index}`} className="bg-orange-100 p-3 rounded-lg border border-orange-200">
+                            <div className="flex items-center mb-2">
+                              <span className="text-orange-600 font-bold text-sm">⚓ NAVIGATION HAZARD</span>
+                            </div>
+                            <p className="text-orange-800 text-sm">{warning}</p>
+                          </div>
+                        ))
+                      )}
+                      
+                      {/* General Alerts from Backend */}
+                      {analysisResult.analysis_data?.alerts?.map((alert, index) => (
+                        <div key={`alert-${index}`} className={`p-3 rounded-lg border ${
+                          alert.level === 'critical' || alert.level === 'high' ? 'bg-red-100 border-red-200' : 
+                          alert.level === 'warning' || alert.level === 'medium' ? 'bg-orange-100 border-orange-200' : 
+                          'bg-yellow-100 border-yellow-200'
+                        }`}>
+                          <div className="flex items-center mb-2">
+                            <span className={`font-bold text-sm ${
+                              alert.level === 'critical' || alert.level === 'high' ? 'text-red-600' : 
+                              alert.level === 'warning' || alert.level === 'medium' ? 'text-orange-600' : 
+                              'text-yellow-600'
+                            }`}>
+                              {alert.icon || '⚠️'} {alert.title || alert.type?.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className={`text-sm ${
+                            alert.level === 'critical' || alert.level === 'high' ? 'text-red-800' : 
+                            alert.level === 'warning' || alert.level === 'medium' ? 'text-orange-800' : 
+                            'text-yellow-800'
+                          }`}>{alert.message || alert.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Enhanced Route Summary */}
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="flex items-center justify-between mb-4">
@@ -1000,15 +1073,18 @@ const RouteAnalysis = () => {
                       Route Analysis Results
                     </h2>
                     <div className={`px-3 py-1 rounded-full text-xs font-medium ${hazardBadge(analysisResult.risk_assessment)}`}>
-                      Risk Level
+                      {analysisResult.risk_assessment?.includes('high') ? '🔴 HIGH RISK' : 
+                       analysisResult.risk_assessment?.includes('medium') ? '🟡 MEDIUM RISK' : '🟢 LOW RISK'}
                     </div>
                   </div>
 
                   {/* Route Statistics */}
                   {analysisResult.analysis_data?.route_data && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                      <div className="bg-blue-50 p-3 rounded-lg">
-                        <div className="text-blue-600 text-xs font-medium">Distance</div>
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        <div className="text-blue-600 text-xs font-medium flex items-center">
+                          <span className="mr-1">📏</span>Distance
+                        </div>
                         <div className="text-blue-900 text-lg font-bold">
                           {analysisResult.analysis_data.route_data.distance_km} km
                         </div>
@@ -1016,122 +1092,408 @@ const RouteAnalysis = () => {
                           {analysisResult.analysis_data.route_data.distance_nm} nm
                         </div>
                       </div>
-                      <div className="bg-green-50 p-3 rounded-lg">
-                        <div className="text-green-600 text-xs font-medium">Duration</div>
+                      <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                        <div className="text-green-600 text-xs font-medium flex items-center">
+                          <span className="mr-1">⏱️</span>Duration
+                        </div>
                         <div className="text-green-900 text-lg font-bold">
                           {Math.floor(analysisResult.analysis_data.route_data.estimated_time_hours)}h {Math.round((analysisResult.analysis_data.route_data.estimated_time_hours % 1) * 60)}m
                         </div>
                         <div className="text-green-600 text-xs">Estimated</div>
                       </div>
-                      <div className="bg-purple-50 p-3 rounded-lg">
-                        <div className="text-purple-600 text-xs font-medium">Bearing</div>
+                      <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                        <div className="text-purple-600 text-xs font-medium flex items-center">
+                          <span className="mr-1">🧭</span>Bearing
+                        </div>
                         <div className="text-purple-900 text-lg font-bold">
                           {analysisResult.analysis_data.route_data.bearing}°
                         </div>
                         <div className="text-purple-600 text-xs">True</div>
                       </div>
-                      <div className="bg-orange-50 p-3 rounded-lg">
-                        <div className="text-orange-600 text-xs font-medium">Maritime Route</div>
+                      <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                        <div className="text-orange-600 text-xs font-medium flex items-center">
+                          <span className="mr-1">📍</span>Waypoints
+                        </div>
                         <div className="text-orange-900 text-lg font-bold">
                           {analysisResult.analysis_data.route_data.route_points?.length || 0}
                         </div>
-                        <div className="text-orange-600 text-xs">Waypoints</div>
+                        <div className="text-orange-600 text-xs">Navigation</div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Weather Alerts & Conditions */}
+                  {analysisResult.analysis_data?.weather_analysis && (
+                    <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-4 mb-4 border border-blue-200">
+                      <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
+                        <span className="mr-2">🌊</span>
+                        Weather Conditions & Forecast
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                        {/* Temperature */}
+                        <div className="bg-white rounded p-3 border border-blue-100">
+                          <div className="text-blue-600 font-medium text-sm flex items-center">
+                            <span className="mr-1">🌡️</span>Temperature
+                          </div>
+                          <div className="text-blue-900 font-bold">
+                            {analysisResult.analysis_data.weather_analysis.temperature ? 
+                              `${analysisResult.analysis_data.weather_analysis.temperature.min || analysisResult.analysis_data.weather_analysis.temperature.current || 'N/A'}°C` :
+                              analysisResult.analysis_data.weather_analysis.current?.temperature ? 
+                              `${analysisResult.analysis_data.weather_analysis.current.temperature}°C` :
+                              'N/A'
+                            }
+                            {analysisResult.analysis_data.weather_analysis.temperature?.max && 
+                              ` - ${analysisResult.analysis_data.weather_analysis.temperature.max}°C`
+                            }
+                          </div>
+                          <div className={`text-xs ${
+                            (analysisResult.analysis_data.weather_analysis.temperature?.status === 'optimal' || 
+                             (analysisResult.analysis_data.weather_analysis.temperature?.current >= 15 && 
+                              analysisResult.analysis_data.weather_analysis.temperature?.current <= 30)) ? 
+                            'text-green-600' : 'text-yellow-600'
+                          }`}>
+                            {analysisResult.analysis_data.weather_analysis.temperature?.status === 'optimal' ? '✅ Optimal' :
+                             analysisResult.analysis_data.weather_analysis.temperature?.status || '⚠️ Monitor'}
+                          </div>
+                        </div>
+                        
+                        {/* Wind Speed */}
+                        <div className="bg-white rounded p-3 border border-blue-100">
+                          <div className="text-blue-600 font-medium text-sm flex items-center">
+                            <span className="mr-1">💨</span>Wind Speed
+                          </div>
+                          <div className="text-blue-900 font-bold">
+                            {analysisResult.analysis_data.weather_analysis.wind_speed ? 
+                              `${analysisResult.analysis_data.weather_analysis.wind_speed} knots` :
+                              analysisResult.analysis_data.weather_analysis.wind?.speed ? 
+                              `${analysisResult.analysis_data.weather_analysis.wind.speed} knots` :
+                              analysisResult.analysis_data.weather_analysis.current?.wind_speed ? 
+                              `${analysisResult.analysis_data.weather_analysis.current.wind_speed} knots` :
+                              'N/A'
+                            }
+                          </div>
+                          <div className={`text-xs ${
+                            (analysisResult.analysis_data.weather_analysis.wind?.speed || 
+                             analysisResult.analysis_data.weather_analysis.wind_speed || 
+                             analysisResult.analysis_data.weather_analysis.current?.wind_speed) > 25 ? 
+                            'text-red-600' : 
+                            (analysisResult.analysis_data.weather_analysis.wind?.speed || 
+                             analysisResult.analysis_data.weather_analysis.wind_speed || 
+                             analysisResult.analysis_data.weather_analysis.current?.wind_speed) > 15 ? 
+                            'text-yellow-600' : 'text-green-600'
+                          }`}>
+                            {(analysisResult.analysis_data.weather_analysis.wind?.speed || 
+                              analysisResult.analysis_data.weather_analysis.wind_speed || 
+                              analysisResult.analysis_data.weather_analysis.current?.wind_speed) > 25 ? '🔴 High' :
+                             (analysisResult.analysis_data.weather_analysis.wind?.speed || 
+                              analysisResult.analysis_data.weather_analysis.wind_speed || 
+                              analysisResult.analysis_data.weather_analysis.current?.wind_speed) > 15 ? '⚠️ Moderate' : '✅ Calm'
+                            }
+                          </div>
+                        </div>
+                        
+                        {/* Wave Height */}
+                        <div className="bg-white rounded p-3 border border-blue-100">
+                          <div className="text-blue-600 font-medium text-sm flex items-center">
+                            <span className="mr-1">🌊</span>Wave Height
+                          </div>
+                          <div className="text-blue-900 font-bold">
+                            {analysisResult.analysis_data.weather_analysis.wave_height ? 
+                              `${analysisResult.analysis_data.weather_analysis.wave_height}m` :
+                              analysisResult.analysis_data.weather_analysis.waves?.height ? 
+                              `${analysisResult.analysis_data.weather_analysis.waves.height}m` :
+                              analysisResult.analysis_data.weather_analysis.current?.wave_height ? 
+                              `${analysisResult.analysis_data.weather_analysis.current.wave_height}m` :
+                              'N/A'
+                            }
+                          </div>
+                          <div className={`text-xs ${
+                            (analysisResult.analysis_data.weather_analysis.wave_height || 
+                             analysisResult.analysis_data.weather_analysis.waves?.height || 
+                             analysisResult.analysis_data.weather_analysis.current?.wave_height) > 4 ? 
+                            'text-red-600' : 
+                            (analysisResult.analysis_data.weather_analysis.wave_height || 
+                             analysisResult.analysis_data.weather_analysis.waves?.height || 
+                             analysisResult.analysis_data.weather_analysis.current?.wave_height) > 2 ? 
+                            'text-yellow-600' : 'text-green-600'
+                          }`}>
+                            {(analysisResult.analysis_data.weather_analysis.wave_height || 
+                              analysisResult.analysis_data.weather_analysis.waves?.height || 
+                              analysisResult.analysis_data.weather_analysis.current?.wave_height) > 4 ? '🔴 Rough' :
+                             (analysisResult.analysis_data.weather_analysis.wave_height || 
+                              analysisResult.analysis_data.weather_analysis.waves?.height || 
+                              analysisResult.analysis_data.weather_analysis.current?.wave_height) > 2 ? '⚠️ Moderate' : '✅ Calm'
+                            }
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Weather Forecast */}
+                      {(analysisResult.analysis_data.weather_analysis.forecast || 
+                        analysisResult.analysis_data.weather_analysis.description || 
+                        analysisResult.analysis_data.weather_analysis.summary) && (
+                        <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                          <div className="flex items-center mb-2">
+                            <span className="text-blue-600 font-bold text-sm">🌩️ WEATHER FORECAST</span>
+                          </div>
+                          <p className="text-blue-800 text-sm">
+                            {analysisResult.analysis_data.weather_analysis.forecast || 
+                             analysisResult.analysis_data.weather_analysis.description || 
+                             analysisResult.analysis_data.weather_analysis.summary}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Hazard Assessment */}
+                  {(analysisResult.analysis_data?.hazard_assessment || 
+                    analysisResult.analysis_data?.hazards || 
+                    analysisResult.analysis_data?.risks) && (
+                    <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-lg p-4 mb-4 border border-red-200">
+                      <h3 className="text-sm font-semibold text-red-900 mb-3 flex items-center">
+                        <span className="mr-2">⚠️</span>
+                        Maritime Hazards & Risk Assessment
+                      </h3>
+                      <div className="space-y-3">
+                        {/* Hazards from Backend */}
+                        {analysisResult.analysis_data?.hazards?.map((hazard, index) => (
+                          <div key={`hazard-detail-${index}`} className="bg-white rounded p-3 border border-red-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`font-bold text-sm ${
+                                hazard.severity === 'high' || hazard.level === 'high' ? 'text-red-600' :
+                                hazard.severity === 'medium' || hazard.level === 'medium' ? 'text-orange-600' :
+                                'text-yellow-600'
+                              }`}>
+                                {hazard.type === 'shallow' ? '🏔️' : 
+                                 hazard.type === 'traffic' ? '🚢' : 
+                                 hazard.type === 'weather' ? '🌪️' : 
+                                 hazard.type === 'marine_life' ? '🐋' : 
+                                 hazard.type === 'restricted' ? '🚫' : '⚠️'} 
+                                {hazard.title || hazard.name || hazard.type?.toUpperCase()}
+                              </span>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                hazard.severity === 'high' || hazard.level === 'high' ? 'bg-red-100 text-red-800' :
+                                hazard.severity === 'medium' || hazard.level === 'medium' ? 'bg-orange-100 text-orange-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {(hazard.severity || hazard.level || 'LOW').toUpperCase()}
+                              </span>
+                            </div>
+                            <p className={`text-sm ${
+                              hazard.severity === 'high' || hazard.level === 'high' ? 'text-red-800' :
+                              hazard.severity === 'medium' || hazard.level === 'medium' ? 'text-orange-800' :
+                              'text-yellow-800'
+                            }`}>
+                              {hazard.description || hazard.message || hazard.details}
+                            </p>
+                            {hazard.location && (
+                              <p className="text-xs text-gray-600 mt-1">Location: {hazard.location}</p>
+                            )}
+                          </div>
+                        )) || 
+                        
+                        /* Risk Assessment from Backend */
+                        (analysisResult.analysis_data?.hazard_assessment && (
+                          <div className="bg-white rounded p-3 border border-red-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-red-600 font-bold text-sm">⚠️ RISK ASSESSMENT</span>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                analysisResult.analysis_data.hazard_assessment.overall_risk === 'high' ? 'bg-red-100 text-red-800' :
+                                analysisResult.analysis_data.hazard_assessment.overall_risk === 'medium' ? 'bg-orange-100 text-orange-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {(analysisResult.analysis_data.hazard_assessment.overall_risk || 'LOW').toUpperCase()}
+                              </span>
+                            </div>
+                            <p className="text-red-800 text-sm">
+                              {analysisResult.analysis_data.hazard_assessment.summary || 
+                               analysisResult.analysis_data.hazard_assessment.description}
+                            </p>
+                          </div>
+                        )) ||
+                        
+                        /* Risks Array from Backend */
+                        analysisResult.analysis_data?.risks?.map((risk, index) => (
+                          <div key={`risk-${index}`} className="bg-white rounded p-3 border border-red-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`font-bold text-sm ${
+                                risk.level === 'high' ? 'text-red-600' :
+                                risk.level === 'medium' ? 'text-orange-600' :
+                                'text-yellow-600'
+                              }`}>
+                                ⚠️ {risk.type?.toUpperCase() || 'RISK'}
+                              </span>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                risk.level === 'high' ? 'bg-red-100 text-red-800' :
+                                risk.level === 'medium' ? 'bg-orange-100 text-orange-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {(risk.level || 'LOW').toUpperCase()}
+                              </span>
+                            </div>
+                            <p className={`text-sm ${
+                              risk.level === 'high' ? 'text-red-800' :
+                              risk.level === 'medium' ? 'text-orange-800' :
+                              'text-yellow-800'
+                            }`}>
+                              {risk.description || risk.message}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Safety Recommendations */}
+                  {(analysisResult.analysis_data?.safety_recommendations || 
+                    analysisResult.analysis_data?.recommendations || 
+                    analysisResult.analysis_data?.safety_advice) && (
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 mb-4 border border-green-200">
+                      <h3 className="text-sm font-semibold text-green-900 mb-3 flex items-center">
+                        <span className="mr-2">🛡️</span>
+                        Safety Recommendations
+                      </h3>
+                      
+                      {/* Backend Safety Recommendations */}
+                      {analysisResult.analysis_data?.safety_recommendations && (
+                        <div className="space-y-3">
+                          {Array.isArray(analysisResult.analysis_data.safety_recommendations) ? 
+                            analysisResult.analysis_data.safety_recommendations.map((rec, index) => (
+                              <div key={`safety-${index}`} className="bg-white rounded p-3 border border-green-100">
+                                <div className="flex items-center text-green-800 text-sm mb-2">
+                                  <span className="mr-2">{rec.icon || '✅'}</span>
+                                  <span className="font-medium">{rec.title || rec.category || 'Safety Recommendation'}:</span>
+                                </div>
+                                {Array.isArray(rec.items) ? (
+                                  <ul className="text-green-700 text-sm ml-6 space-y-1">
+                                    {rec.items.map((item, i) => (
+                                      <li key={i}>• {item}</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-green-700 text-sm ml-6">{rec.description || rec.message || rec}</p>
+                                )}
+                              </div>
+                            )) : (
+                              <div className="bg-white rounded p-3 border border-green-100">
+                                <p className="text-green-700 text-sm">{analysisResult.analysis_data.safety_recommendations}</p>
+                              </div>
+                            )
+                          }
+                        </div>
+                      ) || 
+                      
+                      /* General Recommendations */
+                      (analysisResult.analysis_data?.recommendations && (
+                        <div className="space-y-2">
+                          {Array.isArray(analysisResult.analysis_data.recommendations) ? 
+                            analysisResult.analysis_data.recommendations.map((rec, index) => (
+                              <div key={`rec-${index}`} className="bg-white rounded p-3 border border-green-100">
+                                <p className="text-green-700 text-sm">• {rec}</p>
+                              </div>
+                            )) : (
+                              <div className="bg-white rounded p-3 border border-green-100">
+                                <p className="text-green-700 text-sm">{analysisResult.analysis_data.recommendations}</p>
+                              </div>
+                            )
+                          }
+                        </div>
+                      )) ||
+                      
+                      /* Safety Advice */
+                      (analysisResult.analysis_data?.safety_advice && (
+                        <div className="bg-white rounded p-3 border border-green-100">
+                          <p className="text-green-700 text-sm">{analysisResult.analysis_data.safety_advice}</p>
+                        </div>
+                      ))
+                      }
                     </div>
                   )}
 
                   {/* Harbor Information */}
                   {analysisResult.analysis_data?.route_data?.start_harbor && analysisResult.analysis_data?.route_data?.end_harbor && (
-                    <div className="bg-cyan-50 rounded-lg p-4 mb-4">
+                    <div className="bg-cyan-50 rounded-lg p-4 mb-4 border border-cyan-200">
                       <h3 className="text-sm font-semibold text-cyan-900 mb-2 flex items-center">
                         <span className="mr-2">⚓</span>
                         Maritime Route Information
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white p-3 rounded">
-                          <div className="text-cyan-600 text-xs font-medium mb-1">Departure Harbor</div>
-                          <div className="text-cyan-900 font-bold">{analysisResult.analysis_data.route_data.start_harbor?.name || 'Unknown Harbor'}</div>
+                        <div className="bg-white p-3 rounded border border-cyan-100">
+                          <div className="text-cyan-600 text-xs font-medium mb-1 flex items-center">
+                            <span className="mr-1">🚢</span>Departure Harbor
+                          </div>
+                          <div className="text-cyan-900 font-bold">{analysisResult.analysis_data.route_data.start_harbor?.name || startPoint?.name || 'Unknown Harbor'}</div>
                           <div className="text-cyan-700 text-xs">{analysisResult.analysis_data.route_data.start_harbor?.country || 'Major commercial port'}</div>
                         </div>
-                        <div className="bg-white p-3 rounded">
-                          <div className="text-cyan-600 text-xs font-medium mb-1">Destination Harbor</div>
-                          <div className="text-cyan-900 font-bold">{analysisResult.analysis_data.route_data.end_harbor?.name || 'Unknown Harbor'}</div>
+                        <div className="bg-white p-3 rounded border border-cyan-100">
+                          <div className="text-cyan-600 text-xs font-medium mb-1 flex items-center">
+                            <span className="mr-1">🏁</span>Destination Harbor
+                          </div>
+                          <div className="text-cyan-900 font-bold">{analysisResult.analysis_data.route_data.end_harbor?.name || endPoint?.name || 'Unknown Harbor'}</div>
                           <div className="text-cyan-700 text-xs">{analysisResult.analysis_data.route_data.end_harbor?.country || 'International port facility'}</div>
                         </div>
-                      </div>
-                      <div className="mt-3 bg-white p-3 rounded">
-                        <div className="text-cyan-600 text-xs font-medium mb-1">Route Type</div>
-                        <div className="text-cyan-900 text-sm">Established Maritime Shipping Lane</div>
-                        <div className="text-cyan-700 text-xs">Follows international maritime corridors and avoids land masses</div>
                       </div>
                     </div>
                   )}
 
                   {/* Maritime Route Assessment */}
-                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
                     <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center">
                       <span className="mr-2">🚢</span>
-                      Maritime Route Analysis
+                      AI Maritime Analysis
                     </h3>
                     <div className="prose max-w-none">
-                      <p className="whitespace-pre-line text-sm text-gray-800">{analysisResult.risk_assessment}</p>
+                      <p className="whitespace-pre-line text-sm text-gray-800 leading-relaxed">{analysisResult.risk_assessment}</p>
                     </div>
                   </div>
 
-                  {/* Weather Conditions Summary */}
-                  {analysisResult.analysis_data?.weather_analysis && (
-                    <div className="bg-blue-50 rounded-lg p-4 mb-4">
-                      <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
-                        <span className="mr-2">🌊</span>
-                        Weather & Sea Conditions
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                        <div className="bg-white rounded p-2">
-                          <div className="text-blue-600 font-medium">Temperature</div>
-                          <div className="text-blue-900">15-25°C</div>
-                        </div>
-                        <div className="bg-white rounded p-2">
-                          <div className="text-blue-600 font-medium">Wind Speed</div>
-                          <div className="text-blue-900">5-15 m/s</div>
-                        </div>
-                        <div className="bg-white rounded p-2">
-                          <div className="text-blue-600 font-medium">Wave Height</div>
-                          <div className="text-blue-900">1-3 meters</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Fuel & Time Estimates */}
+                  {/* Fuel & Performance */}
                   {(vesselType || speedKnots || fuelRangeKm) && (
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-green-900 mb-2 flex items-center">
+                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <h3 className="text-sm font-semibold text-green-900 mb-3 flex items-center">
                         <span className="mr-2">⛽</span>
-                        Vessel Performance
+                        Vessel Performance Analysis
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {vesselType && (
-                          <div className="bg-white rounded p-2">
-                            <div className="text-green-600 font-medium">Vessel Type</div>
-                            <div className="text-green-900 capitalize">{vesselType}</div>
+                          <div className="bg-white rounded p-3 border border-green-100">
+                            <div className="text-green-600 font-medium text-sm flex items-center">
+                              <span className="mr-1">🚢</span>Vessel Type
+                            </div>
+                            <div className="text-green-900 font-bold capitalize">{vesselType}</div>
                           </div>
                         )}
                         {speedKnots && (
-                          <div className="bg-white rounded p-2">
-                            <div className="text-green-600 font-medium">Cruising Speed</div>
-                            <div className="text-green-900">{speedKnots} knots</div>
+                          <div className="bg-white rounded p-3 border border-green-100">
+                            <div className="text-green-600 font-medium text-sm flex items-center">
+                              <span className="mr-1">⚡</span>Cruising Speed
+                            </div>
+                            <div className="text-green-900 font-bold">{speedKnots} knots</div>
                           </div>
                         )}
                         {fuelRangeKm && (
-                          <div className="bg-white rounded p-2">
-                            <div className="text-green-600 font-medium">Fuel Range</div>
-                            <div className="text-green-900">{fuelRangeKm} km</div>
+                          <div className="bg-white rounded p-3 border border-green-100">
+                            <div className="text-green-600 font-medium text-sm flex items-center">
+                              <span className="mr-1">⛽</span>Fuel Range
+                            </div>
+                            <div className="text-green-900 font-bold">{fuelRangeKm} km</div>
+                            <div className="text-xs text-green-600 mt-1">
+                              {analysisResult.analysis_data?.route_data?.distance_km && fuelRangeKm && 
+                               (fuelRangeKm > analysisResult.analysis_data.route_data.distance_km * 1.2 ? 
+                                '✅ Sufficient range' : '⚠️ Monitor fuel closely')}
+                            </div>
                           </div>
                         )}
                         {fuelReservePct && (
-                          <div className="bg-white rounded p-2">
-                            <div className="text-green-600 font-medium">Fuel Reserve</div>
-                            <div className="text-green-900">{fuelReservePct}%</div>
+                          <div className="bg-white rounded p-3 border border-green-100">
+                            <div className="text-green-600 font-medium text-sm flex items-center">
+                              <span className="mr-1">🛡️</span>Fuel Reserve
+                            </div>
+                            <div className="text-green-900 font-bold">{fuelReservePct}%</div>
+                            <div className="text-xs text-green-600 mt-1">
+                              {fuelReservePct >= 20 ? '✅ Safe reserve' : '⚠️ Increase reserve'}
+                            </div>
                           </div>
                         )}
                       </div>
