@@ -1627,6 +1627,7 @@ class MultiAgentAIService:
     
     def __init__(self):
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        print("[DEBUG] Loaded OpenAI key:", repr(self.openai_api_key))
         
         # Try OpenAI first
         if self.openai_api_key:

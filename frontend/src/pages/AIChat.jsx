@@ -19,6 +19,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 const AIChat = () => {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
+  const [expandedMessageIds, setExpandedMessageIds] = useState(new Set());
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
@@ -376,10 +377,19 @@ const AIChat = () => {
   };
 
   const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    // Force Asia/Colombo timezone (+5:30) for display
+    try {
+      const utcDate = new Date(timestamp);
+      // Convert to Asia/Colombo time using Intl API
+      return utcDate.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Colombo'
+      });
+    } catch {
+      return '';
+    }
   };
 
   const getAgentIcon = (agentType) => {
@@ -488,7 +498,7 @@ const AIChat = () => {
               </div>
 
               {/* Messages */}
-              <div className="h-96 overflow-y-auto p-6 space-y-4">
+              <div className="h-[38rem] overflow-y-auto p-6 space-y-4">
                 {messages.length === 0 ? (
                   <div className="text-center py-8">
                     <ChatBubbleLeftRightIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -533,7 +543,19 @@ const AIChat = () => {
                               : 'chat-bubble-ai shadow-md border'
                           }`}
                         >
-                          <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</div>
+                          <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                            {message.type === 'assistant' && message.content && message.content.length > 800 && !expandedMessageIds.has(message.id) ? (
+                              <>
+                                {message.content.slice(0, 800)}...
+                                <button
+                                  onClick={() => setExpandedMessageIds(prev => { const s = new Set(prev); s.add(message.id); return s; })}
+                                  className="text-xs text-blue-600 ml-2"
+                                >Show more</button>
+                              </>
+                            ) : (
+                              message.content
+                            )}
+                          </div>
                           
                           {/* Message metadata for AI responses */}
                           {message.type === 'assistant' && (
@@ -552,7 +574,12 @@ const AIChat = () => {
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-gray-500">{formatTime(message.timestamp)}</span>
+                                <div className="text-gray-500 space-y-0">
+                                  <div>{formatTime(message.timestamp)}</div>
+                                  {message.real_time_data && message.real_time_data.current_disasters && message.real_time_data.current_disasters.last_updated && (
+                                    <div className="text-xs text-gray-400">Data last updated: {new Date(message.real_time_data.current_disasters.last_updated).toLocaleString()}</div>
+                                  )}
+                                </div>
                               </div>
                               
                               {/* Show service status if AI is in fallback mode */}

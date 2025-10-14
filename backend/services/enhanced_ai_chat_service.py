@@ -830,25 +830,114 @@ class EnhancedAIChatService:
         # Gather real-time data based on intent
         real_time_data = await self._gather_real_time_data(message_lower, context_data, response_type)
         
-        # Check if this is a detailed disaster report request
-        detail_keywords = ['tell me about', 'details about', 'more about', 'information about', 'report on', 'what happened in']
-        disaster_keywords = ['earthquake', 'storm', 'typhoon', 'flood', 'disaster', 'cyclone', 'hurricane', 'tsunami']
-        
-        is_detailed_disaster_request = (
-            response_type == ResponseType.HAZARD_ALERT and
-            any(detail in message_lower for detail in detail_keywords) and
-            any(disaster in message_lower for disaster in disaster_keywords)
-        )
-        
-        # If it's a detailed disaster request, generate special detailed report
-        if is_detailed_disaster_request and "current_disasters" in real_time_data:
-            disaster_data = real_time_data["current_disasters"]
+        # If this is a disaster report request, build a detailed real-time report for AI chat
+        if response_type == ResponseType.HAZARD_ALERT and "disaster_data" in real_time_data:
+            disaster_data = real_time_data["disaster_data"]
             if disaster_data.get("success") and disaster_data.get("disasters"):
-                detailed_report = await self._generate_detailed_disaster_report(disaster_data["disasters"], message)
+                # Build a detailed report with time info
+                report_lines = ["🌪️ CURRENT GLOBAL DISASTERS:"]
+                eqs = [d for d in disaster_data["disasters"] if d["type"] == "Earthquake"]
+                storms = [d for d in disaster_data["disasters"] if d["type"] == "Tropical Storm System"]
+                floods = [d for d in disaster_data["disasters"] if d["type"] == "Flood/Heavy Rain"]
+                others = [d for d in disaster_data["disasters"] if d["type"] == "Tsunami" or d["type"] == "Other"]
+
+                # Earthquakes
+                report_lines.append("\n🌍 EARTHQUAKES:")
+                if eqs:
+                    for eq in eqs:
+                        eq_time = eq.get('time_local') or eq.get('time_utc')
+                        if eq_time and eq_time.lower() != 'unknown':
+                            time_str = f"Occurred: {eq_time} (local time)"
+                            report_lines.append(f"• M {eq.get('magnitude')} Earthquake - {eq.get('location')} ({eq.get('severity')})\n  {time_str}")
+                        else:
+                            report_lines.append(f"• M {eq.get('magnitude')} Earthquake - {eq.get('location')} ({eq.get('severity')})")
+                else:
+                    report_lines.append("• No significant earthquakes currently reported.")
+
+                # Storms
+                report_lines.append("\n🌊 STORMS & TYPHOONS:")
+                if storms:
+                    for s in storms:
+                        s_time = s.get('time_local') or s.get('time_utc')
+                        s_expires = s.get('expires_local') or s.get('expires_utc')
+                        status = "Ongoing" if s_expires else "Status unknown"
+                        if s_time and s_time.lower() != 'unknown':
+                            if s_expires and s_expires.lower() != 'unknown':
+                                period = f"From {s_time} to {s_expires}"
+                            else:
+                                period = f"Started: {s_time}"
+                            report_lines.append(f"• {s.get('event', 'Storm')} - {s.get('location')} ({s.get('severity')})\n  {period} ({status})")
+                        else:
+                            report_lines.append(f"• {s.get('event', 'Storm')} - {s.get('location')} ({s.get('severity')})")
+                else:
+                    report_lines.append("• No active storm or typhoon alerts at the moment")
+
+                # Floods
+                report_lines.append("\n💧 FLOODS & WATER HAZARDS:")
+                if floods:
+                    for f in floods:
+                        f_time = f.get('time_local') or f.get('time_utc')
+                        f_expires = f.get('expires_local') or f.get('expires_utc')
+                        status = "Ongoing" if f_expires else "Status unknown"
+                        if f_time and f_time.lower() != 'unknown':
+                            if f_expires and f_expires.lower() != 'unknown':
+                                period = f"From {f_time} to {f_expires}"
+                            else:
+                                period = f"Started: {f_time}"
+                            report_lines.append(f"• {f.get('event', 'Flood')} - {f.get('location')} ({f.get('severity')})\n  {period} ({status})")
+                        else:
+                            report_lines.append(f"• {f.get('event', 'Flood')} - {f.get('location')} ({f.get('severity')})")
+                else:
+                    report_lines.append("• No active flood or water hazard alerts currently reported")
+
+                # Other disasters
+                report_lines.append("\n🔥 OTHER NATURAL DISASTERS:")
+                if others:
+                    for o in others:
+                        o_time = o.get('time_local') or o.get('time_utc')
+                        o_expires = o.get('expires_local') or o.get('expires_utc')
+                        status = "Ongoing" if o_expires else "Status unknown"
+                        if o_time and o_time.lower() != 'unknown':
+                            if o_expires and o_expires.lower() != 'unknown':
+                                period = f"From {o_time} to {o_expires}"
+                            else:
+                                period = f"Started: {o_time}"
+                            report_lines.append(f"• {o.get('event', o.get('type', 'Other'))} - {o.get('location')} ({o.get('severity')})\n  {period} ({status})")
+                        else:
+                            report_lines.append(f"• {o.get('event', o.get('type', 'Other'))} - {o.get('location')} ({o.get('severity')})")
+                else:
+                    report_lines.append("• No other natural disasters ongoing")
+
+                # Data sources
+                sources = disaster_data.get('source', 'Unknown')
+                report_lines.append(f"\n📊 DATA SOURCES: {sources}")
+
+                # Maritime impact
+                report_lines.append("\n⚠️ MARITIME IMPACT BY DISASTER TYPE:")
+                if eqs:
+                    report_lines.append("🌍 Earthquake Zones:")
+                    for eq in eqs:
+                        report_lines.append(f"- {eq.get('impact', 'No significant impact reported')} ({eq.get('location')})")
+                if storms:
+                    report_lines.append("🌊 Storm Systems:")
+                    for s in storms:
+                        report_lines.append(f"- {s.get('impact', 'No storm-related maritime impacts')} ({s.get('location')})")
+                if floods:
+                    report_lines.append("💧 Flood Areas:")
+                    for f in floods:
+                        report_lines.append(f"- {f.get('impact', 'No flood-related maritime impacts')} ({f.get('location')})")
+
+                # Last updated
+                report_lines.append(f"\n🕐 LAST UPDATED: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (local time)")
+
+                # Summary
+                report_lines.append("\nThis report includes real-time disaster periods and status. Stay informed and prepared for any changes in the global disaster situation.")
+
+                cleaned_content = '\n'.join(report_lines)
                 return ChatResponse(
-                    content=detailed_report,
+                    content=cleaned_content,
                     response_type=response_type,
-                    confidence=0.95,
+                    confidence=0.98,
                     data_sources=real_time_data.get("sources", []),
                     real_time_data=real_time_data,
                     timestamp=datetime.now()
@@ -1003,7 +1092,12 @@ class EnhancedAIChatService:
             any(word in message.lower() for word in ['disaster', 'earthquake', 'tsunami', 'natural disaster', 'hazard', 'happening', 'current', 'safe', 'safety'])):
             tasks.append(self.real_time_data.get_earthquake_data())
             tasks.append(self.real_time_data.get_global_disaster_info())
-            tasks.append(self._get_current_disasters())
+            # NOTE: Do NOT use internal hardcoded real-time disaster service
+            # The previous implementation imported a service that contained
+            # hardcoded/legacy events (e.g. Typhoon Ragasa). To avoid returning
+            # outdated or fabricated disasters, we do NOT call
+            # self._get_current_disasters() here. Rely on NOAA/USGS/NASA and
+            # targeted Google searches instead.
         
         # Execute all data gathering tasks in parallel
         logger.info(f"🔄 Executing {len(tasks)} data gathering tasks")
@@ -1087,68 +1181,27 @@ class EnhancedAIChatService:
     async def _get_current_disasters(self) -> Dict[str, Any]:
         """Get current disasters happening worldwide using real-time data"""
         try:
-            # Import the real-time disaster service
-            from .real_time_disaster_service import disaster_service
-            
-            # Get real disaster data from multiple sources
-            real_disasters = await disaster_service.get_current_disasters()
-            
-            if real_disasters:
-                # Convert DisasterInfo objects to dictionaries with enhanced location details
-                current_disasters = []
-                for disaster in real_disasters[:8]:  # Limit to top 8 disasters
-                    # Enhanced location processing for better precision
-                    location = disaster.area
-                    enhanced_location = self._enhance_location_details(location, disaster.event)
-                    
-                    disaster_dict = {
-                        "type": disaster.disaster_type,
-                        "location": location,
-                        "enhanced_location": enhanced_location,
-                        "severity": disaster.severity,
-                        "description": disaster.description,
-                        "event": disaster.event,
-                        "source": disaster.source,
-                        "coordinates": disaster.coordinates
-                    }
-                    
-                    # Add magnitude for earthquakes or intensity for storms
-                    if disaster.disaster_type.lower() == 'earthquake' and 'M ' in disaster.event:
-                        try:
-                            magnitude = disaster.event.split('M ')[1].split(' ')[0]
-                            disaster_dict["magnitude"] = magnitude
-                        except:
-                            pass
-                    elif disaster.disaster_type.lower() in ['hurricane', 'typhoon', 'cyclone']:
-                        disaster_dict["intensity"] = disaster.severity
-                    
-                    current_disasters.append(disaster_dict)
-                
-                return {
-                    "success": True,
-                    "disasters": current_disasters,
-                    "total_count": len(current_disasters),
-                    "source": "real_time_disaster_monitoring",
-                    "last_updated": datetime.now().isoformat()
-                }
-            else:
-                # Fallback to minimal real data if no disasters found
-                return {
-                    "success": True,
-                    "disasters": [],
-                    "total_count": 0,
-                    "source": "real_time_disaster_monitoring",
-                    "message": "No significant disasters currently active",
-                    "last_updated": datetime.now().isoformat()
-                }
-                
-        except Exception as e:
-            logger.error(f"Error getting real disaster data: {e}")
-            # Fallback response indicating real-time monitoring is active
+            # Intentionally disable the legacy real-time disaster aggregator
+            # which contained hardcoded or stale events. Use primary sources
+            # (USGS, NOAA, NASA EONET, GDACS) via their dedicated methods
+            # or Google Search intelligence instead.
+            logger.info("_get_current_disasters: legacy disaster aggregator disabled to avoid hardcoded events")
+
             return {
-                "success": False, 
+                "success": True,
+                "disasters": [],
+                "total_count": 0,
+                "source": "disabled_legacy_disaster_service",
+                "message": "Legacy real-time disaster aggregator is disabled. Use official sources (USGS, NOAA, GDACS, NASA EONET) or targeted searches for current events.",
+                "last_updated": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error in _get_current_disasters: {e}")
+            return {
+                "success": False,
                 "error": str(e),
-                "message": "Real-time disaster monitoring active - check official sources for latest updates"
+                "message": "Error retrieving disaster data. Please consult official monitoring services.",
+                "last_updated": datetime.now().isoformat()
             }
 
     def _enhance_location_details(self, location: str, event: str) -> str:
@@ -1260,17 +1313,19 @@ class EnhancedAIChatService:
     
     def _get_route_description(self, from_port: str, to_port: str, distance: float) -> str:
         """Get route description based on ports"""
-        # Major shipping routes
-        if "singapore" in from_port.lower() and "shanghai" in to_port.lower():
-            return f"{int(distance)} nautical miles via South China Sea, passing Taiwan Strait"
-        elif "mumbai" in from_port.lower() and "dubai" in to_port.lower():
-            return f"{int(distance)} nautical miles via Arabian Sea direct route"
-        elif "london" in from_port.lower() and "new york" in to_port.lower():
-            return f"{int(distance)} nautical miles via North Atlantic shipping lanes"
-        elif "singapore" in from_port.lower() and "mumbai" in to_port.lower():
-            return f"{int(distance)} nautical miles via Malacca Strait and Indian Ocean"
-        else:
-            return f"{int(distance)} nautical miles via most efficient maritime route"
+        # Build a detailed route description for any ports
+        description = (
+            f"Route from {from_port} to {to_port} covers approximately {int(distance)} nautical miles.\n"
+            f"- Departure from {from_port} port, following recommended departure channels.\n"
+            f"- Transit through major international shipping lanes and recommended waypoints.\n"
+            f"- Cross open ocean areas, monitoring for weather and maritime hazards.\n"
+            f"- If applicable, pass through key straits, channels, or TSS (e.g., Malacca Strait, Taiwan Strait, Suez Canal, Panama Canal).\n"
+            f"- Approach {to_port} via designated approach channels and arrival procedures.\n"
+            f"- Route may include EEZ boundaries, international waters, and port entry requirements.\n"
+            f"- Recommended to check for real-time weather, piracy, and navigation warnings en route.\n"
+            f"- For more precise routing, consult updated marine charts and local authorities."
+        )
+        return description
     
     def _extract_city_name(self, message: str) -> str:
         """Extract city name from weather query"""
@@ -2037,6 +2092,8 @@ class EnhancedAIChatService:
            - If user asks for routes to/from [LOCATION] → Check if disasters affect the route
            - If disasters exist: Mark as UNSAFE/HIGH RISK and explain the specific disaster threats
            - If no disasters: Mark as SAFE/LOW RISK but mention real-time monitoring is active
+
+         12. **ALERT/DISASTER TIMING**: For each alert or disaster, ALWAYS include the issued date, start time, end time (if available), and location in the response. Format example: "Severe Thunderstorm Warning issued October 14 at 12:38AM PDT until October 14 at 1:45AM PDT by NWS Los Angeles/Oxnard CA". If time is not available, show at least the issued date and location.
 
         EXAMPLES OF RICH FORMATTING:
         
