@@ -8,6 +8,7 @@ import asyncio
 from datetime import datetime
 
 from services.hazard_alerts_service import hazard_alerts_service
+from services.real_time_disaster_service import RealTimeDisasterService
 from .auth import get_current_user
 from models import User
 
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 
 router = APIRouter()
+disaster_service = RealTimeDisasterService()
 
 @router.get("/alerts/comprehensive")
 async def get_comprehensive_alerts(
@@ -296,3 +298,74 @@ async def get_alert_status() -> Dict[str, Any]:
         ],
         "last_updated": datetime.utcnow().isoformat()
     }
+
+@router.get("/alerts/global-high-risk")
+async def get_global_high_risk_areas(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get current global high-risk areas with real-time disaster data.
+    
+    Returns:
+    - Real earthquakes from USGS
+    - Active typhoons/hurricanes from GDACS
+    - NASA EONET natural events
+    - NOAA severe weather alerts
+    """
+    try:
+        # Get real-time disasters from multiple sources
+        disasters = await disaster_service.get_current_disasters()
+        
+        # Convert disasters to high-risk area format
+        high_risk_areas = []
+        
+        for disaster in disasters:
+            # Determine emoji based on disaster type
+            emoji_map = {
+                "earthquake": "🌍",
+                "storm": "🌪️",
+                "typhoon": "🌀",
+                "hurricane": "🌀",
+                "flood": "🌊",
+                "tsunami": "🌊",
+                "volcano": "🌋",
+                "volcanic eruption": "🌋",
+                "wildfire": "🔥",
+                "weather alert": "⚠️",
+                "natural disaster": "⚠️"
+            }
+            
+            emoji = emoji_map.get(disaster.disaster_type.lower(), "⚠️")
+            
+            # Determine severity emoji
+            severity_emoji = "🚨" if disaster.severity == "extreme" else "⚠️" if disaster.severity == "severe" else "⚡"
+            
+            area = {
+                "name": f"{emoji} {disaster.event}",
+                "lat": disaster.coordinates[0] if disaster.coordinates else 0.0,
+                "lon": disaster.coordinates[1] if disaster.coordinates else 0.0,
+                "display_name": f"{severity_emoji} {disaster.severity.upper()}: {disaster.event}",
+                "severity": disaster.severity.upper(),
+                "description": disaster.description,
+                "disaster_type": disaster.disaster_type,
+                "source": disaster.source,
+                "timestamp": disaster.timestamp.isoformat()
+            }
+            
+            high_risk_areas.append(area)
+        
+        return {
+            "high_risk_areas": high_risk_areas,
+            "count": len(high_risk_areas),
+            "last_updated": datetime.utcnow().isoformat(),
+            "sources": [
+                "USGS Earthquake Hazards Program",
+                "GDACS Global Disaster Alert",
+                "NASA EONET",
+                "NOAA Weather Alerts"
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching global high-risk areas: {str(e)}")

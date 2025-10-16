@@ -98,7 +98,7 @@ app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(ai_chat.router, prefix="/api/ai", tags=["ai-chat"])
 app.include_router(enhanced_ai.router, prefix="/api/enhanced-ai", tags=["enhanced-ai-multi-agent"])
 app.include_router(enhanced_ai_chat_router.router, prefix="/api/enhanced-chat", tags=["enhanced-ai-chat"])
-app.include_router(hazard_alerts.router, prefix="/api/hazards", tags=["hazard-alerts"])
+app.include_router(hazard_alerts.router, prefix="/api/hazard-alerts", tags=["hazard-alerts"])
 app.include_router(billing.router, prefix="/api/billing", tags=["billing"])
 
 @app.on_event("startup")

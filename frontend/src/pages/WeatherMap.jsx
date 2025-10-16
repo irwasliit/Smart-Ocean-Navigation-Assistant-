@@ -227,7 +227,7 @@ const WeatherMap = () => {
     setAlertsLoading(true);
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const response = await axios.get('/api/hazards/alerts/quick', {
+      const response = await axios.get('/api/hazard-alerts/alerts/quick', {
         params: { latitude: lat, longitude: lng },
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
