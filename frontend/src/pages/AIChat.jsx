@@ -161,49 +161,23 @@ const AIChat = () => {
 
   const fetchSuggestions = async () => {
     // Enhanced suggestions with real-world locations and practical scenarios
-    const realWorldSuggestions = [
-      // Weather and conditions with specific locations
-      "What are the current weather conditions in Colombo Harbor, Sri Lanka?",
-      "How are the sea conditions between Mumbai and Dubai right now?",
-      "Is it safe to sail from Singapore to Manila today?",
-      "What's the weather forecast for the Bay of Bengal this week?",
-      "Current wind and wave conditions in the South China Sea",
-      
-      // Route planning with real routes
+    const bannedSuggestions = [
       "Analyze the safety of the route from Jaffna to Trincomalee",
+      "How are the sea conditions between Mumbai right now?",
+      "What are the current weather conditions in Colombo Harbor, Sri Lanka?"
+    ];
+
+    const realWorldSuggestions = [
+      // Weather and conditions with specific locations (banned ones are removed)
+      "Is it safe to sail from Singapore port to shangai port today?",
+
+      // Route planning with real routes
       "Best route from Chennai to Colombo considering current weather",
-      "Plan a safe passage from Hong Kong to Singapore",
+      "Plan a safe passage from colombo to Singapore",
       "Route optimization from New York to London via Atlantic",
       "Safest path from Miami to Nassau in current conditions",
-      
-      // Hazard and safety checks for specific areas
-      "Check for maritime hazards between Taiwan and Philippines",
-      "Any typhoons affecting the Pacific shipping lanes?",
-      "Maritime safety alerts for Indian Ocean routes",
-      "Current tsunami warnings in the Pacific Ocean",
-      "Piracy warnings in the Gulf of Aden region",
-      
-      // Real disaster and emergency queries
-      "What natural disasters are currently affecting Asian countries?",
-      "Are there any active typhoons in the Western Pacific?",
-      "Current earthquake activity near Japan and Indonesia",
-      "Hurricane tracking in the Caribbean and Atlantic",
-      "Volcanic activity affecting maritime routes in Indonesia",
-      
-      // Port and harbor specific information
-      "Port conditions and services in Colombo, Sri Lanka",
-      "Harbor closures and restrictions in Hong Kong",
-      "Fuel availability at Singapore Maritime Port",
-      "Customs and immigration procedures in Dubai ports",
-      "Anchorage availability in Mumbai Harbor",
-      
-      // Regional maritime intelligence
-      "Maritime traffic density in the Strait of Malacca",
-      "Current conditions in the Suez Canal",
-      "Panama Canal transit times and restrictions",
-      "Fishing vessel activity near Sri Lankan waters",
-      "Commercial shipping congestion in major Asian ports"
-    ];
+      "What natural disasters are currently affecting countries?",
+    ].filter(s => !bannedSuggestions.includes(s));
     
     // Randomly select 6 suggestions for variety
     const shuffled = realWorldSuggestions.sort(() => 0.5 - Math.random());
@@ -328,9 +302,10 @@ const AIChat = () => {
       // Update chat usage
       updateChatUsage();
       
-      // Update suggestions from AI response
+      // Update suggestions from AI response (filter out banned suggestions)
       if (response.data.suggestions && response.data.suggestions.length > 0) {
-        setSuggestions(response.data.suggestions);
+        const filtered = response.data.suggestions.filter(s => !bannedSuggestions.includes(s));
+        setSuggestions(filtered);
       }
 
     } catch (error) {
@@ -505,29 +480,32 @@ const AIChat = () => {
                     <p className="text-gray-500 mb-4">Start a conversation with the enhanced AI assistant</p>
                     <p className="text-sm text-gray-400 mb-6">Powered by multi-agent AI with NLP and real-time maritime data</p>
                     
-                    {/* Initial Suggestions */}
-                    {suggestions.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm text-gray-400">Try asking:</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {suggestions.slice(0, 4).map((suggestion, index) => (
-                            <button
-                              key={index}
-                              onClick={() => sendMessage(suggestion)}
-                              disabled={limitReached}
-                              className={`px-4 py-2 text-sm rounded-lg transition-all duration-200 border disabled:opacity-50 disabled:cursor-not-allowed ${
-                                limitReached 
-                                  ? 'bg-red-50 text-red-400 border-red-200' 
-                                  : 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 border-blue-200 hover:from-blue-100 hover:to-cyan-100 hover:border-blue-300 hover:scale-105'
-                              }`}
-                            >
-                              <span className="mr-1">🧭</span>
-                              {suggestion}
-                            </button>
-                          ))}
-                        </div>
+                    {/* Fixed initial suggestions: show exactly 4 static prompts */}
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-400">Try asking:</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {[
+                          "Is it safe to go china now",
+                          "Analyze the route from Singapore port to colombo port.",
+                          "What hazards are active in the world right now?",
+                          "current weather of london"
+                        ].map((prompt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => sendMessage(prompt)}
+                            disabled={limitReached}
+                            className={`px-4 py-2 text-sm rounded-lg transition-all duration-200 border disabled:opacity-50 disabled:cursor-not-allowed ${
+                              limitReached 
+                                ? 'bg-red-50 text-red-400 border-red-200' 
+                                : 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 border-blue-200 hover:from-blue-100 hover:to-cyan-100 hover:border-blue-300 hover:scale-105'
+                            }`}
+                          >
+                            <span className="mr-1">🧭</span>
+                            {prompt}
+                          </button>
+                        ))}
                       </div>
-                    )}
+                    </div>
                   </div>
                 ) : (
                   messages.map((message) => (
@@ -670,28 +648,7 @@ const AIChat = () => {
                   </div>
                 )}
                 
-                {/* Quick Suggestions */}
-                {suggestions.length > 0 && !limitReached && (
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-500 mb-2">Suggested questions:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestions.slice(0, 3).map((suggestion, index) => (
-                        <button
-                          key={index}
-                          onClick={() => sendMessage(suggestion)}
-                          disabled={loading || limitReached}
-                          className={`px-3 py-1 text-sm rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                            limitReached 
-                              ? 'bg-red-100 text-red-400 border border-red-200' 
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Suggested questions UI removed per user request */}
               </div>
             </div>
           </div>

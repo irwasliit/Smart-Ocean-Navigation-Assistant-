@@ -23,6 +23,15 @@ import traceback
 logging.basicConfig(level=logging.WARNING, format='%(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Import intelligent analyzer
+try:
+    from .intelligent_ai_analyzer import intelligent_analyzer
+    INTELLIGENT_ANALYZER_AVAILABLE = True
+    logger.info("✅ Intelligent AI Analyzer loaded successfully!")
+except ImportError as e:
+    INTELLIGENT_ANALYZER_AVAILABLE = False
+    logger.warning(f"⚠️ Intelligent AI Analyzer not available: {e}")
+
 # Import free AI alternatives
 try:
     from .ollama_ai_service import ollama_service
@@ -1175,6 +1184,49 @@ class EnhancedAIChatService:
                 data["singapore_maritime"] = singapore_data
                 data["sources"].append("singapore_maritime_data")
 
+        # 🧠 INTELLIGENT ANALYSIS - Make AI truly smart
+        if INTELLIGENT_ANALYZER_AVAILABLE and data.get("disaster_data"):
+            logger.info("🧠 Running intelligent disaster/safety analysis...")
+            
+            # 1. Location Safety Analysis (for safety queries)
+            if response_type == ResponseType.SAFETY_ASSESSMENT or \
+               any(word in message_lower for word in ['safe', 'safety', 'dangerous', 'risk', 'go to', 'travel to', 'visit']):
+                safety_analysis = intelligent_analyzer.analyze_location_safety(message, data["disaster_data"])
+                if safety_analysis.get('analysis_performed'):
+                    data["intelligent_safety_analysis"] = safety_analysis
+                    data["sources"].append("intelligent_safety_analyzer")
+                    logger.info(f"✅ Safety analysis: {safety_analysis.get('location')} - {'SAFE' if safety_analysis.get('is_safe') else 'UNSAFE'}")
+            
+            # 2. Regional Hazard Filtering (for regional queries like "Indian Ocean")
+            if any(region in message_lower for region in ['indian ocean', 'pacific ocean', 'atlantic ocean', 'arabian sea', 'bay of bengal', 'south china sea']):
+                regional_filter = intelligent_analyzer.filter_regional_hazards(message, data["disaster_data"])
+                if regional_filter.get('filtering_performed'):
+                    data["regional_hazard_filter"] = regional_filter
+                    data["sources"].append("regional_hazard_filter")
+                    logger.info(f"✅ Regional filter: {regional_filter.get('total_in_region')} hazards in {regional_filter.get('region')}")
+            
+            # 3. Route Hazard Analysis (for route queries)
+            if response_type == ResponseType.ROUTE_GUIDANCE and data.get("route_data"):
+                from_port = data["route_data"].get("from_port", {}).get("name", "")
+                to_port = data["route_data"].get("to_port", {}).get("name", "")
+                if from_port and to_port:
+                    route_hazard_analysis = intelligent_analyzer.analyze_route_hazards(
+                        from_port, to_port, data["disaster_data"], data["route_data"]
+                    )
+                    if route_hazard_analysis.get('analysis_performed'):
+                        data["route_hazard_analysis"] = route_hazard_analysis
+                        data["sources"].append("route_hazard_analyzer")
+                        logger.info(f"✅ Route hazard analysis: {from_port} to {to_port} - {route_hazard_analysis.get('total_hazards')} hazards detected")
+            
+            # 4. Format all disasters with accurate timestamps
+            if data.get("disaster_data", {}).get("disasters"):
+                formatted_disasters = []
+                for disaster in data["disaster_data"]["disasters"]:
+                    formatted = intelligent_analyzer.format_disaster_with_accurate_time(disaster)
+                    formatted_disasters.append(formatted)
+                data["disaster_data"]["disasters"] = formatted_disasters
+                logger.info("✅ All disasters formatted with accurate timestamps")
+
         logger.info(f"📊 Gathered data from {len(data['sources'])} sources: {data['sources']}")
         return data
     
@@ -1964,23 +2016,77 @@ class EnhancedAIChatService:
         - Weather Routing: [Seasonal recommendations]
         - [CHECK CURRENT DISASTERS: If any disasters affect the departure, destination, or route area, warn about them]
 
-        ⚠️ CURRENT ROUTE WARNINGS:
-        - [If current disasters affect this route, list them with specific risks and alternative suggestions]
-        - [Real-time hazards from weather and marine alerts]
+        ⚠️ INTELLIGENT ROUTE HAZARD ANALYSIS:
+        CRITICAL: Check the route_hazard_analysis field in the real-time data. This automatically checks ALL active disasters along the entire route corridor.
+        
+        IF route_hazard_analysis.is_safe == False:
+        🚨 ROUTE HAZARD WARNING:
+        - Route Risk Level: [route_hazard_analysis.risk_level] (HIGH/MEDIUM)
+        - Total Hazards Detected: [route_hazard_analysis.total_hazards]
+        - Departure Port Hazards: [List route_hazard_analysis.departure_hazards]
+        - Destination Port Hazards: [List route_hazard_analysis.destination_hazards]
+        - Route Corridor Hazards: [List route_hazard_analysis.route_corridor_hazards]
+        - Recommendation: [route_hazard_analysis.recommendation]
+        - Detailed Warnings: [route_hazard_analysis.detailed_warnings]
+        
+        ⚠️ ALTERNATIVE RECOMMENDATIONS:
+        - Consider postponing voyage until conditions improve
+        - Monitor weather and disaster updates
+        - Evaluate alternative routes if available
+        - Consult with maritime safety authorities
+        
+        IF route_hazard_analysis.is_safe == True:
+        ✅ ROUTE APPEARS SAFE:
+        - Route Risk Level: LOW
+        - No active disasters detected along route corridor
+        - Verification: Checked against global disaster monitoring
+        - Weather Conditions: [Include weather data for both ports if available]
+        
+        IF NO route_hazard_analysis available (fallback):
+        - Check disaster_data manually for route area
+        - Provide conservative assessment
+        
+        CRITICAL: The route_hazard_analysis provides comprehensive hazard detection along departure, destination, and entire route path. Trust its analysis.
 
         FOR SAFETY QUERIES - Use this format:
         ✅ SAFE / ❌ UNSAFE - Travel to [LOCATION]
 
-        🔍 SAFETY ANALYSIS:
-        - Weather Conditions: [details from real-time weather data]
-        - Marine Alerts: [status from marine alerts]
-        - Natural Hazards: [CHECK CURRENT DISASTER DATA - if location matches any active disasters, mention them here]
-        - Overall Risk Level: LOW/MEDIUM/HIGH
-
-        📋 RECOMMENDATIONS:
-        - [Specific advice based on current conditions AND active disasters]
+        🔍 INTELLIGENT SAFETY ANALYSIS:
+        CRITICAL: Check the intelligent_safety_analysis field in the real-time data. This analysis automatically correlates the queried location with ALL active disasters.
         
-        CRITICAL: Always check if the queried location has any active disasters from the real-time data. If disasters exist in or near the location, rate as UNSAFE and explain the specific disaster risks.
+        IF intelligent_safety_analysis.is_safe == False:
+        ❌ UNSAFE - DO NOT TRAVEL
+        - Location Analyzed: [intelligent_safety_analysis.location]
+        - Risk Level: [intelligent_safety_analysis.risk_level] (HIGH/MEDIUM)
+        - Active Disasters Affecting Location: [intelligent_safety_analysis.disaster_count]
+        - Evidence/Proof: [intelligent_safety_analysis.proof]
+        - Specific Hazards: [List each disaster from intelligent_safety_analysis.affecting_disasters with type, location, severity]
+        
+        📋 URGENT RECOMMENDATIONS:
+        - AVOID travel to this location due to active disasters
+        - [Specific advice based on disaster types]
+        - Monitor official sources for updates
+        - Consider alternative destinations
+        
+        IF intelligent_safety_analysis.is_safe == True:
+        ✅ SAFE - Low Risk for Travel
+        - Location Analyzed: [intelligent_safety_analysis.location]
+        - Risk Level: LOW
+        - Verification: [intelligent_safety_analysis.proof]
+        - Weather Conditions: [details from real-time weather data if available]
+        - Marine Alerts: [status from marine alerts]
+        
+        📋 RECOMMENDATIONS:
+        - Location appears safe based on current disaster monitoring
+        - [Weather-based advice if available]
+        - Continue monitoring conditions
+        - Follow standard maritime safety protocols
+        
+        IF NO intelligent_safety_analysis available (fallback):
+        - Check disaster_data manually for location mentions
+        - Provide conservative risk assessment
+        
+        CRITICAL: The intelligent_safety_analysis provides PROOF-BASED assessment. Trust its analysis completely as it checks against ALL active global disasters.
 
         FOR DISASTER QUERIES - Use ONLY this format for REAL-TIME data:
         
@@ -1988,21 +2094,38 @@ class EnhancedAIChatService:
         🌪️ CURRENT GLOBAL DISASTERS:
         
         🌍 EARTHQUAKES:
+        CRITICAL: Each earthquake MUST include accurate timestamp from API data. Use time_local or time_utc fields.
         • [Enhanced Location with city/region] - Magnitude [X.X] ([Severity Level])
-        • [Enhanced Location with city/region] - Magnitude [X.X] ([Severity Level])
+          📅 Time: [time_local or time_utc from disaster data] 
+          📍 Coordinates: [latitude, longitude if available]
+        • [Repeat format for each earthquake]
         
         🌊 STORMS & TYPHOONS:
+        CRITICAL: Each storm MUST include effective time and expiration time if available.
         • [Storm Name/Type] affecting [Enhanced Location with cities/regions] - [Intensity/Category]
-        • [Specific areas impacted, wind speeds, movement direction]
+          📅 Active Period: [time_start] to [time_end if available] OR "Currently Active"
+          📍 Affected Areas: [Specific locations]
+        • [Repeat format for each storm]
         
         💧 FLOODS & WATER HAZARDS:
         • [Enhanced Location with cities/regions] - [Severity Level]
-        • [Specific affected areas, water levels, duration]
+          📅 Time: [When reported/effective]
+          🌊 Status: [Active/Ongoing/Ended]
         
         🔥 OTHER NATURAL DISASTERS:
         • [Type] in [Enhanced Location] - [Severity/Details]
+          📅 Time: [Occurrence time]
+          ⚠️ Status: [Current status]
         
         📊 DATA SOURCES: [List the actual monitoring sources like USGS, GDACS, etc.]
+        
+        CRITICAL FOR TIMESTAMPS:
+        - ALWAYS show time_local (local time at disaster location) if available
+        - If only time_utc available, show that with "UTC" label
+        - Format: "YYYY-MM-DD HH:MM:SS [timezone]"
+        - For ongoing events, show start time and "Ongoing" status
+        - For past events, show occurrence time
+        - NEVER show "Unknown" for time - if truly unknown, say "Time being verified"
         
         ⚠️ MARITIME IMPACT BY DISASTER TYPE:
         🌍 Earthquake Zones:
@@ -2021,6 +2144,26 @@ class EnhancedAIChatService:
 
         🕐 LAST UPDATED: Real-time monitoring active
 
+        FOR REGIONAL DISASTER QUERIES (e.g., "disasters in Indian Ocean", "hazards in Pacific"):
+        🌊 DISASTERS IN [REGION NAME]:
+        
+        CRITICAL: Check regional_hazard_filter field in real-time data. This filters disasters to ONLY show those in the specific region.
+        
+        IF regional_hazard_filter available:
+        📍 REGION: [regional_hazard_filter.region]
+        📊 ACTIVE DISASTERS IN REGION: [regional_hazard_filter.total_in_region] out of [regional_hazard_filter.total_global] global disasters
+        
+        [Then list ONLY the disasters from regional_hazard_filter.regional_disasters using the standard disaster format with timestamps]
+        
+        🌍 REGIONAL CONTEXT:
+        - Region Description: [regional_hazard_filter.description]
+        - Disasters filtered specifically for this maritime region
+        - Other regions may have different active disasters
+        
+        IF NO regional_hazard_filter (fallback):
+        - List all disasters but note they are global
+        - Mention that specific regional filtering was not available
+        
         CRITICAL FOR GENERAL DISASTER OVERVIEWS: 
         - Organize disasters BY TYPE (Earthquakes, Storms, Floods, etc.) with clear category headers
         - Provide EQUAL treatment for ALL disasters within each category
@@ -2029,6 +2172,7 @@ class EnhancedAIChatService:
         - Provide TYPE-SPECIFIC maritime impact information for each disaster category
         - Keep each disaster entry informative but concise (1-2 lines per disaster)
         - Reserve detailed reports ONLY for specific disaster detail requests
+        - ALWAYS include accurate timestamps from API data
 
         FOR SPECIFIC DISASTER DETAIL REQUESTS (like "tell me about earthquake in Japan"):
         🔍 DETAILED DISASTER REPORT:
@@ -2574,6 +2718,53 @@ class EnhancedAIChatService:
                     context_parts.append(f"Affected countries: {', '.join(affected_countries)}")
                 for disaster in disasters[:3]:  # Show top 3 disasters
                     context_parts.append(f"• {disaster['type']} in {disaster['location']} - {disaster['severity']}")
+        
+        # 🧠 INTELLIGENT SAFETY ANALYSIS RESULTS
+        if "intelligent_safety_analysis" in real_time_data:
+            safety = real_time_data["intelligent_safety_analysis"]
+            if safety.get("analysis_performed"):
+                context_parts.append(f"\n🧠 INTELLIGENT SAFETY ANALYSIS FOR {safety['location'].upper()}:")
+                context_parts.append(f"  Safety Status: {'✅ SAFE' if safety['is_safe'] else '❌ UNSAFE'}")
+                context_parts.append(f"  Risk Level: {safety['risk_level']}")
+                context_parts.append(f"  Recommendation: {safety['recommendation']}")
+                context_parts.append(f"  Evidence: {safety['proof']}")
+                if not safety['is_safe'] and safety.get('affecting_disasters'):
+                    context_parts.append(f"  Affecting Disasters: {len(safety['affecting_disasters'])} active hazards")
+                    for item in safety['affecting_disasters'][:3]:
+                        disaster = item['disaster']
+                        context_parts.append(f"    • {disaster.get('type')}: {disaster.get('location')} - {disaster.get('severity', disaster.get('magnitude', 'Active'))}")
+        
+        # 🌊 REGIONAL HAZARD FILTER RESULTS
+        if "regional_hazard_filter" in real_time_data:
+            regional = real_time_data["regional_hazard_filter"]
+            if regional.get("filtering_performed"):
+                context_parts.append(f"\n🌊 REGIONAL HAZARD FILTER - {regional['region'].upper()}:")
+                context_parts.append(f"  Total in Region: {regional['total_in_region']} out of {regional['total_global']} global disasters")
+                context_parts.append(f"  Region: {regional['description']}")
+                if regional.get('regional_disasters'):
+                    context_parts.append(f"  Regional Disasters:")
+                    for disaster in regional['regional_disasters'][:5]:
+                        context_parts.append(f"    • {disaster.get('type')} in {disaster.get('location')} - {disaster.get('severity', disaster.get('magnitude', 'Active'))}")
+        
+        # 🚢 ROUTE HAZARD ANALYSIS RESULTS
+        if "route_hazard_analysis" in real_time_data:
+            route_hazards = real_time_data["route_hazard_analysis"]
+            if route_hazards.get("analysis_performed"):
+                context_parts.append(f"\n🚢 INTELLIGENT ROUTE HAZARD ANALYSIS:")
+                context_parts.append(f"  Route: {route_hazards['from_location']} → {route_hazards['to_location']}")
+                context_parts.append(f"  Safety Status: {'✅ SAFE' if route_hazards['is_safe'] else '⚠️ HAZARDS DETECTED'}")
+                context_parts.append(f"  Risk Level: {route_hazards['risk_level']}")
+                context_parts.append(f"  Total Hazards: {route_hazards['total_hazards']}")
+                context_parts.append(f"  Recommendation: {route_hazards['recommendation']}")
+                if route_hazards['total_hazards'] > 0:
+                    if route_hazards.get('departure_hazards'):
+                        context_parts.append(f"  Departure Hazards: {len(route_hazards['departure_hazards'])}")
+                    if route_hazards.get('destination_hazards'):
+                        context_parts.append(f"  Destination Hazards: {len(route_hazards['destination_hazards'])}")
+                    if route_hazards.get('route_corridor_hazards'):
+                        context_parts.append(f"  Route Corridor Hazards: {len(route_hazards['route_corridor_hazards'])}")
+                    if route_hazards.get('detailed_warnings'):
+                        context_parts.append(f"  Warnings: {'; '.join(route_hazards['detailed_warnings'][:3])}")
         
         if "route_data" in real_time_data:
             route_data = real_time_data["route_data"]
