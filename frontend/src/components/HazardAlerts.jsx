@@ -14,13 +14,20 @@ const HazardAlerts = ({ latitude, longitude, city }) => {
   const [includeQuickMode, setIncludeQuickMode] = useState(false);
   const [includeMarine, setIncludeMarine] = useState(true);
   const [includeEarthquakes, setIncludeEarthquakes] = useState(true);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [previousLocation, setPreviousLocation] = useState(null);
 
   const fetchHazardAlerts = async () => {
     if (!latitude || !longitude) return;
 
     setLoading(true);
     try {
-      const endpoint = includeQuickMode ? '/api/hazards/alerts/quick' : '/api/hazards/alerts/comprehensive';
+      const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+      if (!token) {
+        console.warn('No authentication token found - hazard alerts may not load');
+      }
+      
+      const endpoint = includeQuickMode ? '/api/hazard-alerts/alerts/quick' : '/api/hazard-alerts/alerts/comprehensive';
       const params = {
         latitude,
         longitude,
@@ -29,10 +36,14 @@ const HazardAlerts = ({ latitude, longitude, city }) => {
         include_earthquakes: includeEarthquakes
       };
 
-      const response = await axios.get(`http://localhost:8000${endpoint}`, { params });
+      const response = await axios.get(`http://localhost:8000${endpoint}`, { 
+        params,
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const data = response.data;
 
-      console.log('API Response:', data); // Debug log
+      console.log('Hazard Alerts API Response:', data); // Debug log
+      console.log('Hazard Alerts Request:', { endpoint, params }); // Debug request
 
       // Ensure all disaster types are mapped and shown
       let allAlerts = [];
@@ -66,15 +77,59 @@ const HazardAlerts = ({ latitude, longitude, city }) => {
         alertCount: allAlerts.length,
         sources: ['US NWS', 'Open-Meteo', 'USGS', 'MeteoAlarm']
       });
+      
+      // Show success notification on location change (not on first load)
+      const currentLocationKey = `${latitude},${longitude}`;
+      if (!isFirstLoad && previousLocation !== currentLocationKey) {
+        const locationName = city || `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`;
+        const alertCount = allAlerts.length;
+        const severeCount = allAlerts.filter(a => a.severity === 'extreme' || a.severity === 'severe').length;
+        
+        if (severeCount > 0) {
+          toast.error(`⚠️ ${locationName}: ${severeCount} severe alert(s) found!`, {
+            duration: 4000,
+            icon: '🚨',
+          });
+        } else if (alertCount > 0) {
+          toast.success(`📍 ${locationName}: ${alertCount} alert(s) found`, {
+            duration: 3000,
+          });
+        } else {
+          toast.success(`✅ ${locationName}: No alerts - Safe conditions`, {
+            duration: 3000,
+            icon: '🌊',
+          });
+        }
+      }
+      
+      setPreviousLocation(currentLocationKey);
+      setIsFirstLoad(false);
+      
+      // Dismiss manual refresh loading toast if it exists
+      toast.dismiss('manual-refresh');
     } catch (error) {
       console.error('Error fetching hazard alerts:', error);
-      toast.error('Failed to fetch hazard alerts');
+      toast.dismiss('manual-refresh');
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        endpoint: includeQuickMode ? '/api/hazard-alerts/alerts/quick' : '/api/hazard-alerts/alerts/comprehensive'
+      });
+      
+      // Show error for debugging but don't spam
+      if (error.response?.status === 404) {
+        console.error('⚠️ API endpoint not found - backend may need restart');
+      }
+      // Silent error - don't show toast notification to avoid spam
+      // toast.error('Failed to fetch hazard alerts');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('HazardAlerts useEffect triggered - Location:', { latitude, longitude, city });
     fetchHazardAlerts();
   }, [latitude, longitude, includeQuickMode, includeMarine, includeEarthquakes]);
 
@@ -114,14 +169,29 @@ const HazardAlerts = ({ latitude, longitude, city }) => {
     return icons[alertType] || '⚠️';
   };
 
+  const handleManualRefresh = () => {
+    toast.loading('Refreshing hazard alerts...', { id: 'manual-refresh' });
+    setIsFirstLoad(false); // Ensure notification shows on manual refresh
+    fetchHazardAlerts();
+  };
+
   return (
     <div className="hazard-alerts bg-white rounded-lg shadow-lg p-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-800">🚨 Hazard Alerts</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">🚨 Hazard Alerts</h2>
+          {lastUpdated && (
+            <p className="text-xs text-gray-500 mt-1">
+              📍 Location: {city || `${latitude?.toFixed(2)}°, ${longitude?.toFixed(2)}°`}
+              {' • '}
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </p>
+          )}
+        </div>
         <button
-          onClick={fetchHazardAlerts}
+          onClick={handleManualRefresh}
           disabled={loading}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 transition-all"
         >
           {loading ? '🔄 Loading...' : '🔄 Refresh'}
         </button>
