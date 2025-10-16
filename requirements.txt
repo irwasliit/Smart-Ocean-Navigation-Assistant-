@@ -38,6 +38,8 @@ lxml==4.9.3
 # Geographic and mapping libraries
 geopy==2.4.0
 folium==0.15.0
+timezonefinder==6.2.0
+pytz==2023.3
 
 # Scientific computing
 scipy==1.11.4
