@@ -581,7 +581,7 @@ const WeatherMap = () => {
 
               <div className="h-40 overflow-y-auto border border-gray-100 rounded-md p-3 bg-gray-50 mb-3 space-y-2">
                 {chatMessages.length === 0 ? (
-                  <div className="text-sm text-gray-500">Ask about local weather, hazards, or safety tips. Uses free built-in AI.</div>
+                  <div className="text-sm text-gray-500">Ask about local weather Uses free built-in AI.</div>
                 ) : (
                   chatMessages.map((m) => (
                     <div key={m.ts} className={m.role === 'user' ? 'text-right' : 'text-left'}>
@@ -605,7 +605,7 @@ const WeatherMap = () => {
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') sendChatMessage(); }}
-                  placeholder="Ask about hazards, waves, wind conditions..."
+                  placeholder="Ask about weather conditions..."
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
                 <button
