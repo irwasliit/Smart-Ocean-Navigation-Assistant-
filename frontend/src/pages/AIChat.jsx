@@ -27,6 +27,8 @@ const AIChat = () => {
   const [systemStatus, setSystemStatus] = useState('operational');
   const [chatUsage, setChatUsage] = useState({ current: 0, limit: undefined });
   const [limitReached, setLimitReached] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('basic'); // 'basic' or 'advanced'
+  const [userPlan, setUserPlan] = useState('free'); // 'free', 'pro', or 'premium'
   const messagesEndRef = useRef(null);
 
   // Plan limits
@@ -66,24 +68,34 @@ const AIChat = () => {
       if (response.ok) {
         const profile = await response.json();
         console.log('User profile:', profile);
-        const userPlan = profile.plan || 'free';
-        const limit = planLimits[userPlan]?.daily_chat;
+        const plan = profile.plan || 'free';
+        setUserPlan(plan); // Set user plan state
+        const limit = planLimits[plan]?.daily_chat;
+        
+        // Free users can only use basic model
+        if (plan === 'free') {
+          setSelectedModel('basic');
+        }
         
         // For demo purposes, track usage in localStorage
         const today = new Date().toDateString();
         const storageKey = `chat_usage_${profile.id}_${today}`;
         const currentUsage = parseInt(localStorage.getItem(storageKey) || '0');
         
-        console.log('Setting usage:', { current: currentUsage, limit, plan: userPlan });
+        console.log('Setting usage:', { current: currentUsage, limit, plan });
         setChatUsage({ current: currentUsage, limit });
         setLimitReached(limit && currentUsage >= limit);
       } else {
         // Fallback to free plan if auth fails
+        setUserPlan('free');
+        setSelectedModel('basic');
         setChatUsage({ current: 0, limit: 10 });
       }
     } catch (error) {
       console.error('Failed to load chat usage:', error);
       // Fallback to free plan on error
+      setUserPlan('free');
+      setSelectedModel('basic');
       setChatUsage({ current: 0, limit: 10 });
     }
   };
@@ -387,7 +399,7 @@ const AIChat = () => {
     <>
       <Navbar />
       <div className="min-h-screen ocean-pattern py-8 pt-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           {/* Enhanced Header */}
           <div className="mb-8 text-center">
             <div className="inline-flex items-center space-x-3 mb-4">
@@ -431,9 +443,131 @@ const AIChat = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Enhanced Chat Interface */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* AI Model Comparison - LEFT SIDEBAR */}
           <div className="lg:col-span-3">
+            <div className="maritime-card p-6 bg-gradient-to-br from-blue-50 to-purple-50 sticky top-24">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="mr-2">🧠</span>
+                AI Model Comparison
+              </h3>
+              
+              {/* Basic Model */}
+              <div className="mb-4 p-3 bg-white rounded-lg border-2 border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-blue-700 flex items-center text-sm">
+                    <span className="mr-1">⚡</span>
+                    Basic GPT
+                  </h4>
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                    All Plans
+                  </span>
+                </div>
+                <ul className="text-xs text-gray-600 space-y-1">
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>Fast response times</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>Maritime queries</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>Weather analysis</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>Route planning</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Advanced Model */}
+              <div className={`p-3 rounded-lg border-2 ${
+                userPlan === 'free' 
+                  ? 'bg-gray-50 border-gray-300 opacity-60' 
+                  : 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className={`font-semibold flex items-center text-sm ${
+                    userPlan === 'free' ? 'text-gray-500' : 'text-purple-700'
+                  }`}>
+                    <span className="mr-1">🚀</span>
+                    Advanced + HF
+                  </h4>
+                  {userPlan === 'free' ? (
+                    <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full flex items-center">
+                      <span className="mr-0.5">🔒</span>
+                      Locked
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 text-xs rounded-full">
+                      Pro/Premium
+                    </span>
+                  )}
+                </div>
+                <ul className={`text-xs space-y-1 ${
+                  userPlan === 'free' ? 'text-gray-500' : 'text-gray-700'
+                }`}>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span><strong>Everything in Basic</strong></span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>HuggingFace integration</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>Enhanced context</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>24/7 Availability</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>Advanced NLP</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>Scalable Performance</span>
+                  </li>
+                </ul>
+                
+                {userPlan === 'free' && (
+                  <div className="mt-3">
+                    <a 
+                      href="/upgrade" 
+                      className="block text-center px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs rounded-md hover:from-purple-700 hover:to-pink-700 transition-all duration-200"
+                    >
+                      🔓 Upgrade to Unlock
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Plan Info */}
+              <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
+                <div className="text-xs text-gray-600">
+                  <p className="font-semibold mb-1">Your Plan:</p>
+                  {userPlan === 'free' && (
+                    <p>🆓 <strong>Free</strong> - Basic only</p>
+                  )}
+                  {userPlan === 'pro' && (
+                    <p>⭐ <strong>Pro</strong> - Both models (50/day)</p>
+                  )}
+                  {userPlan === 'premium' && (
+                    <p>💎 <strong>Premium</strong> - Unlimited</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Enhanced Chat Interface - CENTER */}
+          <div className="lg:col-span-6">
             <div className="maritime-card overflow-hidden">
               {/* Enhanced Chat Header */}
               <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-4">
@@ -470,10 +604,117 @@ const AIChat = () => {
                     </button>
                   </div>
                 </div>
+                
+                {/* AI Model Selector */}
+                <div className="mt-4 pt-4 border-t border-white border-opacity-20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-white text-sm font-medium">🧠 AI Model:</span>
+                      <div className="flex items-center bg-white bg-opacity-10 rounded-lg p-1">
+                        {/* Basic Model */}
+                        <button
+                          onClick={() => {
+                            if (selectedModel === 'advanced') {
+                              setSelectedModel('basic');
+                              toast.success('Switched to Basic GPT Model', {
+                                duration: 2000,
+                                icon: '⚡'
+                              });
+                            }
+                          }}
+                          disabled={userPlan === 'free' && selectedModel === 'basic'}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                            selectedModel === 'basic'
+                              ? 'bg-white text-blue-600 shadow-md'
+                              : 'text-white hover:bg-white hover:bg-opacity-10'
+                          }`}
+                        >
+                          <span className="flex items-center space-x-1">
+                            <span>⚡</span>
+                            <span>Basic GPT</span>
+                          </span>
+                        </button>
+                        
+                        {/* Advanced Model */}
+                        <button
+                          onClick={() => {
+                            if (userPlan === 'free') {
+                              toast.error('Upgrade to Pro or Premium to use Advanced GPT with HuggingFace!', {
+                                duration: 4000,
+                                icon: '🔒'
+                              });
+                            } else {
+                              setSelectedModel('advanced');
+                              toast.success('Switched to Advanced GPT with HuggingFace', {
+                                duration: 2000,
+                                icon: '🚀'
+                              });
+                            }
+                          }}
+                          disabled={userPlan === 'free'}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 relative ${
+                            selectedModel === 'advanced'
+                              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                              : userPlan === 'free'
+                                ? 'text-gray-400 cursor-not-allowed opacity-50'
+                                : 'text-white hover:bg-white hover:bg-opacity-10'
+                          }`}
+                        >
+                          <span className="flex items-center space-x-1">
+                            <span>🚀</span>
+                            <span>Advanced GPT + HuggingFace</span>
+                            {userPlan === 'free' && (
+                              <span className="ml-1">🔒</span>
+                            )}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Model Info Badge */}
+                    <div className="flex items-center space-x-2">
+                      {selectedModel === 'basic' ? (
+                        <span className="px-2 py-1 bg-blue-500 bg-opacity-30 text-white text-xs rounded-md">
+                          Fast & Reliable
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-gradient-to-r from-purple-500 to-pink-500 bg-opacity-30 text-white text-xs rounded-md flex items-center space-x-1">
+                          <span>🎯</span>
+                          <span>Enhanced Intelligence</span>
+                        </span>
+                      )}
+                      
+                      {userPlan === 'free' && (
+                        <span className="px-2 py-1 bg-yellow-500 bg-opacity-30 text-white text-xs rounded-md">
+                          Free Plan
+                        </span>
+                      )}
+                      {userPlan === 'pro' && (
+                        <span className="px-2 py-1 bg-green-500 bg-opacity-30 text-white text-xs rounded-md">
+                          Pro Plan
+                        </span>
+                      )}
+                      {userPlan === 'premium' && (
+                        <span className="px-2 py-1 bg-gradient-to-r from-amber-500 to-orange-500 bg-opacity-30 text-white text-xs rounded-md">
+                          Premium Plan
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Model Description */}
+                  <div className="mt-2 text-white text-opacity-80 text-xs">
+                    {selectedModel === 'basic' ? (
+                      <p>⚡ Using optimized GPT for quick responses and maritime queries</p>
+                    ) : (
+                      <p>🚀 Using Advanced GPT with HuggingFace models for superior context understanding </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Messages */}
-              <div className="h-[38rem] overflow-y-auto p-6 space-y-4">
+              <div className="h-[calc(100vh-8rem)] overflow-y-auto p-6 space-y-4">
                 {messages.length === 0 ? (
                   <div className="text-center py-8">
                     <ChatBubbleLeftRightIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -585,10 +826,18 @@ const AIChat = () => {
                 
                 {loading && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 text-gray-900 px-4 py-3 rounded-lg border mr-12">
+                    <div className={`px-4 py-3 rounded-lg border mr-12 ${
+                      selectedModel === 'advanced' 
+                        ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200' 
+                        : 'bg-gray-100 border-gray-200'
+                    }`}>
                       <div className="flex items-center space-x-3">
                         <div className="spinner w-5 h-5"></div>
-                        <span className="text-sm">Multi-agent AI analyzing...</span>
+                        <span className={`text-sm ${selectedModel === 'advanced' ? 'text-purple-700' : 'text-gray-900'}`}>
+                          {selectedModel === 'advanced' 
+                            ? '🚀 Advanced AI + HuggingFace analyzing...' 
+                            : '⚡ Multi-agent AI analyzing...'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -599,6 +848,32 @@ const AIChat = () => {
 
               {/* Input */}
               <div className="border-t border-gray-200 p-6">
+                {/* Current Model Indicator */}
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500">Current Model:</span>
+                    {selectedModel === 'basic' ? (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-md flex items-center space-x-1">
+                        <span>⚡</span>
+                        <span>Basic GPT</span>
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 text-xs rounded-md flex items-center space-x-1">
+                        <span>🚀</span>
+                        <span>Advanced GPT + HuggingFace</span>
+                      </span>
+                    )}
+                  </div>
+                  {userPlan === 'free' && (
+                    <a 
+                      href="/upgrade" 
+                      className="text-xs text-blue-600 hover:text-blue-700 underline flex items-center space-x-1"
+                    >
+                      <span>🔓</span>
+                      <span>Upgrade to unlock Advanced Model</span>
+                    </a>
+                  )}
+                </div>
                 
                 <form onSubmit={handleSubmit} className="flex space-x-4">
                   <input
@@ -653,8 +928,8 @@ const AIChat = () => {
             </div>
           </div>
 
-          {/* Enhanced AI Features Sidebar */}
-          <div className="space-y-6">
+          {/* Enhanced AI Features Sidebar - RIGHT */}
+          <div className="lg:col-span-3 space-y-6">
             {/* Enhanced AI Agents Status */}
             <div className="maritime-card p-6">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
@@ -737,6 +1012,7 @@ const AIChat = () => {
                 </div>
               </div>
             </div>
+
           </div>
         </div>
         </div>

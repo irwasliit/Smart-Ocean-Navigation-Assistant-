@@ -341,10 +341,21 @@ async def get_global_high_risk_areas(
             # Determine severity emoji
             severity_emoji = "🚨" if disaster.severity == "extreme" else "⚠️" if disaster.severity == "severe" else "⚡"
             
+            # Skip disasters without valid coordinates
+            if not disaster.coordinates or len(disaster.coordinates) < 2:
+                continue
+            
+            lat = disaster.coordinates[0]
+            lon = disaster.coordinates[1]
+            
+            # Validate coordinates are in valid range
+            if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                continue
+            
             area = {
                 "name": f"{emoji} {disaster.event}",
-                "lat": disaster.coordinates[0] if disaster.coordinates else 0.0,
-                "lon": disaster.coordinates[1] if disaster.coordinates else 0.0,
+                "lat": lat,
+                "lon": lon,
                 "display_name": f"{severity_emoji} {disaster.severity.upper()}: {disaster.event}",
                 "severity": disaster.severity.upper(),
                 "description": disaster.description,

@@ -281,9 +281,26 @@ const HazardAlertsPage = () => {
       
       console.log('HazardAlertsPage: Parsed coordinates - lat:', latitude, 'lon:', longitude);
       
-      if (!selectedLocation || !latitude || !longitude) {
-        console.error('HazardAlertsPage: Invalid location data:', selectedLocation);
+      // Validate that we have valid coordinates
+      if (!selectedLocation || 
+          latitude === null || latitude === undefined || 
+          longitude === null || longitude === undefined) {
+        console.error('HazardAlertsPage: Missing coordinates:', selectedLocation);
         toast.error('Invalid location data received. Please try selecting a different location.');
+        return;
+      }
+      
+      // Validate coordinate ranges
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        console.error('HazardAlertsPage: Coordinates out of range - lat:', latitude, 'lon:', longitude);
+        toast.error('Invalid coordinates. Latitude must be between -90 and 90, longitude between -180 and 180.');
+        return;
+      }
+      
+      // Check for zero coordinates (likely invalid data)
+      if (latitude === 0 && longitude === 0) {
+        console.error('HazardAlertsPage: Zero coordinates detected, likely invalid data:', selectedLocation);
+        toast.error('This location has invalid coordinates. Please try a different area.');
         return;
       }
       

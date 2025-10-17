@@ -108,7 +108,7 @@ const Upgrade = () => {
         'Basic weather reports',
         'Simple route suggestions',
         'Standard hazard alerts',
-        'Community support'
+        
       ],
       limitations: [
         'Limited chat interactions',
