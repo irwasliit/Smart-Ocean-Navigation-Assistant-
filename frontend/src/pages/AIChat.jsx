@@ -261,6 +261,158 @@ const AIChat = () => {
     return null; // No location detected
   };
 
+  // Helper function to simplify Basic GPT responses
+  const simplifyBasicGPTResponse = (response) => {
+    // For Advanced model, just fix any contradictory safety headers
+    if (selectedModel !== 'basic') {
+      // Fix contradictory safety status in Advanced model responses
+      if (response.includes('Safety Status: ❌ UNSAFE') || response.includes('Risk Level: HIGH')) {
+        // Remove any misleading "SAFE" header if the actual analysis shows unsafe
+        response = response.replace(/^✅\s*SAFE\s*-\s*Low Risk for Travel\s*\n*/i, '');
+      }
+      return response; // Return full response for Advanced model
+    }
+
+    // Extract only weather data if present
+    const weatherMatch = response.match(/Current weather.*?in\s+([^:]+):\s*[-\n\s]*(Temperature:.*?)(?=\n\n|$)/is);
+    if (weatherMatch) {
+      const lines = weatherMatch[2].split('\n').filter(line => line.trim());
+      const essentialWeather = lines.filter(line => 
+        line.includes('Temperature:') || 
+        line.includes('Condition:') || 
+        line.includes('Wind:') || 
+        line.includes('Humidity:') || 
+        line.includes('Pressure:') || 
+        line.includes('Visibility:') || 
+        line.includes('Wave Height:')
+      ).join('\n');
+      
+      if (essentialWeather) {
+        return `Current weather in ${weatherMatch[1].trim()}:\n${essentialWeather}`;
+      }
+    }
+
+    // Extract only route essentials if present
+    const routeMatch = response.match(/(?:BEST ROUTE|Route Analysis).*?from\s+(.+?)\s+to\s+(.+?):\s*(.*?)(?=\n\n[A-Z]|$)/is);
+    if (routeMatch) {
+      const routeContent = routeMatch[3];
+      
+      // Extract key information
+      const distance = routeContent.match(/Distance:\s*([^\n]+)/i)?.[1] || '';
+      const routeDesc = routeContent.match(/Route Description:\s*([^\n]+)/i)?.[1] || '';
+      const time = routeContent.match(/Estimated Time:\s*([^\n]+)/i)?.[1] || '';
+      const speed = routeContent.match(/Speed Analysis:\s*([^\n]+)/i)?.[1] || '';
+      
+      if (distance || routeDesc) {
+        return `BEST ROUTE from ${routeMatch[1].trim()} to ${routeMatch[2].trim()}:
+        
+📏 ROUTE SPECIFICATIONS:
+${distance ? `- Distance: ${distance}` : ''}
+${routeDesc ? `- Route Description: ${routeDesc}` : ''}
+${time ? `- Estimated Time: ${time}` : ''}
+${speed ? `- Speed Analysis: ${speed}` : ''}`.trim();
+      }
+    }
+
+    // Simplify disaster/hazard queries
+    if (response.includes('CURRENT GLOBAL DISASTERS') || response.includes('EARTHQUAKES') || response.includes('STORMS') || response.includes('FLOODS')) {
+      let simplifiedDisaster = '🌪️ CURRENT GLOBAL DISASTERS:\n\n';
+      
+      // Extract earthquakes
+      const earthquakeSection = response.match(/🌍 EARTHQUAKES:(.*?)(?=🌊|💧|🔥|📊|$)/s);
+      if (earthquakeSection) {
+        simplifiedDisaster += '🌍 EARTHQUAKES:\n';
+        const earthquakes = earthquakeSection[1].match(/• M \d+\.?\d*.*?(?=\n  Occurred:.*?\n)/gs);
+        if (earthquakes && earthquakes.length > 0) {
+          earthquakes.slice(0, 9).forEach(eq => {
+            const cleanEq = eq.trim();
+            simplifiedDisaster += `${cleanEq}\n`;
+            const occuredMatch = earthquakeSection[1].match(new RegExp(cleanEq.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\n\\s*Occurred: ([^\\n]+)'));
+            if (occuredMatch) {
+              simplifiedDisaster += `  Occurred: ${occuredMatch[1]}\n`;
+            }
+          });
+        } else {
+          simplifiedDisaster += '• No significant earthquakes reported\n';
+        }
+        simplifiedDisaster += '\n';
+      }
+      
+      // Extract storms
+      const stormSection = response.match(/🌊 STORMS & TYPHOONS:(.*?)(?=💧|🔥|📊|$)/s);
+      if (stormSection) {
+        simplifiedDisaster += '🌊 STORMS & TYPHOONS:\n';
+        const hasActiveStorms = stormSection[1].includes('No active storm');
+        if (hasActiveStorms) {
+          simplifiedDisaster += '• No active storm or typhoon alerts at the moment\n\n';
+        } else {
+          const storms = stormSection[1].match(/• [^\n]+/g);
+          if (storms) {
+            storms.forEach(storm => simplifiedDisaster += `${storm}\n`);
+          }
+          simplifiedDisaster += '\n';
+        }
+      }
+      
+      // Extract floods
+      const floodSection = response.match(/💧 FLOODS & WATER HAZARDS:(.*?)(?=🔥|📊|$)/s);
+      if (floodSection) {
+        simplifiedDisaster += '💧 FLOODS & WATER HAZARDS:\n';
+        const hasActiveFloods = floodSection[1].includes('No active flood');
+        if (hasActiveFloods) {
+          simplifiedDisaster += '• No active flood or water hazard alerts currently reported\n\n';
+        } else {
+          const floods = floodSection[1].match(/• [^\n]+/g);
+          if (floods) {
+            floods.forEach(flood => simplifiedDisaster += `${flood}\n`);
+          }
+          simplifiedDisaster += '\n';
+        }
+      }
+      
+      // Extract other disasters
+      const otherSection = response.match(/🔥 OTHER NATURAL DISASTERS:(.*?)(?=📊|$)/s);
+      if (otherSection) {
+        simplifiedDisaster += '🔥 OTHER NATURAL DISASTERS:\n';
+        const hasOtherDisasters = otherSection[1].includes('No other natural disasters');
+        if (hasOtherDisasters) {
+          simplifiedDisaster += '• No other natural disasters ongoing\n\n';
+        } else {
+          const others = otherSection[1].match(/• [^\n]+/g);
+          if (others) {
+            others.forEach(other => simplifiedDisaster += `${other}\n`);
+          }
+          simplifiedDisaster += '\n';
+        }
+      }
+      
+      simplifiedDisaster += '📊 DATA SOURCES: global_disaster_monitor';
+      return simplifiedDisaster.trim();
+    }
+
+    // Simplify country safety queries (is it safe to go to X)
+    if (response.match(/(?:safe|safety).*?(?:to go|travel|visit)/i) || response.includes('Risk Level:')) {
+      // Check for NOT SAFE indicators first (higher priority)
+      const hasHighRisk = response.match(/Risk Level:\s*HIGH/i);
+      const hasDisasters = response.match(/AFFECTING DISASTERS|currently assessed as unsafe|avoid travel|do not recommend/i);
+      const hasActiveHazards = response.match(/active earthquakes|active typhoons|active floods|active disasters/i);
+      
+      // Check if SAFE indicators
+      const hasLowRisk = response.match(/Risk Level:\s*LOW/i);
+      const isSafeToTravel = response.match(/safe to travel|safe for travel|low risk for travel/i) && !hasHighRisk && !hasDisasters;
+      
+      // Determine safety - prioritize danger signals
+      if (hasHighRisk || hasDisasters || hasActiveHazards) {
+        return '⚠️ NOT SAFE - High Risk for Travel';
+      } else if (hasLowRisk || isSafeToTravel) {
+        return '✅ SAFE - Low Risk for Travel';
+      }
+    }
+
+    // If no specific pattern matched, return original response
+    return response;
+  };
+
   const sendMessage = async (message = inputMessage, contextData = {}) => {
     if (!message.trim()) return;
     
@@ -299,10 +451,13 @@ const AIChat = () => {
       // Use dedicated AI Chat endpoint with Google Custom Search & real-time data
       const response = await axios.post('/api/enhanced-chat/chat-with-location', requestData);
 
+      // Simplify response if using Basic GPT
+      const processedResponse = simplifyBasicGPTResponse(response.data.response);
+
       const assistantMessage = {
         id: Date.now() + 1,
         type: 'assistant',
-        content: response.data.response,
+        content: processedResponse,
         timestamp: new Date().toISOString(),
         agentType: response.data.agent_type,
         confidence: response.data.confidence,
@@ -476,19 +631,23 @@ const AIChat = () => {
                 <ul className="text-xs text-gray-600 space-y-1">
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span>Fast response times</span>
+                    <span>Essential weather data only</span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span>Maritime queries</span>
+                    <span>Basic route specifications</span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span>Weather analysis</span>
+                    <span>Simple disaster summaries</span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span>Route planning</span>
+                    <span>Safe/Unsafe travel status</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-1">✓</span>
+                    <span>Concise, quick responses</span>
                   </li>
                 </ul>
               </div>
@@ -528,27 +687,27 @@ const AIChat = () => {
                 }`}>
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span><strong>Everything in Basic</strong></span>
+                    <span><strong>Full detailed analysis</strong></span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span>HuggingFace integration</span>
+                    <span>Complete weather reports</span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span>Enhanced context</span>
+                    <span>Comprehensive route analysis</span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span>24/7 Availability</span>
+                    <span>Detailed disaster insights</span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span>Advanced NLP</span>
+                    <span>Safety recommendations</span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1">✓</span>
-                    <span>Scalable Performance</span>
+                    <span>HuggingFace AI + Advanced NLP</span>
                   </li>
                 </ul>
                 
@@ -630,7 +789,7 @@ const AIChat = () => {
                         {/* Basic Model */}
                         <button
                           onClick={() => {
-                            if (selectedModel === 'advanced') {
+                            if (selectedModel === 'advanced' && !loading) {
                               setSelectedModel('basic');
                               toast.success('Switched to Basic GPT Model', {
                                 duration: 2000,
@@ -638,11 +797,13 @@ const AIChat = () => {
                               });
                             }
                           }}
-                          disabled={userPlan === 'free' && selectedModel === 'basic'}
+                          disabled={loading || (userPlan === 'free' && selectedModel === 'basic')}
                           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
                             selectedModel === 'basic'
                               ? 'bg-white text-blue-600 shadow-md'
-                              : 'text-white hover:bg-white hover:bg-opacity-10'
+                              : loading
+                                ? 'text-gray-400 cursor-not-allowed opacity-50'
+                                : 'text-white hover:bg-white hover:bg-opacity-10'
                           }`}
                         >
                           <span className="flex items-center space-x-1">
@@ -654,6 +815,7 @@ const AIChat = () => {
                         {/* Advanced Model */}
                         <button
                           onClick={() => {
+                            if (loading) return;
                             if (userPlan === 'free') {
                               toast.error('Upgrade to Pro or Premium to use Advanced GPT with HuggingFace!', {
                                 duration: 4000,
@@ -667,11 +829,11 @@ const AIChat = () => {
                               });
                             }
                           }}
-                          disabled={userPlan === 'free'}
+                          disabled={loading || userPlan === 'free'}
                           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 relative ${
                             selectedModel === 'advanced'
                               ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
-                              : userPlan === 'free'
+                              : (loading || userPlan === 'free')
                                 ? 'text-gray-400 cursor-not-allowed opacity-50'
                                 : 'text-white hover:bg-white hover:bg-opacity-10'
                           }`}
