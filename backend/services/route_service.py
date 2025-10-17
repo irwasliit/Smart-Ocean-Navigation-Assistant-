@@ -129,16 +129,9 @@ class RouteService:
                 {"lat": 27.0, "lng": 119.0},
                 {"lat": 31.2304, "lng": 121.4737},
             ],
-            ("Mumbai", "Colombo"): [
-                {"lat": 19.0760, "lng": 72.8777},  
-                {"lat": 17.5, "lng": 72.8},       
-                {"lat": 15.8, "lng": 73.0},        
-                {"lat": 13.5, "lng": 74.0},       
-                {"lat": 11.0, "lng": 75.5},       
-                {"lat": 7.4, "lng": 76.8},         
-                {"lat": 7.5, "lng": 78.0},        
-                {"lat": 6.9271, "lng": 79.8612}    
-            ],
+            # REMOVE THIS DUPLICATE - it's already defined above at line 90
+            # ("Mumbai", "Colombo"): [ ... ]
+            
             ("Singapore", "Shanghai"): [
                 {"lat": 1.3521, "lng": 103.8198},
                 {"lat": 3.0, "lng": 105.0},
@@ -329,23 +322,53 @@ class RouteService:
     def find_harbor_by_name(self, harbor_name: str) -> Optional[Dict]:
         if not harbor_name:
             return None
-        harbor_name_lower = harbor_name.lower()
+        # Normalize the harbor name - strip common suffixes
+        harbor_name_normalized = harbor_name.lower().strip()
+        for suffix in [' port', ' harbor', ' harbour', ' seaport', ' bay']:
+            if harbor_name_normalized.endswith(suffix):
+                harbor_name_normalized = harbor_name_normalized[:-len(suffix)].strip()
+                break
+        
+        # Try exact match first (case insensitive)
         for name, info in self.major_harbors.items():
-            if harbor_name_lower in name.lower() or name.lower() in harbor_name_lower:
+            if harbor_name_normalized == name.lower():
+                return {"name": name, "lat": info["lat"], "lng": info["lng"], "country": info["country"]}
+        
+        # Try partial match
+        for name, info in self.major_harbors.items():
+            if harbor_name_normalized in name.lower() or name.lower() in harbor_name_normalized:
                 return {"name": name, "lat": info["lat"], "lng": info["lng"], "country": info["country"]}
         return None
 
     def get_maritime_route(self, start_harbor: str, end_harbor: str) -> List[Dict]:
-        route_key = (start_harbor, end_harbor)
-        reverse_key = (end_harbor, start_harbor)
+        # Normalize harbor names by finding them in major_harbors
+        start_harbor_info = self.find_harbor_by_name(start_harbor)
+        end_harbor_info = self.find_harbor_by_name(end_harbor)
+        
+        if not start_harbor_info or not end_harbor_info:
+            # If we can't find the harbors, return empty
+            return []
+        
+        # Use the normalized names from major_harbors
+        start_name = start_harbor_info["name"]
+        end_name = end_harbor_info["name"]
+        
+        # Check if we have a hardcoded route
+        route_key = (start_name, end_name)
+        reverse_key = (end_name, start_name)
+        
         if route_key in self.maritime_routes:
             return self.maritime_routes[route_key]
         if reverse_key in self.maritime_routes:
             return list(reversed(self.maritime_routes[reverse_key]))
-        start_coords = self.major_harbors.get(start_harbor)
-        end_coords = self.major_harbors.get(end_harbor)
+        
+        # Fall back to generated route using coordinates
+        start_coords = self.major_harbors.get(start_name)
+        end_coords = self.major_harbors.get(end_name)
+        
         if start_coords is None or end_coords is None:
             return []
+        
         return self._generate_oceanic_route(start_coords["lat"], start_coords["lng"], end_coords["lat"], end_coords["lng"])
 
     def _generate_oceanic_route(self, start_lat: float, start_lng: float, end_lat: float, end_lng: float) -> List[Dict]:

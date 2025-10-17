@@ -119,9 +119,14 @@ class IntelligentAIAnalyzer:
         if disaster_data.get('success'):
             disasters = disaster_data.get('disasters', [])
         
+        # Filter to recent disasters only (last 3 days for more strict filtering)
+        logger.info(f"Filtering {len(disasters)} disasters for recent events (last 3 days)")
+        disasters = self._filter_recent_disasters(disasters, days=3)
+        logger.info(f"After filtering: {len(disasters)} recent disasters remain")
+        
         # Check if any disasters affect this location
-        affecting_disasters = []
-        safe_distance_km = 500  # Consider disasters within 500km as potentially affecting
+        affecting_disasters = [] 
+        # Use location-specific radius (smaller for islands, larger for countries)
         
         location_info = self.location_coords.get(extracted_location)
         if not location_info:
@@ -133,12 +138,15 @@ class IntelligentAIAnalyzer:
                     break
         
         if location_info:
+            # Use the location's defined radius for relevance checking
+            check_radius_km = location_info.get('radius_km', 300)
+            
             for disaster in disasters:
                 # Check if disaster location mentions the queried location
                 disaster_location = disaster.get('location', '').lower()
                 disaster_enhanced = disaster.get('enhanced_location', '').lower()
                 
-                # Direct location match
+                # Direct location match (e.g., "Sri Lanka" in disaster location)
                 if extracted_location in disaster_location or extracted_location in disaster_enhanced:
                     affecting_disasters.append({
                         'disaster': disaster,
@@ -154,8 +162,9 @@ class IntelligentAIAnalyzer:
                     
                     distance_km = geodesic(location_coords, disaster_coords).kilometers
                     
-                    # Within affected radius?
-                    if distance_km <= location_info.get('radius_km', 500):
+                    # Within affected radius? Use location-specific radius
+                    # Only consider it affecting if it's within the location's radius
+                    if distance_km <= check_radius_km:
                         affecting_disasters.append({
                             'disaster': disaster,
                             'match_type': 'geographic_proximity',
@@ -186,6 +195,8 @@ class IntelligentAIAnalyzer:
                 'risk_level': risk_level,
                 'affecting_disasters': affecting_disasters,
                 'disaster_count': len(affecting_disasters),
+                'time_period': 'Last 3 days',
+                'total_disasters_checked': len(disasters),
                 'recommendation': f"⚠️ NOT RECOMMENDED: {len(affecting_disasters)} active disaster(s) affecting {extracted_location.title()}",
                 'proof': self._build_proof_statement(affecting_disasters, extracted_location)
             }
@@ -198,8 +209,10 @@ class IntelligentAIAnalyzer:
                 'risk_level': 'LOW',
                 'affecting_disasters': [],
                 'disaster_count': 0,
+                'time_period': 'Last 3 days',
+                'total_disasters_checked': len(disasters),
                 'recommendation': f"✅ SAFE: No active disasters detected near {extracted_location.title()}",
-                'proof': f"Checked against {len(disasters)} global disasters - none affecting {extracted_location.title()}"
+                'proof': f"Checked {len(disasters)} recent global disasters (last 3 days) - none affecting {extracted_location.title()}"
             }
     
     def filter_regional_hazards(self, region_query: str, disaster_data: Dict) -> Dict[str, Any]:
@@ -280,6 +293,9 @@ class IntelligentAIAnalyzer:
         Returns comprehensive route safety analysis with hazard warnings
         """
         disasters = disaster_data.get('disasters', []) if disaster_data.get('success') else []
+        
+        # Filter to recent disasters only (last 3 days)
+        disasters = self._filter_recent_disasters(disasters, days=3)
         
         # Get coordinates for both locations
         from_coords = self._get_location_coords(from_location.lower())
@@ -380,6 +396,73 @@ class IntelligentAIAnalyzer:
         return formatted
     
     # Helper methods
+    
+    def _filter_recent_disasters(self, disasters: List[Dict], days: int = 7) -> List[Dict]:
+        """
+        Filter disasters to only include recent ones (within specified days)
+        This prevents showing outdated disaster data
+        """
+        from datetime import datetime, timedelta
+        
+        recent_disasters = []
+        cutoff_date = datetime.now() - timedelta(days=days)
+        current_year = datetime.now().year
+        
+        logger.info(f"Filtering disasters - cutoff date: {cutoff_date.strftime('%Y-%m-%d')}, current year: {current_year}")
+        
+        for disaster in disasters:
+            disaster_time = None
+            
+            # Try to parse disaster timestamp
+            if 'time' in disaster:
+                time_value = disaster['time']
+                
+                # Handle Unix timestamp (milliseconds)
+                if isinstance(time_value, (int, float)):
+                    try:
+                        disaster_time = datetime.fromtimestamp(time_value / 1000)
+                    except:
+                        pass
+                
+                # Handle ISO format string
+                elif isinstance(time_value, str):
+                    try:
+                        # Try parsing ISO format
+                        disaster_time = datetime.fromisoformat(time_value.replace('Z', '+00:00'))
+                        if disaster_time.tzinfo is not None:
+                            disaster_time = disaster_time.replace(tzinfo=None)
+                    except:
+                        # Try parsing other common formats
+                        for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S']:
+                            try:
+                                disaster_time = datetime.strptime(time_value[:19], fmt)
+                                break
+                            except:
+                                continue
+            
+            # Check if disaster is recent
+            if disaster_time:
+                # Extra check: Reject anything from previous years
+                if disaster_time.year < current_year:
+                    logger.warning(f"❌ FILTERED OUT OLD DISASTER from {disaster_time.year}: {disaster.get('type', 'Unknown')} - {disaster.get('location', 'Unknown')}")
+                    continue
+                
+                if disaster_time >= cutoff_date:
+                    recent_disasters.append(disaster)
+                    logger.debug(f"✅ KEPT recent disaster from {disaster_time.strftime('%Y-%m-%d')}: {disaster.get('type', 'Unknown')}")
+                else:
+                    logger.warning(f"❌ FILTERED OUT disaster from {disaster_time.strftime('%Y-%m-%d')}: {disaster.get('type', 'Unknown')} - {disaster.get('location', 'Unknown')}")
+            else:
+                # If we can't determine time, include it (might be from weather alerts without timestamps)
+                # But check if it has 'effective' or 'expires' fields
+                if 'effective' in disaster or 'expires' in disaster:
+                    recent_disasters.append(disaster)
+                    logger.debug(f"✅ KEPT disaster with effective/expires: {disaster.get('type', 'Unknown')}")
+                else:
+                    # No time info at all - skip it to be safe
+                    logger.warning(f"❌ FILTERED OUT disaster without timestamp: {disaster.get('type', 'Unknown')} - {disaster.get('location', 'Unknown')}")
+        
+        return recent_disasters
     
     def _extract_location_from_query(self, query: str) -> Optional[str]:
         """Extract location name from user query"""
