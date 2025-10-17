@@ -541,7 +541,6 @@ Please use the [GitHub Issues](https://github.com/irwasliit/IRWA_MARINE_PROJECT/
 ## 📞 Support
 
 For support and questions:
-- Email: support@irwamarine.com
 - Documentation: [Wiki](https://github.com/irwasliit/IRWA_MARINE_PROJECT/wiki)
 - Discussions: [GitHub Discussions](https://github.com/irwasliit/IRWA_MARINE_PROJECT/discussions)
 
