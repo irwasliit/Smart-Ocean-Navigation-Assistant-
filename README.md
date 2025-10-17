@@ -505,7 +505,7 @@ This project is developed and maintained by:
 
 ### Project Team
 - **L. Tharshikan** ( GitHub: [@TharshiHecker](https://github.com/TharshiHecker) )
-- **Lingajan** 
+- **Lingajan** (GitHub: [@Linga1010](https://github.com/Linga1010) )
 - **Rajeethan** 
 - **Kajaraj**
 
