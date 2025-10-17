@@ -163,6 +163,361 @@ class CityCoordinatesService:
         logger.warning(f"No coordinates found for city: {city_name}")
         return None
 
+class MaritimeRouteDatabase:
+    """Comprehensive hardcoded maritime route database with detailed specifications"""
+    
+    def __init__(self):
+        # Major port coordinates
+        self.ports = {
+            'chennai': {'lat': 13.0827, 'lng': 80.2707, 'country': 'India', 'name': 'Chennai Port'},
+            'mumbai': {'lat': 19.0760, 'lng': 72.8777, 'country': 'India', 'name': 'Mumbai Port'},
+            'colombo': {'lat': 6.9271, 'lng': 79.8612, 'country': 'Sri Lanka', 'name': 'Colombo Port'},
+            'singapore': {'lat': 1.3521, 'lng': 103.8198, 'country': 'Singapore', 'name': 'Singapore Port'},
+            'shanghai': {'lat': 31.2304, 'lng': 121.4737, 'country': 'China', 'name': 'Shanghai Port'},
+            'dubai': {'lat': 25.2048, 'lng': 55.2708, 'country': 'UAE', 'name': 'Dubai Port'},
+            'karachi': {'lat': 24.8607, 'lng': 67.0011, 'country': 'Pakistan', 'name': 'Karachi Port'},
+            'hong kong': {'lat': 22.3193, 'lng': 114.1694, 'country': 'China', 'name': 'Hong Kong Port'},
+            'kochi': {'lat': 9.9312, 'lng': 76.2673, 'country': 'India', 'name': 'Kochi Port'},
+            'vizag': {'lat': 17.6868, 'lng': 83.2185, 'country': 'India', 'name': 'Visakhapatnam Port'},
+        }
+        
+        # Comprehensive route specifications with mock data
+        self.routes = {
+            ('shanghai', 'mumbai'): {
+                'distance_nm': 3300,
+                'distance_km': 6112,
+                'estimated_days': 11,
+                'average_speed_knots': 12,
+                'route_description': 'Through the East China Sea, entering the South China Sea, passing the Malacca Strait, and navigating the Indian Ocean towards Mumbai',
+                'major_waypoints': ['Shanghai Port', 'Malacca Strait entrance', 'Mumbai Port'],
+                'key_straits': 'Malacca Strait - crucial passage point with heavy traffic',
+                'distance_breakdown': {
+                    'Shanghai to Malacca Strait': '1,700 nm',
+                    'Malacca Strait to Mumbai': '1,600 nm'
+                },
+                'fuel_consumption_tons': 300,
+                'daily_fuel_tons': 27,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Plan for refueling options at strategic ports along the route',
+                'speed_factors': 'Consider weather conditions, currents, and traffic congestion in the Malacca Strait',
+                'seasonal_patterns': 'Monsoons can impact the Indian Ocean route, affecting visibility and sea conditions',
+                'optimal_seasons': 'Best times to transit are during the dry seasons to avoid harsh weather',
+                'navigation_hazards': 'Watch for heavy traffic and potential piracy in the Malacca Strait',
+                'traffic_density': 'Expect moderate to high vessel traffic in the Malacca Strait and near Mumbai',
+                'primary_hazards': 'Weather disturbances, piracy risks, and congested shipping lanes',
+                'alternative_routes': 'Consider alternative paths to avoid the Malacca Strait if necessary',
+                'weather_routing': 'Monitor monsoon patterns and seek weather updates for safe navigation',
+                'confidence': 0.85
+            },
+            ('mumbai', 'colombo'): {
+                'distance_nm': 710,
+                'distance_km': 1315,
+                'estimated_days': 2.5,
+                'average_speed_knots': 12,
+                'route_description': 'Direct route across the Arabian Sea, passing along the western coast of India and approaching Sri Lanka from the northwest',
+                'major_waypoints': ['Mumbai Port', 'Maldives vicinity', 'Colombo Port'],
+                'key_straits': 'Open sea route, no major straits',
+                'distance_breakdown': {
+                    'Mumbai to Mid-Arabian Sea': '350 nm',
+                    'Mid-Arabian Sea to Colombo': '360 nm'
+                },
+                'fuel_consumption_tons': 65,
+                'daily_fuel_tons': 26,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Both ports have excellent bunkering facilities',
+                'speed_factors': 'Favorable conditions most of the year, watch for monsoon season',
+                'seasonal_patterns': 'Southwest monsoon (June-September) can bring rough seas',
+                'optimal_seasons': 'October to May for calmer seas',
+                'navigation_hazards': 'Limited hazards, standard maritime traffic',
+                'traffic_density': 'Moderate traffic, busier near ports',
+                'primary_hazards': 'Monsoon weather conditions, occasional cyclones',
+                'alternative_routes': 'Coastal route available but longer',
+                'weather_routing': 'Monitor Arabian Sea weather patterns and monsoon forecasts',
+                'confidence': 0.90
+            },
+            ('chennai', 'colombo'): {
+                'distance_nm': 405,
+                'distance_km': 750,
+                'estimated_days': 1.5,
+                'average_speed_knots': 12,
+                'route_description': 'Short route across the Bay of Bengal connecting India\'s east coast to Sri Lanka, passing through Palk Strait region',
+                'major_waypoints': ['Chennai Port', 'Palk Strait', 'Colombo Port'],
+                'key_straits': 'Palk Strait - shallow waters, requires careful navigation',
+                'distance_breakdown': {
+                    'Chennai to Palk Strait': '200 nm',
+                    'Palk Strait to Colombo': '205 nm'
+                },
+                'fuel_consumption_tons': 35,
+                'daily_fuel_tons': 23,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Both Chennai and Colombo offer bunkering services',
+                'speed_factors': 'Relatively calm waters, speed may reduce in Palk Strait shallow areas',
+                'seasonal_patterns': 'Northeast monsoon (October-December) affects Bay of Bengal',
+                'optimal_seasons': 'January to May for best conditions',
+                'navigation_hazards': 'Shallow waters in Palk Strait, fishing vessel traffic',
+                'traffic_density': 'Moderate to high, especially near Chennai',
+                'primary_hazards': 'Shallow waters, fishing vessels, monsoon weather',
+                'alternative_routes': 'Deep water route south of Sri Lanka (longer)',
+                'weather_routing': 'Monitor Bay of Bengal cyclone forecasts during monsoon',
+                'confidence': 0.88
+            },
+            ('singapore', 'shanghai'): {
+                'distance_nm': 1560,
+                'distance_km': 2889,
+                'estimated_days': 5.5,
+                'average_speed_knots': 12,
+                'route_description': 'Major shipping lane through South China Sea, one of the world\'s busiest maritime corridors',
+                'major_waypoints': ['Singapore Port', 'South China Sea central', 'Taiwan Strait approach', 'Shanghai Port'],
+                'key_straits': 'Taiwan Strait (optional) or direct route east of Taiwan',
+                'distance_breakdown': {
+                    'Singapore to South China Sea': '780 nm',
+                    'South China Sea to Shanghai': '780 nm'
+                },
+                'fuel_consumption_tons': 125,
+                'daily_fuel_tons': 23,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Excellent facilities at both ports',
+                'speed_factors': 'Heavy traffic in South China Sea, currents affect speed',
+                'seasonal_patterns': 'Typhoon season (May-November) can severely impact route',
+                'optimal_seasons': 'December to April for typhoon avoidance',
+                'navigation_hazards': 'Typhoons, heavy traffic, disputed waters',
+                'traffic_density': 'Very high - one of world\'s busiest shipping lanes',
+                'primary_hazards': 'Tropical cyclones, congested shipping lanes, geopolitical tensions',
+                'alternative_routes': 'Route east of Philippines (longer but avoids South China Sea)',
+                'weather_routing': 'Essential typhoon tracking and route adjustment capability',
+                'confidence': 0.82
+            },
+            ('chennai', 'singapore'): {
+                'distance_nm': 1485,
+                'distance_km': 2750,
+                'estimated_days': 5,
+                'average_speed_knots': 12,
+                'route_description': 'Route across Bay of Bengal, through Andaman Sea, and into Malacca Strait approaching Singapore',
+                'major_waypoints': ['Chennai Port', 'Andaman Islands', 'Malacca Strait northern entrance', 'Singapore Port'],
+                'key_straits': 'Malacca Strait - world\'s busiest strait, critical chokepoint',
+                'distance_breakdown': {
+                    'Chennai to Andaman Sea': '740 nm',
+                    'Andaman Sea to Singapore': '745 nm'
+                },
+                'fuel_consumption_tons': 115,
+                'daily_fuel_tons': 23,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Singapore has world-class bunkering facilities',
+                'speed_factors': 'Malacca Strait traffic and currents affect timing',
+                'seasonal_patterns': 'Southwest monsoon affects Bay of Bengal, Malacca Strait year-round traffic',
+                'optimal_seasons': 'November to April for better weather',
+                'navigation_hazards': 'Piracy risk near Malacca Strait, heavy traffic, shallow areas',
+                'traffic_density': 'High throughout route, extremely high in Malacca Strait',
+                'primary_hazards': 'Piracy, traffic congestion, monsoon weather, shallow waters',
+                'alternative_routes': 'Route south via Sunda Strait (much longer)',
+                'weather_routing': 'Monitor monsoons and Malacca Strait traffic advisories',
+                'confidence': 0.86
+            },
+            ('mumbai', 'singapore'): {
+                'distance_nm': 2380,
+                'distance_km': 4407,
+                'estimated_days': 8,
+                'average_speed_knots': 12,
+                'route_description': 'Route across Arabian Sea, around southern India/Sri Lanka, through Bay of Bengal and Malacca Strait',
+                'major_waypoints': ['Mumbai Port', 'Lakshadweep Sea', 'Southern tip of India', 'Malacca Strait', 'Singapore Port'],
+                'key_straits': 'Malacca Strait approach from west',
+                'distance_breakdown': {
+                    'Mumbai to Southern India': '1,190 nm',
+                    'Southern India to Singapore': '1,190 nm'
+                },
+                'fuel_consumption_tons': 195,
+                'daily_fuel_tons': 24,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Consider refueling at Colombo or proceed direct to Singapore',
+                'speed_factors': 'Multiple sea regions with varying current patterns',
+                'seasonal_patterns': 'Both monsoons affect different portions of route',
+                'optimal_seasons': 'October to March for most favorable conditions',
+                'navigation_hazards': 'Monsoon weather, Malacca Strait piracy risk, heavy traffic',
+                'traffic_density': 'Moderate to high, extremely high near Singapore',
+                'primary_hazards': 'Weather variability, piracy risk, traffic congestion',
+                'alternative_routes': 'Can route via Colombo for bunkering',
+                'weather_routing': 'Complex route requiring continuous weather monitoring',
+                'confidence': 0.84
+            },
+            ('shanghai', 'colombo'): {
+                'distance_nm': 3050,
+                'distance_km': 5648,
+                'estimated_days': 10.5,
+                'average_speed_knots': 12,
+                'route_description': 'Long route from East China Sea through South China Sea, Malacca Strait, and across Bay of Bengal',
+                'major_waypoints': ['Shanghai Port', 'South China Sea', 'Malacca Strait', 'Bay of Bengal', 'Colombo Port'],
+                'key_straits': 'Malacca Strait - critical passage point',
+                'distance_breakdown': {
+                    'Shanghai to Malacca Strait': '1,830 nm',
+                    'Malacca Strait to Colombo': '1,220 nm'
+                },
+                'fuel_consumption_tons': 255,
+                'daily_fuel_tons': 24,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Consider refueling at Singapore or continue to Colombo',
+                'speed_factors': 'Various currents and traffic zones affect speed throughout',
+                'seasonal_patterns': 'Typhoons in North, monsoons in South - complex weather pattern',
+                'optimal_seasons': 'December to March avoids both typhoon and strong monsoon',
+                'navigation_hazards': 'Typhoons, monsoons, piracy in Malacca Strait, heavy traffic',
+                'traffic_density': 'Very high throughout most of route',
+                'primary_hazards': 'Tropical cyclones, monsoon weather, piracy, traffic congestion',
+                'alternative_routes': 'Route via Singapore for shorter distance and better services',
+                'weather_routing': 'Requires sophisticated weather routing for typhoon and monsoon avoidance',
+                'confidence': 0.80
+            },
+            ('colombo', 'dubai'): {
+                'distance_nm': 1685,
+                'distance_km': 3120,
+                'estimated_days': 6,
+                'average_speed_knots': 12,
+                'route_description': 'Route across Arabian Sea connecting South Asia to Middle East, major trade corridor',
+                'major_waypoints': ['Colombo Port', 'Laccadive Sea', 'Arabian Sea central', 'Gulf of Oman', 'Dubai Port'],
+                'key_straits': 'Strait of Hormuz approach - one of world\'s most strategic waterways',
+                'distance_breakdown': {
+                    'Colombo to Arabian Sea': '845 nm',
+                    'Arabian Sea to Dubai': '840 nm'
+                },
+                'fuel_consumption_tons': 140,
+                'daily_fuel_tons': 23,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Both ports offer excellent bunkering facilities',
+                'speed_factors': 'Favorable conditions most times, Gulf approach can be congested',
+                'seasonal_patterns': 'Southwest monsoon (June-September) affects Arabian Sea',
+                'optimal_seasons': 'October to May for calmer seas',
+                'navigation_hazards': 'Geopolitical tensions near Gulf, piracy risk in Arabian Sea',
+                'traffic_density': 'High - major oil and container shipping route',
+                'primary_hazards': 'Geopolitical tensions, piracy, monsoon weather, traffic congestion',
+                'alternative_routes': 'No practical alternatives for this route',
+                'weather_routing': 'Monitor Arabian Sea conditions and Gulf tensions',
+                'confidence': 0.85
+            },
+            ('singapore', 'hong kong'): {
+                'distance_nm': 1440,
+                'distance_km': 2667,
+                'estimated_days': 5,
+                'average_speed_knots': 12,
+                'route_description': 'Major regional route through South China Sea connecting two busiest Asian ports',
+                'major_waypoints': ['Singapore Port', 'South China Sea', 'Hong Kong Port'],
+                'key_straits': 'Through South China Sea shipping lanes',
+                'distance_breakdown': {
+                    'Singapore to Mid-South China Sea': '720 nm',
+                    'Mid-South China Sea to Hong Kong': '720 nm'
+                },
+                'fuel_consumption_tons': 115,
+                'daily_fuel_tons': 23,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Both ports have world-class facilities',
+                'speed_factors': 'Very heavy traffic requires speed adjustments',
+                'seasonal_patterns': 'Typhoon season (May-November) poses significant risks',
+                'optimal_seasons': 'December to April for typhoon avoidance',
+                'navigation_hazards': 'Typhoons, extremely heavy traffic, territorial disputes',
+                'traffic_density': 'Extremely high - two of world\'s busiest ports',
+                'primary_hazards': 'Tropical cyclones, congested shipping lanes, geopolitical tensions',
+                'alternative_routes': 'Limited alternatives in this congested region',
+                'weather_routing': 'Critical typhoon tracking and avoidance required',
+                'confidence': 0.87
+            },
+            ('mumbai', 'karachi'): {
+                'distance_nm': 490,
+                'distance_km': 907,
+                'estimated_days': 1.7,
+                'average_speed_knots': 12,
+                'route_description': 'Short coastal route along northwestern Indian Ocean coast',
+                'major_waypoints': ['Mumbai Port', 'Gujarat Coast', 'Karachi Port'],
+                'key_straits': 'Coastal navigation, no major straits',
+                'distance_breakdown': {
+                    'Mumbai to Gujarat Coast': '245 nm',
+                    'Gujarat Coast to Karachi': '245 nm'
+                },
+                'fuel_consumption_tons': 40,
+                'daily_fuel_tons': 24,
+                'fuel_cost_note': 'Cost varies based on fuel prices',
+                'bunkering_strategy': 'Both ports offer bunkering services',
+                'speed_factors': 'Relatively straightforward coastal route',
+                'seasonal_patterns': 'Southwest monsoon affects route June-September',
+                'optimal_seasons': 'October to May for better conditions',
+                'navigation_hazards': 'Coastal fishing vessels, monsoon weather',
+                'traffic_density': 'Moderate coastal traffic',
+                'primary_hazards': 'Monsoon weather, geopolitical considerations',
+                'alternative_routes': 'Offshore route further from coast available',
+                'weather_routing': 'Monitor monsoon patterns',
+                'confidence': 0.88
+            }
+        }
+    
+    def normalize_port_name(self, port_name: str) -> str:
+        """Normalize port names for lookup"""
+        if not port_name:
+            return ''
+        normalized = port_name.lower().strip()
+        # Remove common suffixes
+        for suffix in [' port', ' harbor', ' harbour', ' seaport']:
+            if normalized.endswith(suffix):
+                normalized = normalized[:-len(suffix)].strip()
+        return normalized
+    
+    def find_route(self, from_port: str, to_port: str) -> Optional[Dict]:
+        """Find route between two ports"""
+        from_normalized = self.normalize_port_name(from_port)
+        to_normalized = self.normalize_port_name(to_port)
+        
+        # Try direct match
+        route_key = (from_normalized, to_normalized)
+        if route_key in self.routes:
+            route_data = self.routes[route_key].copy()
+            route_data['from_port'] = self.ports.get(from_normalized, {}).get('name', from_port)
+            route_data['to_port'] = self.ports.get(to_normalized, {}).get('name', to_port)
+            route_data['from_coords'] = self.ports.get(from_normalized, {})
+            route_data['to_coords'] = self.ports.get(to_normalized, {})
+            return route_data
+        
+        # Try reverse
+        reverse_key = (to_normalized, from_normalized)
+        if reverse_key in self.routes:
+            route_data = self.routes[reverse_key].copy()
+            # Swap from/to for reverse
+            route_data['from_port'] = self.ports.get(from_normalized, {}).get('name', from_port)
+            route_data['to_port'] = self.ports.get(to_normalized, {}).get('name', to_port)
+            route_data['from_coords'] = self.ports.get(from_normalized, {})
+            route_data['to_coords'] = self.ports.get(to_normalized, {})
+            return route_data
+        
+        # Try partial matches
+        for port_key in self.ports.keys():
+            if from_normalized in port_key or port_key in from_normalized:
+                from_normalized = port_key
+                break
+        
+        for port_key in self.ports.keys():
+            if to_normalized in port_key or port_key in to_normalized:
+                to_normalized = port_key
+                break
+        
+        # Try again with partial matches
+        route_key = (from_normalized, to_normalized)
+        if route_key in self.routes:
+            route_data = self.routes[route_key].copy()
+            route_data['from_port'] = self.ports.get(from_normalized, {}).get('name', from_port)
+            route_data['to_port'] = self.ports.get(to_normalized, {}).get('name', to_port)
+            route_data['from_coords'] = self.ports.get(from_normalized, {})
+            route_data['to_coords'] = self.ports.get(to_normalized, {})
+            return route_data
+        
+        reverse_key = (to_normalized, from_normalized)
+        if reverse_key in self.routes:
+            route_data = self.routes[reverse_key].copy()
+            route_data['from_port'] = self.ports.get(from_normalized, {}).get('name', from_port)
+            route_data['to_port'] = self.ports.get(to_normalized, {}).get('name', to_port)
+            route_data['from_coords'] = self.ports.get(from_normalized, {})
+            route_data['to_coords'] = self.ports.get(to_normalized, {})
+            return route_data
+        
+        return None
+    
+    def get_all_ports(self) -> List[str]:
+        """Get list of all available ports"""
+        return [port_info['name'] for port_info in self.ports.values()]
+
 class GoogleSearchService:
     """Google Custom Search service with dual API key fallback and rate limiting"""
     
@@ -814,8 +1169,10 @@ class EnhancedAIChatService:
         self.geocoding_service = CityCoordinatesService()
         self.real_time_data = RealTimeDataService()
         self.google_search = GoogleSearchService()  # 🔥 MAXIMIZE Google Search API usage
+        self.route_database = MaritimeRouteDatabase()  # 🚢 Hardcoded route database
         
         logger.info("🔍 Google Search API service initialized for maximum usage")
+        logger.info("🚢 Maritime Route Database initialized with comprehensive port data")
         
     def _setup_alternative(self) -> str:
         """Setup alternative AI providers"""
@@ -1294,7 +1651,7 @@ class EnhancedAIChatService:
             return location
 
     async def _calculate_smart_route(self, message: str) -> Dict[str, Any]:
-        """Calculate smart maritime routes between ports"""
+        """Calculate smart maritime routes using hardcoded database with hazard analysis"""
         try:
             # Extract port information from message
             import re
@@ -1303,7 +1660,8 @@ class EnhancedAIChatService:
             port_patterns = [
                 r'from\s+([a-zA-Z\s]+?)(?:\s+port)?\s+to\s+([a-zA-Z\s]+?)(?:\s+port)?(?:\s|$|\?)',
                 r'between\s+([a-zA-Z\s]+?)(?:\s+port)?\s+and\s+([a-zA-Z\s]+?)(?:\s+port)?(?:\s|$|\?)',
-                r'([a-zA-Z\s]+?)(?:\s+port)?\s+to\s+([a-zA-Z\s]+?)(?:\s+port)?(?:\s|$|\?)'
+                r'([a-zA-Z\s]+?)(?:\s+port)?\s+to\s+([a-zA-Z\s]+?)(?:\s+port)?(?:\s|$|\?)',
+                r'route\s+([a-zA-Z\s]+?)\s+to\s+([a-zA-Z\s]+?)(?:\s|$|\?)',
             ]
             
             from_port = None
@@ -1312,55 +1670,48 @@ class EnhancedAIChatService:
             for pattern in port_patterns:
                 match = re.search(pattern, message.lower())
                 if match:
-                    from_port = match.group(1).strip().title()
-                    to_port = match.group(2).strip().title()
+                    from_port = match.group(1).strip()
+                    to_port = match.group(2).strip()
                     break
             
             if not from_port or not to_port:
+                logger.warning("Could not extract port names from message")
                 return None
             
-            # Get coordinates for both ports
-            from_coords = await self.geocoding_service.get_coordinates(from_port)
-            to_coords = await self.geocoding_service.get_coordinates(to_port)
+            logger.info(f"🚢 Looking for route from '{from_port}' to '{to_port}'")
             
-            if not from_coords or not to_coords:
-                return {"success": False, "error": "Could not find port coordinates"}
+            # Find route in hardcoded database
+            route_data = self.route_database.find_route(from_port, to_port)
             
-            # Calculate distance using Haversine formula
-            import math
+            if not route_data:
+                logger.warning(f"No hardcoded route found for {from_port} to {to_port}")
+                return {"success": False, "error": f"No route data available for {from_port} to {to_port}"}
             
-            def haversine_distance(lat1, lon1, lat2, lon2):
-                R = 3440.065  # Earth's radius in nautical miles
-                
-                lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
-                dlat = lat2 - lat1
-                dlon = lon2 - lon1
-                
-                a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-                c = 2 * math.asin(math.sqrt(a))
-                
-                return R * c
+            logger.info(f"✅ Found route: {route_data['from_port']} to {route_data['to_port']}")
             
-            distance = haversine_distance(
-                from_coords['lat'], from_coords['lng'],
-                to_coords['lat'], to_coords['lng']
-            )
+            # Get disaster data for hazard analysis
+            disaster_data = await self.real_time_data.get_global_disasters()
             
-            # Determine route description
-            route_description = self._get_route_description(from_port, to_port, distance)
+            # Analyze hazards along the route using intelligent analyzer
+            hazard_analysis = None
+            if INTELLIGENT_ANALYZER_AVAILABLE and disaster_data.get('success'):
+                logger.info("🧠 Running intelligent route hazard analysis...")
+                hazard_analysis = intelligent_analyzer.analyze_route_hazards(
+                    from_port, 
+                    to_port, 
+                    disaster_data
+                )
+                if hazard_analysis and hazard_analysis.get('analysis_performed'):
+                    logger.info(f"✅ Hazard analysis complete: Risk Level = {hazard_analysis.get('risk_level')}")
+                    route_data['hazard_analysis'] = hazard_analysis
             
-            return {
-                "success": True,
-                "from_port": from_port,
-                "to_port": to_port,
-                "distance_nm": round(distance, 0),
-                "route_description": route_description,
-                "estimated_time": f"{round(distance/(15*24), 1)} days",  # Assuming 15 knots average, 24 hours/day
-                "source": "maritime_calculator"
-            }
+            route_data['success'] = True
+            route_data['source'] = 'hardcoded_maritime_database'
+            
+            return route_data
             
         except Exception as e:
-            logger.error(f"Error calculating route: {e}")
+            logger.error(f"Error calculating route: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
     
     def _get_route_description(self, from_port: str, to_port: str, distance: float) -> str:
@@ -2053,6 +2404,18 @@ class EnhancedAIChatService:
 
         🔍 INTELLIGENT SAFETY ANALYSIS:
         CRITICAL: Check the intelligent_safety_analysis field in the real-time data. This analysis automatically correlates the queried location with ALL active disasters.
+        CRITICAL: The intelligent_safety_analysis ALREADY filters disasters by:
+          - TIME: Only checks disasters from the last 3 days (very recent events only)
+          - YEAR: Automatically rejects any disasters from previous years (2024, 2023, 2022, etc.)
+          - LOCATION: Only checks disasters within the location's relevant radius (e.g., 300km for Sri Lanka, 500km for islands)
+          - RELEVANCE: Only flags disasters that actually affect the queried location
+        
+        ⚠️⚠️⚠️ CRITICAL SAFETY RESPONSE RULES ⚠️⚠️⚠️:
+        1. IF intelligent_safety_analysis EXISTS, YOU MUST USE IT - DO NOT show generic disaster lists
+        2. ONLY show disasters from intelligent_safety_analysis.affecting_disasters (NOT from disaster_data.disasters)
+        3. IF is_safe == True, DO NOT list any earthquakes or disasters - just say it's safe
+        4. IF is_safe == False, ONLY list the disasters from affecting_disasters array
+        5. NEVER show global disasters that don't affect the queried location
         
         IF intelligent_safety_analysis.is_safe == False:
         ❌ UNSAFE - DO NOT TRAVEL
@@ -2072,9 +2435,15 @@ class EnhancedAIChatService:
         ✅ SAFE - Low Risk for Travel
         - Location Analyzed: [intelligent_safety_analysis.location]
         - Risk Level: LOW
+        - Time Period Checked: Last 3 days (October 14-17, 2025)
+        - Disasters Checked: [intelligent_safety_analysis.total_disasters_checked] recent global disasters
         - Verification: [intelligent_safety_analysis.proof]
         - Weather Conditions: [details from real-time weather data if available]
         - Marine Alerts: [status from marine alerts]
+        
+        ⚠️ DO NOT list any earthquakes or disasters when is_safe == True
+        ⚠️ DO NOT show "CURRENT GLOBAL DISASTERS" section
+        ⚠️ Just confirm the location is safe and provide weather/marine info
         
         📋 RECOMMENDATIONS:
         - Location appears safe based on current disaster monitoring
@@ -2095,10 +2464,14 @@ class EnhancedAIChatService:
         
         🌍 EARTHQUAKES:
         CRITICAL: Each earthquake MUST include accurate timestamp from API data. Use time_local or time_utc fields.
+        CRITICAL: Only show earthquakes from the LAST 3 DAYS and CURRENT YEAR (2025). Ignore old earthquakes (from 2024, 2023, 2022, etc.).
+        CRITICAL: If ALL earthquakes are old/filtered out, say "No recent earthquakes in the last 3 days"
         • [Enhanced Location with city/region] - Magnitude [X.X] ([Severity Level])
           📅 Time: [time_local or time_utc from disaster data] 
           📍 Coordinates: [latitude, longitude if available]
         • [Repeat format for each earthquake]
+        
+        NOTE: The intelligent_safety_analysis already filters to recent disasters. Trust its time filtering.
         
         🌊 STORMS & TYPHOONS:
         CRITICAL: Each storm MUST include effective time and expiration time if available.
@@ -2120,12 +2493,16 @@ class EnhancedAIChatService:
         📊 DATA SOURCES: [List the actual monitoring sources like USGS, GDACS, etc.]
         
         CRITICAL FOR TIMESTAMPS:
+        - ONLY show disasters from the LAST 3 DAYS and CURRENT YEAR 2025 (very recent events only)
+        - Automatically reject any disasters from 2024, 2023, 2022 or earlier - they are NOT current
+        - If a disaster timestamp shows year < 2025, DO NOT SHOW IT - it's old cached data
         - ALWAYS show time_local (local time at disaster location) if available
         - If only time_utc available, show that with "UTC" label
         - Format: "YYYY-MM-DD HH:MM:SS [timezone]"
         - For ongoing events, show start time and "Ongoing" status
         - For past events, show occurrence time
         - NEVER show "Unknown" for time - if truly unknown, say "Time being verified"
+        - If ALL disasters are old/filtered, say "No recent disasters in the last 3 days"
         
         ⚠️ MARITIME IMPACT BY DISASTER TYPE:
         🌍 Earthquake Zones:
@@ -2212,6 +2589,15 @@ class EnhancedAIChatService:
 
         Task: Create a RICH, DETAILED response using the formatting templates above.
 
+        ⚠️⚠️⚠️ CRITICAL FOR SAFETY QUERIES ⚠️⚠️⚠️:
+        IF the real-time data contains "intelligent_safety_analysis":
+          - THIS IS YOUR PRIMARY SOURCE - Use it exclusively for safety assessment
+          - DO NOT show generic disaster lists from disaster_data
+          - IF is_safe == True: Say it's SAFE, show proof, DO NOT list any earthquakes
+          - IF is_safe == False: Say UNSAFE, list ONLY disasters from affecting_disasters array
+          - The analysis already filtered by time (3 days) and location (relevant radius)
+          - Trust the intelligent analysis completely - it already did the work
+
         CRITICAL REQUIREMENTS:
         1. Use EMOJIS and visual elements (🌤️, 🚢, ✅, ❌, 🔍, 📋, 🌪️, ⚠️)
         2. Use BULLET POINTS for organized information
@@ -2232,7 +2618,7 @@ class EnhancedAIChatService:
            - Mention marine areas affected (shipping lanes, straits, coastal regions)
            - Include coordinates when available for precise navigation
         11. **DISASTER INTELLIGENCE**: Always cross-reference current disaster data with location queries:
-           - If user asks "is it safe to go to [LOCATION]" → Check if any current disasters affect that location
+           - If user asks "is it safe to go to [LOCATION]" → Use intelligent_safety_analysis
            - If user asks for routes to/from [LOCATION] → Check if disasters affect the route
            - If disasters exist: Mark as UNSAFE/HIGH RISK and explain the specific disaster threats
            - If no disasters: Mark as SAFE/LOW RISK but mention real-time monitoring is active
@@ -2599,12 +2985,66 @@ class EnhancedAIChatService:
                 if weather.get('wave_height'):
                     context_parts.append(f"Wave height: {weather.get('wave_height')} m")
         
-        # Route data
+        # Route data - Include comprehensive route specifications
         if "route_data" in real_time_data:
             route_data = real_time_data["route_data"]
             if route_data.get("success"):
-                context_parts.append(f"ROUTE: {route_data.get('from_port')} to {route_data.get('to_port')} - {route_data.get('distance_nm')} nautical miles, {route_data.get('estimated_time')} travel time")
-                context_parts.append(f"Route description: {route_data.get('route_description')}")
+                context_parts.append(f"\n🚢 MARITIME ROUTE SPECIFICATIONS:")
+                context_parts.append(f"  FROM: {route_data.get('from_port')} TO: {route_data.get('to_port')}")
+                context_parts.append(f"  DISTANCE: {route_data.get('distance_nm')} nautical miles ({route_data.get('distance_km')} km)")
+                context_parts.append(f"  ESTIMATED TIME: {route_data.get('estimated_days')} days at {route_data.get('average_speed_knots')} knots")
+                context_parts.append(f"  ROUTE: {route_data.get('route_description')}")
+                context_parts.append(f"  MAJOR WAYPOINTS: {', '.join(route_data.get('major_waypoints', []))}")
+                context_parts.append(f"  KEY STRAITS: {route_data.get('key_straits')}")
+                context_parts.append(f"  FUEL CONSUMPTION: {route_data.get('fuel_consumption_tons')} tons ({route_data.get('daily_fuel_tons')} tons/day)")
+                context_parts.append(f"  SEASONAL PATTERNS: {route_data.get('seasonal_patterns')}")
+                context_parts.append(f"  OPTIMAL SEASONS: {route_data.get('optimal_seasons')}")
+                context_parts.append(f"  NAVIGATION HAZARDS: {route_data.get('navigation_hazards')}")
+                context_parts.append(f"  TRAFFIC DENSITY: {route_data.get('traffic_density')}")
+                context_parts.append(f"  PRIMARY HAZARDS: {route_data.get('primary_hazards')}")
+                context_parts.append(f"  WEATHER ROUTING: {route_data.get('weather_routing')}")
+                context_parts.append(f"  CONFIDENCE: {int(route_data.get('confidence', 0.85) * 100)}%")
+                
+                # Include hazard analysis if available
+                if "hazard_analysis" in route_data:
+                    hazard_data = route_data["hazard_analysis"]
+                    if hazard_data.get('analysis_performed'):
+                        context_parts.append(f"\n⚠️ INTELLIGENT ROUTE HAZARD ANALYSIS:")
+                        context_parts.append(f"  ROUTE SAFETY: {'UNSAFE - HAZARDS DETECTED' if not hazard_data.get('is_safe') else 'APPEARS SAFE'}")
+                        context_parts.append(f"  RISK LEVEL: {hazard_data.get('risk_level', 'UNKNOWN')}")
+                        context_parts.append(f"  TOTAL HAZARDS: {hazard_data.get('total_hazards', 0)}")
+                        
+                        departure_hazards = hazard_data.get('departure_hazards', [])
+                        if departure_hazards:
+                            context_parts.append(f"  DEPARTURE PORT HAZARDS ({len(departure_hazards)}):")
+                            for hazard in departure_hazards:
+                                context_parts.append(f"    • {hazard.get('type', 'Unknown')} - {hazard.get('location', 'Unknown location')} (Severity: {hazard.get('severity', 'Unknown')})")
+                        else:
+                            context_parts.append(f"  DEPARTURE PORT HAZARDS: None detected")
+                        
+                        destination_hazards = hazard_data.get('destination_hazards', [])
+                        if destination_hazards:
+                            context_parts.append(f"  DESTINATION PORT HAZARDS ({len(destination_hazards)}):")
+                            for hazard in destination_hazards:
+                                context_parts.append(f"    • {hazard.get('type', 'Unknown')} - {hazard.get('location', 'Unknown location')} (Severity: {hazard.get('severity', 'Unknown')})")
+                        else:
+                            context_parts.append(f"  DESTINATION PORT HAZARDS: None detected")
+                        
+                        route_hazards = hazard_data.get('route_corridor_hazards', [])
+                        if route_hazards:
+                            context_parts.append(f"  ROUTE CORRIDOR HAZARDS ({len(route_hazards)}):")
+                            for hazard in route_hazards:
+                                context_parts.append(f"    • {hazard.get('type', 'Unknown')} - {hazard.get('location', 'Unknown location')} (Severity: {hazard.get('severity', 'Unknown')})")
+                        else:
+                            context_parts.append(f"  ROUTE CORRIDOR HAZARDS: None detected")
+                        
+                        context_parts.append(f"  RECOMMENDATION: {hazard_data.get('recommendation', 'Proceed with caution')}")
+                        
+                        detailed_warnings = hazard_data.get('detailed_warnings', [])
+                        if detailed_warnings:
+                            context_parts.append(f"  DETAILED WARNINGS:")
+                            for warning in detailed_warnings[:5]:  # Show top 5 warnings
+                                context_parts.append(f"    • {warning}")
         
         # Current disasters - Real-time data with enhanced locations and categories
         if "current_disasters" in real_time_data:
@@ -2726,13 +3166,18 @@ class EnhancedAIChatService:
                 context_parts.append(f"\n🧠 INTELLIGENT SAFETY ANALYSIS FOR {safety['location'].upper()}:")
                 context_parts.append(f"  Safety Status: {'✅ SAFE' if safety['is_safe'] else '❌ UNSAFE'}")
                 context_parts.append(f"  Risk Level: {safety['risk_level']}")
+                context_parts.append(f"  Time Period: {safety.get('time_period', 'Recent')}")
+                context_parts.append(f"  Disasters Checked: {safety.get('total_disasters_checked', 'N/A')}")
                 context_parts.append(f"  Recommendation: {safety['recommendation']}")
                 context_parts.append(f"  Evidence: {safety['proof']}")
                 if not safety['is_safe'] and safety.get('affecting_disasters'):
-                    context_parts.append(f"  Affecting Disasters: {len(safety['affecting_disasters'])} active hazards")
-                    for item in safety['affecting_disasters'][:3]:
+                    context_parts.append(f"  🚨 AFFECTING DISASTERS ({len(safety['affecting_disasters'])} total):")
+                    for item in safety['affecting_disasters']:
                         disaster = item['disaster']
-                        context_parts.append(f"    • {disaster.get('type')}: {disaster.get('location')} - {disaster.get('severity', disaster.get('magnitude', 'Active'))}")
+                        distance = item.get('distance_km', 'N/A')
+                        context_parts.append(f"    • {disaster.get('type')}: {disaster.get('location')} - {disaster.get('severity', disaster.get('magnitude', 'Active'))} ({distance}km away)")
+                else:
+                    context_parts.append(f"  ✅ NO disasters affecting this location in the last 3 days")
         
         # 🌊 REGIONAL HAZARD FILTER RESULTS
         if "regional_hazard_filter" in real_time_data:
@@ -3042,9 +3487,32 @@ async def process_chat_message(message: str, context_data: Dict = None) -> Dict[
             "timestamp": response.timestamp.isoformat()
         }
     except Exception as e:
-        logger.error(f"Chat processing error: {e}")
+        logger.error(f"Chat processing error: {e}", exc_info=True)
+        
+        # Provide a basic fallback response based on message content
+        message_lower = message.lower()
+        fallback_response = "I'm experiencing technical difficulties with the AI service. "
+        
+        # Check if it's a route query and provide basic info
+        if any(word in message_lower for word in ['route', 'distance', 'path', 'navigate', 'sail']):
+            if 'colombo' in message_lower and 'singapore' in message_lower:
+                fallback_response += "\n\n🚢 **Route Information (Colombo ↔ Singapore)**\n"
+                fallback_response += "- Distance: Approximately 1,500 nautical miles (2,778 km)\n"
+                fallback_response += "- Route: Through Malacca Strait\n"
+                fallback_response += "- Estimated Time: 4-5 days at 12-15 knots\n"
+                fallback_response += "- Major Waypoints: Nicobar Islands, Malacca Strait\n\n"
+                fallback_response += "⚠️ AI-powered analysis unavailable. Please check:\n"
+                fallback_response += "1. OpenAI API key configuration\n"
+                fallback_response += "2. Network connectivity\n"
+                fallback_response += "3. Service logs for details"
+            else:
+                fallback_response += "I can help with route planning, but the AI service is currently unavailable. "
+                fallback_response += "Please try again in a moment or contact support if the issue persists."
+        else:
+            fallback_response += "Please try again in a moment. If the problem continues, please contact support."
+        
         return {
-            "response": "I'm experiencing technical difficulties. Please try again in a moment.",
+            "response": fallback_response,
             "confidence": 0.1,
             "agent_type": "error",
             "data_sources": [],

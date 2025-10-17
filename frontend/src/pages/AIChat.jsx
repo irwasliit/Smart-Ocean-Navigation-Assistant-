@@ -453,15 +453,25 @@ const AIChat = () => {
               </h3>
               
               {/* Basic Model */}
-              <div className="mb-4 p-3 bg-white rounded-lg border-2 border-blue-200">
+              <div className={`mb-4 p-3 rounded-lg border-2 ${
+                selectedModel === 'basic'
+                  ? 'bg-white border-blue-300'
+                  : 'bg-white border-blue-200'
+              }`}>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold text-blue-700 flex items-center text-sm">
                     <span className="mr-1">⚡</span>
                     Basic GPT
                   </h4>
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                    All Plans
-                  </span>
+                  {selectedModel === 'basic' ? (
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                      ⚡ Active
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
+                      All Plans
+                    </span>
+                  )}
                 </div>
                 <ul className="text-xs text-gray-600 space-y-1">
                   <li className="flex items-start">
@@ -487,7 +497,9 @@ const AIChat = () => {
               <div className={`p-3 rounded-lg border-2 ${
                 userPlan === 'free' 
                   ? 'bg-gray-50 border-gray-300 opacity-60' 
-                  : 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300'
+                  : selectedModel === 'advanced'
+                    ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300'
+                    : 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300'
               }`}>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className={`font-semibold flex items-center text-sm ${
@@ -501,8 +513,12 @@ const AIChat = () => {
                       <span className="mr-0.5">🔒</span>
                       Locked
                     </span>
-                  ) : (
+                  ) : selectedModel === 'advanced' ? (
                     <span className="px-2 py-0.5 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 text-xs rounded-full">
+                      ⚡ Active
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full">
                       Pro/Premium
                     </span>
                   )}
