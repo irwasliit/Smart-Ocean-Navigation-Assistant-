@@ -108,7 +108,7 @@ const Upgrade = () => {
         'weather reports',
         'route suggestions',
         'hazard alerts',
-        'Bacic Gpt '
+        'Basic Gpt '
         
       ],
         limitations: [],
@@ -121,7 +121,8 @@ const Upgrade = () => {
       period: '/month',
       description: 'Enhanced features for professional mariners and enthusiasts',
       features: [
-        'Bacis GPT +Hugging Face AI chat',
+                'All Free plan features ',
+        'Advanced GPT +Hugging Face AI chat',
         '50 AI chat messages per day',
         'save 5 location for weather',
         'save 5 Alerts only'
@@ -139,6 +140,11 @@ const Upgrade = () => {
       period: '/month',
       description: 'Complete marine intelligence solution for professionals',
       features: [
+
+        'All Free plan features ',
+                       
+        'Advanced GPT +Hugging Face AI chat',
+                        
         'Unlimited AI chat messages',
         'Unlimited Weather Location Save',
         'Unlimited Alert Save',
