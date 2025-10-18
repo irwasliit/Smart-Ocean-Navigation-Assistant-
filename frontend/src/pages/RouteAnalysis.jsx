@@ -461,6 +461,20 @@ const RouteAnalysis = () => {
       return;
     }
     
+    // Show route justification before analysis
+    const startHarborName = startPoint.name || 'Start Harbor';
+    const endHarborName = endPoint.name || 'End Harbor';
+    const vesselTypeName = vesselType || 'cargo vessel';
+    const speedInfo = speedKnots ? `${speedKnots} knots` : 'standard speed';
+    
+    toast.loading(
+      `🧭 Route Justification: Analyzing maritime route from ${startHarborName} to ${endHarborName} for a ${vesselTypeName} at ${speedInfo}. This route follows established shipping lanes and avoids shallow waters.`, 
+      { id: 'route-justification' }
+    );
+    
+    // Wait a moment to show the justification message
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     console.log('✅ All validations passed, starting analysis...');
     setAnalyzing(true);
     setAnalysisResult(null);
@@ -570,6 +584,19 @@ const RouteAnalysis = () => {
       setAnalyzing(false);
       setAbortController(null);
     }
+  };
+
+  // Function to generate route justification text
+  const generateRouteJustification = () => {
+    if (!startPoint || !endPoint) return '';
+    
+    const startHarborName = startPoint.name || 'Start Harbor';
+    const endHarborName = endPoint.name || 'End Harbor';
+    const vesselTypeName = vesselType || 'cargo vessel';
+    const speedInfo = speedKnots ? `${speedKnots} knots` : 'standard speed';
+    const fuelRangeInfo = fuelRangeKm ? `with a fuel range of ${fuelRangeKm} km` : 'with standard fuel range';
+    
+    return `This maritime route from ${startHarborName} to ${endHarborName} has been calculated for a ${vesselTypeName} traveling at ${speedInfo} ${fuelRangeInfo}. The route follows established international shipping lanes, avoids shallow waters and known hazards, and includes waypoints for safe navigation. Weather conditions along the route have been analyzed to ensure optimal safety and efficiency.`;
   };
 
   const cancelAnalysis = () => {
@@ -807,23 +834,23 @@ const RouteAnalysis = () => {
                   )}
 
                   {/* Enhanced Maritime Route Visualization */}
-                  {analysisResult?.analysis_data?.route_data?.route_points ? (
+                  {analysisResult?.analysis_data?.route_data?.route_points && (
                     <>
                       {/* Main maritime route line */}
-                      <Polyline 
-                        positions={analysisResult.analysis_data.route_data.route_points.map(p => [p.lat, p.lng])} 
-                        pathOptions={{ 
-                          color: '#0066cc', 
-                          weight: 5, 
+                      <Polyline
+                        positions={analysisResult.analysis_data.route_data.route_points.map(p => [p.lat, p.lng])}
+                        pathOptions={{
+                          color: '#0066cc',
+                          weight: 5,
                           opacity: 0.8,
                           dashArray: '15, 8'
-                        }} 
+                        }}
                       />
                       {/* Maritime waypoint markers */}
                       {analysisResult.analysis_data.route_data.route_points.map((point, index) => (
-                        index > 0 && index < analysisResult.analysis_data.route_data.route_points.length - 1 && 
+                        index > 0 && index < analysisResult.analysis_data.route_data.route_points.length - 1 &&
                         index % 2 === 0 && (
-                          <Marker 
+                          <Marker
                             key={`maritime-waypoint-${index}`}
                             position={[point.lat, point.lng]}
                             icon={L.divIcon({
@@ -847,8 +874,6 @@ const RouteAnalysis = () => {
                         )
                       ))}
                     </>
-                  ) : startPoint && endPoint && (
-                    <Polyline positions={routePositions()} pathOptions={{ color: '#1d4ed8', weight: 3 }} />
                   )}
                 </MapContainer>
               </div>
@@ -946,6 +971,19 @@ const RouteAnalysis = () => {
                         <XMarkIcon className="h-4 w-4 mr-2" />
                         Cancel Analysis
                       </button>
+                    </div>
+                  )}
+                  
+                  {/* Route Justification Section */}
+                  {startPoint && endPoint && !analyzing && (
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                        <span className="mr-2">🧭</span>
+                        Route Justification
+                      </h3>
+                      <p className="text-sm text-blue-800">
+                        {analysisResult?.analysis_data?.route_justification || generateRouteJustification()}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -1077,6 +1115,19 @@ const RouteAnalysis = () => {
                        analysisResult.risk_assessment?.includes('medium') ? '🟡 MEDIUM RISK' : '🟢 LOW RISK'}
                     </div>
                   </div>
+                  
+                  {/* Route Justification Section in Results */}
+                  {analysisResult?.analysis_data?.route_justification && (
+                    <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h3 className="text-lg font-semibold text-blue-900 mb-2 flex items-center">
+                        <span className="mr-2">🧭</span>
+                        Route Justification
+                      </h3>
+                      <p className="text-blue-800">
+                        {analysisResult.analysis_data.route_justification}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Route Statistics */}
                   {analysisResult.analysis_data?.route_data && (

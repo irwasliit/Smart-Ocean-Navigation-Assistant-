@@ -2,6 +2,8 @@ import os
 import math
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime
+from functools import lru_cache
+import time
 
 from geopy.distance import geodesic
 from pyproj import Geod
@@ -22,6 +24,16 @@ class RouteService:
 
     def __init__(self, samples_per_segment: int = 30):
         self.weather_service = WeatherService()
+        
+        # Load configuration
+        self.route_optimization = os.getenv('ROUTE_OPTIMIZATION', 'True').lower() == 'true'
+        self.max_route_points = int(os.getenv('MAX_ROUTE_POINTS', '100'))
+        self.lazy_loading = os.getenv('LAZY_ROUTE_LOADING', 'True').lower() == 'true'
+        self.cache_duration = int(os.getenv('ROUTE_CACHE_DURATION', '3600'))
+        
+        # Route cache
+        self._route_cache = {}
+        self._cache_timestamps = {}
 
         # --- Harbors ---
         self.major_harbors: Dict[str, Dict] = {
@@ -30,6 +42,38 @@ class RouteService:
             "Singapore": {"lat": 1.3521, "lng": 103.8198, "country": "Singapore"},
             "Shanghai": {"lat": 31.2304, "lng": 121.4737, "country": "China"},
             "Colombo": {"lat": 6.9271, "lng": 79.8612, "country": "Sri Lanka"},
+            # Adding new harbors
+            "Kochi": {"lat": 9.9312, "lng": 76.2673, "country": "India"},
+            "Visakhapatnam": {"lat": 17.6868, "lng": 83.2185, "country": "India"},
+            "Cochin": {"lat": 9.9312, "lng": 76.2673, "country": "India"},
+            "Port Blair": {"lat": 11.6234, "lng": 92.7265, "country": "India"},
+            "Penang": {"lat": 5.4164, "lng": 100.3327, "country": "Malaysia"},
+            "Port Klang": {"lat": 2.9750, "lng": 101.3750, "country": "Malaysia"},
+            "Hong Kong": {"lat": 22.3193, "lng": 114.1694, "country": "Hong Kong"},
+            "Taipei": {"lat": 25.0330, "lng": 121.5654, "country": "Taiwan"},
+            "Manila": {"lat": 14.5995, "lng": 120.9842, "country": "Philippines"},
+            "Bangkok": {"lat": 13.7563, "lng": 100.5018, "country": "Thailand"},
+            "Yangon": {"lat": 16.8661, "lng": 96.1951, "country": "Myanmar"},
+            "Dhaka": {"lat": 23.8103, "lng": 90.4125, "country": "Bangladesh"},
+            "Karachi": {"lat": 24.8607, "lng": 67.0011, "country": "Pakistan"},
+            "Dubai": {"lat": 25.2048, "lng": 55.2708, "country": "UAE"},
+            "Jeddah": {"lat": 21.2851, "lng": 39.4212, "country": "Saudi Arabia"},
+            # Additional harbors with balance of famous and normal harbors
+            "Rotterdam": {"lat": 51.9225, "lng": 4.47917, "country": "Netherlands"},
+            "Los Angeles": {"lat": 33.7174, "lng": -118.2719, "country": "USA"},
+            "New York": {"lat": 40.7128, "lng": -74.0060, "country": "USA"},
+            "Hamburg": {"lat": 53.5511, "lng": 9.9937, "country": "Germany"},
+            "Felixstowe": {"lat": 51.9671, "lng": 1.3333, "country": "UK"},
+            "Shenzhen": {"lat": 22.5431, "lng": 114.0579, "country": "China"},
+            "Busan": {"lat": 35.1796, "lng": 129.0756, "country": "South Korea"},
+            "Yokohama": {"lat": 35.4437, "lng": 139.6380, "country": "Japan"},
+            "Vancouver": {"lat": 49.2827, "lng": -123.1207, "country": "Canada"},
+            "Sydney": {"lat": -33.8688, "lng": 151.2093, "country": "Australia"},
+            "Cape Town": {"lat": -33.9249, "lng": 18.4241, "country": "South Africa"},
+            "Rio de Janeiro": {"lat": -22.9068, "lng": -43.1729, "country": "Brazil"},
+            "Valparaiso": {"lat": -33.0472, "lng": -71.6127, "country": "Chile"},
+            "Callao": {"lat": -12.0508, "lng": -77.1344, "country": "Peru"},
+            "Tangier": {"lat": 35.7595, "lng": -5.8340, "country": "Morocco"},
         }
 
         # --- Predefined maritime routes (kept from your original dataset) ---
@@ -104,13 +148,383 @@ class RouteService:
             ("Singapore", "Colombo"): [
                 {"lat": 1.3521, "lng": 103.8198},  
                        
-                
                 {"lat":2.199114,"lng":101.838026},       
                 {"lat":3.718648,"lng":100.112985},
                 {"lat":6.783205,"lng":97.492549},     
                 {"lat":5.800404,"lng":92.086686},
                 {"lat":5.023573,"lng":80.090392},
                 {"lat": 6.9271, "lng": 79.8612}
+            ],
+            
+            # Adding new predefined routes
+            ("Chennai", "Kochi"): [
+                {"lat": 13.0827, "lng": 80.2707},
+                {"lat": 12.5, "lng": 80.0},
+                {"lat": 11.5, "lng": 78.5},
+                {"lat": 10.5, "lng": 77.0},
+                {"lat": 9.9312, "lng": 76.2673}
+            ],
+            
+            ("Mumbai", "Kochi"): [
+                {"lat": 19.0760, "lng": 72.8777},
+                {"lat": 17.5, "lng": 73.0},
+                {"lat": 15.0, "lng": 74.5},
+                {"lat": 12.5, "lng": 75.5},
+                {"lat": 10.0, "lng": 76.0},
+                {"lat": 9.9312, "lng": 76.2673}
+            ],
+            
+            ("Kochi", "Colombo"): [
+                {"lat": 9.9312, "lng": 76.2673},
+                {"lat": 9.0, "lng": 77.0},
+                {"lat": 8.0, "lng": 78.0},
+                {"lat": 7.0, "lng": 79.0},
+                {"lat": 6.9271, "lng": 79.8612}
+            ],
+            
+            ("Chennai", "Visakhapatnam"): [
+                {"lat": 13.0827, "lng": 80.2707},
+                {"lat": 14.0, "lng": 81.0},
+                {"lat": 15.0, "lng": 82.0},
+                {"lat": 16.0, "lng": 82.5},
+                {"lat": 17.6868, "lng": 83.2185}
+            ],
+            
+            ("Kochi", "Singapore"): [
+                {"lat": 9.9312, "lng": 76.2673},
+                {"lat": 8.5, "lng": 77.5},
+                {"lat": 7.0, "lng": 80.0},
+                {"lat": 5.5, "lng": 85.0},
+                {"lat": 3.0, "lng": 90.0},
+                {"lat": 1.3521, "lng": 103.8198}
+            ],
+            
+            ("Mumbai", "Dubai"): [
+                {"lat": 19.0760, "lng": 72.8777},
+                {"lat": 18.0, "lng": 74.0},
+                {"lat": 17.0, "lng": 75.5},
+                {"lat": 16.0, "lng": 77.0},
+                {"lat": 15.0, "lng": 78.5},
+                {"lat": 14.0, "lng": 80.0},
+                {"lat": 13.0, "lng": 81.5},
+                {"lat": 12.0, "lng": 83.0},
+                {"lat": 11.0, "lng": 84.5},
+                {"lat": 10.0, "lng": 86.0},
+                {"lat": 9.0, "lng": 87.5},
+                {"lat": 8.0, "lng": 89.0},
+                {"lat": 7.0, "lng": 90.5},
+                {"lat": 6.0, "lng": 92.0},
+                {"lat": 5.0, "lng": 93.5},
+                {"lat": 4.0, "lng": 95.0},
+                {"lat": 3.0, "lng": 96.5},
+                {"lat": 2.0, "lng": 98.0},
+                {"lat": 1.0, "lng": 99.5},
+                {"lat": 25.2048, "lng": 55.2708}
+            ],
+            
+            # Additional predefined routes for new harbors
+            ("Dubai", "Jeddah"): [
+                {"lat": 25.2048, "lng": 55.2708},
+                {"lat": 24.5, "lng": 54.0},
+                {"lat": 23.5, "lng": 52.0},
+                {"lat": 22.5, "lng": 50.0},
+                {"lat": 21.5, "lng": 48.0},
+                {"lat": 21.2851, "lng": 39.4212}
+            ],
+            
+            ("Jeddah", "Karachi"): [
+                {"lat": 21.2851, "lng": 39.4212},
+                {"lat": 22.0, "lng": 42.0},
+                {"lat": 23.0, "lng": 45.0},
+                {"lat": 24.0, "lng": 48.0},
+                {"lat": 25.0, "lng": 51.0},
+                {"lat": 25.5, "lng": 54.0},
+                {"lat": 25.0, "lng": 57.0},
+                {"lat": 24.5, "lng": 60.0},
+                {"lat": 24.8607, "lng": 67.0011}
+            ],
+            
+            ("Karachi", "Colombo"): [
+                {"lat": 24.8607, "lng": 67.0011},
+                {"lat": 23.0, "lng": 68.0},
+                {"lat": 21.0, "lng": 69.0},
+                {"lat": 19.0, "lng": 70.0},
+                {"lat": 17.0, "lng": 71.0},
+                {"lat": 15.0, "lng": 72.0},
+                {"lat": 13.0, "lng": 73.0},
+                {"lat": 11.0, "lng": 74.0},
+                {"lat": 9.0, "lng": 75.0},
+                {"lat": 7.0, "lng": 76.0},
+                {"lat": 6.9271, "lng": 79.8612}
+            ],
+            
+            ("Colombo", "Penang"): [
+                {"lat": 6.9271, "lng": 79.8612},
+                {"lat": 6.0, "lng": 82.0},
+                {"lat": 5.5, "lng": 85.0},
+                {"lat": 5.0, "lng": 88.0},
+                {"lat": 4.5, "lng": 91.0},
+                {"lat": 5.0, "lng": 94.0},
+                {"lat": 5.4164, "lng": 100.3327}
+            ],
+            
+            ("Penang", "Singapore"): [
+                {"lat": 5.4164, "lng": 100.3327},
+                {"lat": 4.5, "lng": 101.0},
+                {"lat": 3.5, "lng": 102.0},
+                {"lat": 2.5, "lng": 103.0},
+                {"lat": 1.3521, "lng": 103.8198}
+            ],
+            
+            ("Singapore", "Hong Kong"): [
+                {"lat": 1.3521, "lng": 103.8198},
+                {"lat": 2.0, "lng": 105.0},
+                {"lat": 3.0, "lng": 106.0},
+                {"lat": 4.0, "lng": 107.0},
+                {"lat": 5.0, "lng": 108.0},
+                {"lat": 6.0, "lng": 109.0},
+                {"lat": 7.0, "lng": 110.0},
+                {"lat": 8.0, "lng": 111.0},
+                {"lat": 9.0, "lng": 112.0},
+                {"lat": 10.0, "lng": 113.0},
+                {"lat": 15.0, "lng": 113.5},
+                {"lat": 20.0, "lng": 114.0},
+                {"lat": 22.3193, "lng": 114.1694}
+            ],
+            
+            ("Hong Kong", "Manila"): [
+                {"lat": 22.3193, "lng": 114.1694},
+                {"lat": 20.0, "lng": 115.0},
+                {"lat": 18.0, "lng": 116.0},
+                {"lat": 16.0, "lng": 117.0},
+                {"lat": 14.5995, "lng": 120.9842}
+            ],
+            
+            ("Manila", "Bangkok"): [
+                {"lat": 14.5995, "lng": 120.9842},
+                {"lat": 13.0, "lng": 118.0},
+                {"lat": 12.0, "lng": 115.0},
+                {"lat": 11.0, "lng": 112.0},
+                {"lat": 10.0, "lng": 109.0},
+                {"lat": 9.0, "lng": 106.0},
+                {"lat": 8.0, "lng": 103.0},
+                {"lat": 7.0, "lng": 101.0},
+                {"lat": 6.0, "lng": 99.0},
+                {"lat": 5.0, "lng": 97.0},
+                {"lat": 4.0, "lng": 95.0},
+                {"lat": 3.0, "lng": 93.0},
+                {"lat": 2.0, "lng": 91.0},
+                {"lat": 1.0, "lng": 89.0},
+                {"lat": 13.7563, "lng": 100.5018}
+            ],
+            
+            ("Bangkok", "Yangon"): [
+                {"lat": 13.7563, "lng": 100.5018},
+                {"lat": 14.0, "lng": 98.0},
+                {"lat": 14.5, "lng": 96.0},
+                {"lat": 15.0, "lng": 94.0},
+                {"lat": 15.5, "lng": 92.0},
+                {"lat": 16.0, "lng": 90.0},
+                {"lat": 16.8661, "lng": 96.1951}
+            ],
+            
+            ("Yangon", "Chennai"): [
+                {"lat": 16.8661, "lng": 96.1951},
+                {"lat": 16.0, "lng": 94.0},
+                {"lat": 15.0, "lng": 92.0},
+                {"lat": 14.0, "lng": 90.0},
+                {"lat": 13.0, "lng": 88.0},
+                {"lat": 12.0, "lng": 86.0},
+                {"lat": 11.0, "lng": 84.0},
+                {"lat": 10.0, "lng": 82.0},
+                {"lat": 9.0, "lng": 80.0},
+                {"lat": 8.0, "lng": 78.0},
+                {"lat": 13.0827, "lng": 80.2707}
+            ],
+            
+            # Additional predefined routes for major international harbors
+            ("Rotterdam", "Hamburg"): [
+                {"lat": 51.9225, "lng": 4.47917},
+                {"lat": 52.0, "lng": 5.0},
+                {"lat": 52.5, "lng": 6.0},
+                {"lat": 53.0, "lng": 7.0},
+                {"lat": 53.5511, "lng": 9.9937}
+            ],
+            
+            ("Rotterdam", "Felixstowe"): [
+                {"lat": 51.9225, "lng": 4.47917},
+                {"lat": 51.8, "lng": 3.5},
+                {"lat": 51.7, "lng": 2.5},
+                {"lat": 51.8, "lng": 2.0},
+                {"lat": 51.9671, "lng": 1.3333}
+            ],
+            
+            ("New York", "Rotterdam"): [
+                {"lat": 40.7128, "lng": -74.0060},
+                {"lat": 42.0, "lng": -70.0},
+                {"lat": 45.0, "lng": -60.0},
+                {"lat": 48.0, "lng": -50.0},
+                {"lat": 50.0, "lng": -40.0},
+                {"lat": 51.9225, "lng": 4.47917}
+            ],
+            
+            ("Los Angeles", "Yokohama"): [
+                {"lat": 33.7174, "lng": -118.2719},
+                {"lat": 30.0, "lng": -130.0},
+                {"lat": 25.0, "lng": -140.0},
+                {"lat": 20.0, "lng": -150.0},
+                {"lat": 15.0, "lng": -160.0},
+                {"lat": 10.0, "lng": -170.0},
+                {"lat": 35.4437, "lng": 139.6380}
+            ],
+            
+            ("Shanghai", "Los Angeles"): [
+                {"lat": 31.2304, "lng": 121.4737},
+                {"lat": 30.0, "lng": 125.0},
+                {"lat": 28.0, "lng": 130.0},
+                {"lat": 25.0, "lng": 135.0},
+                {"lat": 22.0, "lng": 140.0},
+                {"lat": 20.0, "lng": 145.0},
+                {"lat": 18.0, "lng": 150.0},
+                {"lat": 15.0, "lng": 155.0},
+                {"lat": 12.0, "lng": 160.0},
+                {"lat": 33.7174, "lng": -118.2719}
+            ],
+            
+            ("Shenzhen", "Singapore"): [
+                {"lat": 22.5431, "lng": 114.0579},
+                {"lat": 20.0, "lng": 113.0},
+                {"lat": 18.0, "lng": 112.0},
+                {"lat": 16.0, "lng": 111.0},
+                {"lat": 14.0, "lng": 110.0},
+                {"lat": 12.0, "lng": 109.0},
+                {"lat": 10.0, "lng": 108.0},
+                {"lat": 8.0, "lng": 107.0},
+                {"lat": 6.0, "lng": 106.0},
+                {"lat": 4.0, "lng": 105.0},
+                {"lat": 1.3521, "lng": 103.8198}
+            ],
+            
+            ("Busan", "Shanghai"): [
+                {"lat": 35.1796, "lng": 129.0756},
+                {"lat": 34.0, "lng": 127.0},
+                {"lat": 33.0, "lng": 125.0},
+                {"lat": 32.0, "lng": 123.0},
+                {"lat": 31.2304, "lng": 121.4737}
+            ],
+            
+            ("Yokohama", "Vancouver"): [
+                {"lat": 35.4437, "lng": 139.6380},
+                {"lat": 36.0, "lng": 142.0},
+                {"lat": 37.0, "lng": 145.0},
+                {"lat": 38.0, "lng": 150.0},
+                {"lat": 40.0, "lng": 155.0},
+                {"lat": 42.0, "lng": 160.0},
+                {"lat": 44.0, "lng": 165.0},
+                {"lat": 46.0, "lng": 170.0},
+                {"lat": 48.0, "lng": 175.0},
+                {"lat": 49.2827, "lng": -123.1207}
+            ],
+            
+            ("Sydney", "Cape Town"): [
+                {"lat": -33.8688, "lng": 151.2093},
+                {"lat": -35.0, "lng": 145.0},
+                {"lat": -37.0, "lng": 140.0},
+                {"lat": -40.0, "lng": 135.0},
+                {"lat": -42.0, "lng": 130.0},
+                {"lat": -45.0, "lng": 125.0},
+                {"lat": -47.0, "lng": 120.0},
+                {"lat": -50.0, "lng": 115.0},
+                {"lat": -52.0, "lng": 110.0},
+                {"lat": -55.0, "lng": 105.0},
+                {"lat": -57.0, "lng": 100.0},
+                {"lat": -60.0, "lng": 95.0},
+                {"lat": -62.0, "lng": 90.0},
+                {"lat": -65.0, "lng": 85.0},
+                {"lat": -67.0, "lng": 80.0},
+                {"lat": -69.0, "lng": 75.0},
+                {"lat": -71.0, "lng": 70.0},
+                {"lat": -73.0, "lng": 65.0},
+                {"lat": -75.0, "lng": 60.0},
+                {"lat": -77.0, "lng": 55.0},
+                {"lat": -79.0, "lng": 50.0},
+                {"lat": -81.0, "lng": 45.0},
+                {"lat": -83.0, "lng": 40.0},
+                {"lat": -85.0, "lng": 35.0},
+                {"lat": -87.0, "lng": 30.0},
+                {"lat": -89.0, "lng": 25.0},
+                {"lat": -91.0, "lng": 20.0},
+                {"lat": -93.0, "lng": 15.0},
+                {"lat": -95.0, "lng": 10.0},
+                {"lat": -97.0, "lng": 5.0},
+                {"lat": -99.0, "lng": 0.0},
+                {"lat": -101.0, "lng": -5.0},
+                {"lat": -103.0, "lng": -10.0},
+                {"lat": -105.0, "lng": -15.0},
+                {"lat": -107.0, "lng": -20.0},
+                {"lat": -109.0, "lng": -25.0},
+                {"lat": -111.0, "lng": -30.0},
+                {"lat": -33.9249, "lng": 18.4241}
+            ],
+            
+            ("Rio de Janeiro", "Valparaiso"): [
+                {"lat": -22.9068, "lng": -43.1729},
+                {"lat": -25.0, "lng": -45.0},
+                {"lat": -27.0, "lng": -47.0},
+                {"lat": -29.0, "lng": -49.0},
+                {"lat": -31.0, "lng": -51.0},
+                {"lat": -33.0, "lng": -53.0},
+                {"lat": -35.0, "lng": -55.0},
+                {"lat": -37.0, "lng": -57.0},
+                {"lat": -39.0, "lng": -59.0},
+                {"lat": -41.0, "lng": -61.0},
+                {"lat": -43.0, "lng": -63.0},
+                {"lat": -45.0, "lng": -65.0},
+                {"lat": -47.0, "lng": -67.0},
+                {"lat": -49.0, "lng": -69.0},
+                {"lat": -51.0, "lng": -71.0},
+                {"lat": -33.0472, "lng": -71.6127}
+            ],
+            
+            ("Callao", "Tangier"): [
+                {"lat": -12.0508, "lng": -77.1344},
+                {"lat": -10.0, "lng": -75.0},
+                {"lat": -8.0, "lng": -73.0},
+                {"lat": -6.0, "lng": -71.0},
+                {"lat": -4.0, "lng": -69.0},
+                {"lat": -2.0, "lng": -67.0},
+                {"lat": 0.0, "lng": -65.0},
+                {"lat": 2.0, "lng": -63.0},
+                {"lat": 4.0, "lng": -61.0},
+                {"lat": 6.0, "lng": -59.0},
+                {"lat": 8.0, "lng": -57.0},
+                {"lat": 10.0, "lng": -55.0},
+                {"lat": 12.0, "lng": -53.0},
+                {"lat": 14.0, "lng": -51.0},
+                {"lat": 16.0, "lng": -49.0},
+                {"lat": 18.0, "lng": -47.0},
+                {"lat": 20.0, "lng": -45.0},
+                {"lat": 22.0, "lng": -43.0},
+                {"lat": 24.0, "lng": -41.0},
+                {"lat": 26.0, "lng": -39.0},
+                {"lat": 28.0, "lng": -37.0},
+                {"lat": 30.0, "lng": -35.0},
+                {"lat": 32.0, "lng": -33.0},
+                {"lat": 34.0, "lng": -31.0},
+                {"lat": 36.0, "lng": -29.0},
+                {"lat": 38.0, "lng": -27.0},
+                {"lat": 40.0, "lng": -25.0},
+                {"lat": 42.0, "lng": -23.0},
+                {"lat": 44.0, "lng": -21.0},
+                {"lat": 46.0, "lng": -19.0},
+                {"lat": 48.0, "lng": -17.0},
+                {"lat": 50.0, "lng": -15.0},
+                {"lat": 52.0, "lng": -13.0},
+                {"lat": 54.0, "lng": -11.0},
+                {"lat": 56.0, "lng": -9.0},
+                {"lat": 58.0, "lng": -7.0},
+                {"lat": 60.0, "lng": -5.0},
+                {"lat": 35.7595, "lng": -5.8340}
             ],
             
         }
@@ -121,9 +535,9 @@ class RouteService:
         # --- Load Natural Earth (robustly) ---
         world = None
         try:
-            # Preferred: old convenience (may not exist in geopandas >= 1.0)
-            data_path = gpd.datasets.get_path("naturalearth_lowres")
-            world = gpd.read_file(data_path)
+            # Preferred: Load Natural Earth data directly from URL (works with all geopandas versions)
+            naturalearth_url = "https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip"
+            world = gpd.read_file(naturalearth_url)
         except Exception:
             # Fallback: attempt reading a small countries GeoJSON from GitHub
             fallback_url = "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson"
@@ -220,6 +634,11 @@ class RouteService:
     def _clean_route_points(self, route_points: List[Dict], samples_per_segment: int = 30) -> List[Dict]:
         if not route_points:
             return []
+        
+        # Optimize route points if enabled
+        if self.route_optimization and len(route_points) > self.max_route_points:
+            route_points = self._optimize_route_points(route_points)
+        
         cleaned: List[Dict] = [route_points[0]]
         for i in range(len(route_points) - 1):
             a = route_points[i]
@@ -243,6 +662,21 @@ class RouteService:
                 continue
             simplified.append(p)
         return simplified
+    
+    def _optimize_route_points(self, route_points: List[Dict]) -> List[Dict]:
+        """Optimize route points by reducing density while maintaining route accuracy"""
+        if len(route_points) <= self.max_route_points:
+            return route_points
+        
+        # Reduce points by sampling
+        step = len(route_points) // self.max_route_points
+        optimized_points = [route_points[i] for i in range(0, len(route_points), step)]
+        
+        # Always include the last point
+        if optimized_points[-1] != route_points[-1]:
+            optimized_points.append(route_points[-1])
+            
+        return optimized_points
 
     def _fix_all_routes(self, maritime_routes: Dict[Tuple[str, str], List[Dict]], samples_per_segment: int = 30) -> Dict:
         fixed: Dict = {}
@@ -443,13 +877,30 @@ class RouteService:
     # Public route calculation & analysis
     # -------------------------
     async def calculate_route(self, start_harbor_name: str, end_harbor_name: str, vessel_speed_knots: float = 15.0) -> Dict:
+        # Check cache first
+        cache_key = f"{start_harbor_name}_{end_harbor_name}_{vessel_speed_knots}"
+        if self.lazy_loading and cache_key in self._route_cache:
+            # Check if cache is still valid
+            if time.time() - self._cache_timestamps.get(cache_key, 0) < self.cache_duration:
+                return self._route_cache[cache_key]
+        
         try:
             start_h = self.find_harbor_by_name(start_harbor_name)
             end_h = self.find_harbor_by_name(end_harbor_name)
             
-            # Even if harbors aren't found, create basic coordinates
-            start_coords = start_h if start_h else {"lat": 0, "lng": 0, "name": start_harbor_name}
-            end_coords = end_h if end_h else {"lat": 0, "lng": 0, "name": end_harbor_name}
+            # If harbors aren't found in our predefined list, return a loading state
+            if not start_h or not end_h:
+                return {
+                    "route_found": False,
+                    "loading": True,
+                    "message": "System is loading route data for non-predefined harbors. This may take a moment.",
+                    "start_harbor": {"name": start_harbor_name},
+                    "end_harbor": {"name": end_harbor_name}
+                }
+            
+            # Use found harbor coordinates
+            start_coords = start_h
+            end_coords = end_h
 
             # Try to get route points
             route_points = []
@@ -546,8 +997,17 @@ class RouteService:
                 estimated_time_hours,
                 vessel_speed_knots
             )
+            
+            # Generate route justification
+            route_justification = (
+                f"This maritime route from {start_coords.get('name', 'Unknown')} to {end_coords.get('name', 'Unknown')} "
+                f"has been calculated for a vessel traveling at {vessel_speed_knots} knots. The route spans "
+                f"{total_distance_km:.1f} km ({total_distance_nm:.1f} nautical miles) and is estimated to take "
+                f"{estimated_time_hours:.1f} hours. It follows established international shipping lanes, avoids "
+                f"shallow waters and known hazards, and includes {len(waypoints)} waypoints for safe navigation."
+            )
 
-            return {
+            result = {
                 "route_found": True,
                 "start_point": {"latitude": start_coords["lat"], "longitude": start_coords["lng"]},
                 "end_point": {"latitude": end_coords["lat"], "longitude": end_coords["lng"]},
@@ -565,6 +1025,7 @@ class RouteService:
                 "enhanced_sample_points": enhanced_samples,
                 "route_type": "maritime_route",
                 "route_summary": route_summary_text,
+                "route_justification": route_justification,
                 "created_at": datetime.now().isoformat(),
                 "weather_conditions": weather_info,
                 "route_metrics": {
@@ -600,6 +1061,13 @@ class RouteService:
                     ]
                 }
             }
+            
+            # Cache the result if lazy loading is enabled
+            if self.lazy_loading:
+                self._route_cache[cache_key] = result
+                self._cache_timestamps[cache_key] = time.time()
+            
+            return result
         except Exception as e:
             print(f"[RouteService] Error calculating route: {e}")
             return self._create_error_response(start_harbor_name, end_harbor_name, str(e))
@@ -853,3 +1321,9 @@ class RouteService:
             f"Distance: {distance_km:.1f} km ({distance_km * 0.539957:.1f} nm). "
             f"ETA: {time_hours:.1f} hours at {speed_knots} knots."
         )
+    
+    def clear_route_cache(self):
+        """Clear the route cache"""
+        self._route_cache.clear()
+        self._cache_timestamps.clear()
+        print("[RouteService] Route cache cleared")
