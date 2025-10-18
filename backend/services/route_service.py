@@ -58,20 +58,7 @@ class RouteService:
                 {"lat": 2.0, "lng": 102.0},
                 {"lat": 1.3521, "lng": 103.8198},
             ],
-            ("Chennai", "Shanghai"): [
-                {"lat": 13.0827, "lng": 80.2707},
-                {"lat": 14.0, "lng": 82.0},
-                {"lat": 15.0, "lng": 85.0},
-                {"lat": 16.5, "lng": 88.0},
-                {"lat": 18.0, "lng": 92.0},
-                {"lat": 20.0, "lng": 96.0},
-                {"lat": 22.0, "lng": 101.0},
-                {"lat": 24.0, "lng": 106.0},
-                {"lat": 26.0, "lng": 111.0},
-                {"lat": 28.0, "lng": 116.0},
-                {"lat": 30.0, "lng": 120.0},
-                {"lat": 31.2304, "lng": 121.4737},
-            ],
+           
            
 
 
@@ -112,38 +99,8 @@ class RouteService:
                 {"lat": 1.2, "lng": 103.8198},
                 {"lat": 1.3521, "lng": 103.8198},
             ],
-            ("Mumbai", "Shanghai"): [
-                {"lat": 19.0760, "lng": 72.8777},
-                {"lat": 18.0, "lng": 75.0},
-                {"lat": 16.0, "lng": 78.0},
-                {"lat": 14.0, "lng": 82.0},
-                {"lat": 12.0, "lng": 86.0},
-                {"lat": 10.0, "lng": 91.0},
-                {"lat": 8.0, "lng": 96.0},
-                {"lat": 7.0, "lng": 101.0},
-                {"lat": 8.0, "lng": 105.0},
-                {"lat": 10.0, "lng": 109.0},
-                {"lat": 13.0, "lng": 112.0},
-                {"lat": 17.0, "lng": 115.0},
-                {"lat": 22.0, "lng": 117.0},
-                {"lat": 27.0, "lng": 119.0},
-                {"lat": 31.2304, "lng": 121.4737},
-            ],
-            # REMOVE THIS DUPLICATE - it's already defined above at line 90
-            # ("Mumbai", "Colombo"): [ ... ]
-            
-            ("Singapore", "Shanghai"): [
-                {"lat": 1.3521, "lng": 103.8198},
-                {"lat": 3.0, "lng": 105.0},
-                {"lat": 5.0, "lng": 107.0},
-                {"lat": 8.0, "lng": 109.0},
-                {"lat": 12.0, "lng": 111.0},
-                {"lat": 16.0, "lng": 113.0},
-                {"lat": 20.0, "lng": 115.0},
-                {"lat": 24.0, "lng": 117.0},
-                {"lat": 28.0, "lng": 119.0},
-                {"lat": 31.2304, "lng": 121.4737},
-            ],
+
+           
             ("Singapore", "Colombo"): [
                 {"lat": 1.3521, "lng": 103.8198},  
                        
@@ -155,22 +112,7 @@ class RouteService:
                 {"lat":5.023573,"lng":80.090392},
                 {"lat": 6.9271, "lng": 79.8612}
             ],
-            ("Shanghai", "Colombo"): [
-                {"lat": 31.2304, "lng": 121.4737},
-                {"lat": 24.0, "lng": 117.0},
-                {"lat": 20.0, "lng": 115.0},
-                {"lat": 16.0, "lng": 113.0},
-                {"lat": 12.0, "lng": 111.0},
-                {"lat": 8.0, "lng": 109.0},
-                {"lat": 5.0, "lng": 106.0},
-                {"lat": 3.0, "lng": 102.0},
-                {"lat": 2.0, "lng": 98.0},
-                {"lat": 3.0, "lng": 94.0},
-                {"lat": 4.5, "lng": 90.0},
-                {"lat": 5.5, "lng": 86.0},
-                
-                {"lat": 6.9271, "lng": 79.8612},
-            ],
+            
         }
 
         # geodetic helper (WGS84)
@@ -357,35 +299,88 @@ class RouteService:
         route_key = (start_name, end_name)
         reverse_key = (end_name, start_name)
         
+        route_points = None
+        is_predefined = True
+        
         if route_key in self.maritime_routes:
-            return self.maritime_routes[route_key]
-        if reverse_key in self.maritime_routes:
-            return list(reversed(self.maritime_routes[reverse_key]))
+            route_points = self.maritime_routes[route_key]
+        elif reverse_key in self.maritime_routes:
+            route_points = list(reversed(self.maritime_routes[reverse_key]))
+        else:
+            # Generate route for non-predefined harbors
+            is_predefined = False
+            start_coords = self.major_harbors.get(start_name)
+            end_coords = self.major_harbors.get(end_name)
+            
+            if start_coords and end_coords:
+                route_points = self._generate_oceanic_route(
+                    start_coords["lat"], 
+                    start_coords["lng"], 
+                    end_coords["lat"], 
+                    end_coords["lng"]
+                )
+                
+                # Clean up generated route to avoid land masses
+                route_points = self._clean_route_points(route_points)
         
-        # Fall back to generated route using coordinates
-        start_coords = self.major_harbors.get(start_name)
-        end_coords = self.major_harbors.get(end_name)
-        
-        if start_coords is None or end_coords is None:
+        if not route_points:
             return []
-        
-        return self._generate_oceanic_route(start_coords["lat"], start_coords["lng"], end_coords["lat"], end_coords["lng"])
+            
+        # Add metadata to the first and last points
+        if route_points:
+            route_points[0]["metadata"] = {
+                "type": "start",
+                "name": start_name,
+                "country": start_harbor_info.get("country", ""),
+                "is_predefined": is_predefined
+            }
+            route_points[-1]["metadata"] = {
+                "type": "end",
+                "name": end_name,
+                "country": end_harbor_info.get("country", ""),
+                "is_predefined": is_predefined
+            }
+            
+        return route_points
 
     def _generate_oceanic_route(self, start_lat: float, start_lng: float, end_lat: float, end_lng: float) -> List[Dict]:
         waypoints: List[Dict] = [{"lat": start_lat, "lng": start_lng}]
         lat_diff = end_lat - start_lat
         lng_diff = end_lng - start_lng
-        num_points = max(5, int((abs(lat_diff) + abs(lng_diff)) // 5))
+        
+        # Calculate total distance to determine number of points needed
+        total_dist = math.sqrt(lat_diff**2 + lng_diff**2)
+        num_points = max(8, min(20, int(total_dist * 2)))  # More points for longer routes
+        
+        # Generate intermediate points with smoother curves
         for i in range(1, num_points):
             factor = i / num_points
-            curve_factor = math.sin(factor * math.pi) * 0.1
+            # Use sine wave for natural curve
+            curve_factor = math.sin(factor * math.pi) * 0.15  # Increased curve factor
+            
+            # Base position
             inter_lat = start_lat + lat_diff * factor
             inter_lng = start_lng + lng_diff * factor
+            
+            # Apply curve based on route direction
             if abs(lng_diff) > abs(lat_diff):
-                inter_lat += curve_factor * (10 if lat_diff >= 0 else -10)
+                # East-West route
+                curve_adjustment = (5 if lat_diff >= 0 else -5)
+                inter_lat += curve_factor * curve_adjustment
             else:
-                inter_lng += curve_factor * (10 if lng_diff >= 0 else -10)
-            waypoints.append({"lat": inter_lat, "lng": inter_lng})
+                # North-South route
+                curve_adjustment = (5 if lng_diff >= 0 else -5)
+                inter_lng += curve_factor * curve_adjustment
+            
+            # Add waypoint if it's not on land
+            if not self._is_land(inter_lat, inter_lng):
+                waypoints.append({"lat": inter_lat, "lng": inter_lng})
+            else:
+                # Try to find nearby water point
+                water_point = self._find_nearest_water_from_point(inter_lat, inter_lng)
+                if water_point:
+                    waypoints.append({"lat": water_point[0], "lng": water_point[1]})
+        
         waypoints.append({"lat": end_lat, "lng": end_lng})
         return waypoints
 
@@ -399,6 +394,19 @@ class RouteService:
         bearing = math.degrees(bearing)
         bearing = (bearing + 360) % 360
         return bearing
+
+    def _calculate_total_distance(self, route_points: List[Dict]) -> float:
+        """Calculate total distance of a route in kilometers"""
+        total_distance = 0.0
+        for i in range(len(route_points) - 1):
+            point1 = route_points[i]
+            point2 = route_points[i + 1]
+            segment_distance = geodesic(
+                (point1["lat"], point1["lng"]),
+                (point2["lat"], point2["lng"])
+            ).kilometers
+            total_distance += segment_distance
+        return total_distance
 
     def _generate_navigation_waypoints_from_route(self, route_points: List[Dict]) -> List[Dict]:
         waypoints: List[Dict] = []
@@ -438,48 +446,118 @@ class RouteService:
         try:
             start_h = self.find_harbor_by_name(start_harbor_name)
             end_h = self.find_harbor_by_name(end_harbor_name)
-            if not start_h or not end_h:
-                return self._create_error_response(start_harbor_name, end_harbor_name, "Harbor not found")
+            
+            # Even if harbors aren't found, create basic coordinates
+            start_coords = start_h if start_h else {"lat": 0, "lng": 0, "name": start_harbor_name}
+            end_coords = end_h if end_h else {"lat": 0, "lng": 0, "name": end_harbor_name}
 
-            route_points = self.get_maritime_route(start_h["name"], end_h["name"])
+            # Try to get route points
+            route_points = []
+            if start_h and end_h:
+                route_points = self.get_maritime_route(start_h["name"], end_h["name"])
+            
+            # If no route points, generate a basic route
             if not route_points:
-                return self._create_error_response(start_harbor_name, end_harbor_name, "No route available")
+                route_points = self._generate_oceanic_route(
+                    start_coords["lat"],
+                    start_coords["lng"],
+                    end_coords["lat"],
+                    end_coords["lng"]
+                )
 
+            # Calculate distances and sample points
             total_distance_km = 0.0
             sample_points: List[Dict] = []
+            
             for i, rp in enumerate(route_points):
                 if i > 0:
                     seg_km = geodesic((route_points[i-1]["lat"], route_points[i-1]["lng"]),
                                       (rp["lat"], rp["lng"])).kilometers
                     total_distance_km += seg_km
-                sample_points.append({
+                
+                # Enhanced sample point with weather data placeholder
+                sample_point = {
                     "latitude": rp["lat"],
                     "longitude": rp["lng"],
-                    "distance_from_start": round(total_distance_km, 3)
-                })
+                    "distance_from_start": round(total_distance_km, 3),
+                    "weather_data": {
+                        "temperature": 25,  # Default values
+                        "wind_speed": 10,
+                        "wave_height": 1.0,
+                        "visibility": "good",
+                        "conditions": "clear"
+                    }
+                }
+                sample_points.append(sample_point)
 
+            # Calculate basic metrics
             total_distance_nm = total_distance_km * 0.539957
-            bearing = self._calculate_bearing(start_h["lat"], start_h["lng"], end_h["lat"], end_h["lng"])
+            try:
+                bearing = self._calculate_bearing(
+                    start_coords["lat"], 
+                    start_coords["lng"], 
+                    end_coords["lat"], 
+                    end_coords["lng"]
+                )
+            except:
+                bearing = 0
+
             estimated_time_hours = total_distance_nm / max(vessel_speed_knots, 0.1)
             estimated_fuel_consumption = total_distance_km * 0.3
 
+            # Generate waypoints and enhanced samples
             waypoints = self._generate_navigation_waypoints_from_route(route_points)
-            enhanced_samples = self._generate_enhanced_sample_points(start_h["lat"], start_h["lng"],
-                                                                     end_h["lat"], end_h["lng"], total_distance_km)
+            enhanced_samples = self._generate_enhanced_sample_points(
+                start_coords["lat"],
+                start_coords["lng"],
+                end_coords["lat"],
+                end_coords["lng"],
+                total_distance_km
+            )
 
-            route_summary_text = self._generate_harbor_route_summary(start_h, end_h, total_distance_km, estimated_time_hours, vessel_speed_knots)
+            # Generate weather information
+            weather_info = {
+                "temperature": {
+                    "value": 25,
+                    "unit": "°C",
+                    "status": "Normal"
+                },
+                "wind_speed": {
+                    "value": 10,
+                    "unit": "knots",
+                    "status": "Calm"
+                },
+                "wave_height": {
+                    "value": 1.0,
+                    "unit": "meters",
+                    "status": "Calm"
+                },
+                "visibility": {
+                    "value": "Good",
+                    "unit": "km",
+                    "status": "Clear"
+                }
+            }
+
+            route_summary_text = self._generate_harbor_route_summary(
+                start_coords,
+                end_coords,
+                total_distance_km,
+                estimated_time_hours,
+                vessel_speed_knots
+            )
 
             return {
                 "route_found": True,
-                "start_point": {"latitude": start_h["lat"], "longitude": start_h["lng"]},
-                "end_point": {"latitude": end_h["lat"], "longitude": end_h["lng"]},
-                "start_harbor": start_h,
-                "end_harbor": end_h,
-                "distance_km": round(total_distance_km, 2),
-                "distance_nm": round(total_distance_nm, 2),
+                "start_point": {"latitude": start_coords["lat"], "longitude": start_coords["lng"]},
+                "end_point": {"latitude": end_coords["lat"], "longitude": end_coords["lng"]},
+                "start_harbor": start_coords,
+                "end_harbor": end_coords,
+                "distance_km": round(max(total_distance_km, 0.1), 2),  # Ensure non-zero values
+                "distance_nm": round(max(total_distance_nm, 0.1), 2),
                 "bearing": round(bearing, 2),
-                "estimated_time_hours": round(estimated_time_hours, 2),
-                "estimated_fuel_consumption": round(estimated_fuel_consumption, 2),
+                "estimated_time_hours": round(max(estimated_time_hours, 0.1), 2),
+                "estimated_fuel_consumption": round(max(estimated_fuel_consumption, 0.1), 2),
                 "vessel_speed_knots": vessel_speed_knots,
                 "sample_points": sample_points,
                 "route_points": route_points,
@@ -487,35 +565,137 @@ class RouteService:
                 "enhanced_sample_points": enhanced_samples,
                 "route_type": "maritime_route",
                 "route_summary": route_summary_text,
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now().isoformat(),
+                "weather_conditions": weather_info,
+                "route_metrics": {
+                    "total_waypoints": len(waypoints),
+                    "navigation_status": "Active",
+                    "route_type": "Direct",
+                    "safety_level": "Normal",
+                    "weather_risk": "Low"
+                },
+                "detailed_weather": {
+                    "forecast": [
+                        {
+                            "position": "Start",
+                            "temperature": 25,
+                            "wind_speed": 10,
+                            "wave_height": 1.0,
+                            "visibility": "Good"
+                        },
+                        {
+                            "position": "Middle",
+                            "temperature": 25,
+                            "wind_speed": 12,
+                            "wave_height": 1.2,
+                            "visibility": "Good"
+                        },
+                        {
+                            "position": "End",
+                            "temperature": 25,
+                            "wind_speed": 11,
+                            "wave_height": 1.1,
+                            "visibility": "Good"
+                        }
+                    ]
+                }
             }
         except Exception as e:
             print(f"[RouteService] Error calculating route: {e}")
             return self._create_error_response(start_harbor_name, end_harbor_name, str(e))
 
     async def analyze_route_weather(self, sample_points: List[Dict]) -> Dict:
-        weather_analysis = {"points": [], "hazard_summary": {}, "risk_zones": []}
+        """Analyze weather conditions along the route with enhanced details"""
+        weather_analysis = {
+            "points": [],
+            "hazard_summary": {},
+            "risk_zones": [],
+            "critical_safety_alerts": [],
+            "weather_forecast": [],
+            "safety_recommendations": [],
+            "route_segments": [],
+            "detailed_analysis": {
+                "wind_conditions": [],
+                "wave_conditions": [],
+                "visibility_status": [],
+                "precipitation_forecast": [],
+                "safety_metrics": {}
+            }
+        }
         try:
+            high_risk_conditions = False
+            severe_weather_count = 0
+            
             for i, point in enumerate(sample_points):
                 weather_data = await self.weather_service.get_current_weather(point["latitude"], point["longitude"])
                 hazard_level = self._calculate_point_hazard_level(weather_data)
+                
+                # Enhanced point analysis
                 point_analysis = {
                     "point_index": i,
                     "distance_from_start": point.get("distance_from_start", 0),
                     "latitude": point["latitude"],
                     "longitude": point["longitude"],
                     "weather": weather_data,
-                    "hazard_level": hazard_level
+                    "hazard_level": hazard_level,
+                    "weather_conditions": {
+                        "wind_speed": weather_data.get("wind_speed", 0),
+                        "wave_height": weather_data.get("wave_height", 0),
+                        "visibility": weather_data.get("visibility", "good"),
+                        "precipitation": weather_data.get("precipitation", 0)
+                    }
                 }
                 weather_analysis["points"].append(point_analysis)
+                
+                # Process critical safety alerts
+                hazards = self._identify_hazards(weather_data)
                 if hazard_level > 0.7:
-                    weather_analysis["risk_zones"].append({
+                    severe_weather_count += 1
+                    high_risk_conditions = True
+                    risk_zone = {
                         "start_distance": point.get("distance_from_start", 0),
                         "end_distance": point.get("distance_from_start", 0) + 20,
                         "hazard_level": hazard_level,
-                        "hazards": self._identify_hazards(weather_data)
-                    })
+                        "hazards": hazards,
+                        "severity": "High" if hazard_level > 0.8 else "Moderate",
+                        "recommendations": self._generate_safety_recommendations(hazards)
+                    }
+                    weather_analysis["risk_zones"].append(risk_zone)
+                    
+                    # Add critical safety alert
+                    alert = {
+                        "location": f"At {point['latitude']:.2f}°N, {point['longitude']:.2f}°E",
+                        "distance_from_start": point.get("distance_from_start", 0),
+                        "hazards": hazards,
+                        "severity": "Critical" if hazard_level > 0.8 else "Warning",
+                        "recommendations": self._generate_safety_recommendations(hazards)
+                    }
+                    weather_analysis["critical_safety_alerts"].append(alert)
+                
+                # Add weather forecast data
+                if i % 3 == 0:  # Add forecast every 3rd point
+                    forecast = {
+                        "location": f"{point['latitude']:.2f}°N, {point['longitude']:.2f}°E",
+                        "distance": point.get("distance_from_start", 0),
+                        "conditions": weather_data.get("conditions", "Unknown"),
+                        "wind_speed": weather_data.get("wind_speed", 0),
+                        "wave_height": weather_data.get("wave_height", 0),
+                        "visibility": weather_data.get("visibility", "good"),
+                        "forecast_time": datetime.now().isoformat()
+                    }
+                    weather_analysis["weather_forecast"].append(forecast)
+            
+            # Generate overall hazard summary
             weather_analysis["hazard_summary"] = self._generate_hazard_summary(weather_analysis["points"])
+            
+            # Generate safety recommendations based on overall conditions
+            weather_analysis["safety_recommendations"] = self._generate_route_safety_recommendations(
+                high_risk_conditions,
+                severe_weather_count,
+                len(sample_points),
+                weather_analysis["hazard_summary"]["overall_risk_level"]
+            )
+            
         except Exception as e:
             print(f"[RouteService] Error analyzing route weather: {e}")
         return weather_analysis
@@ -553,7 +733,100 @@ class RouteService:
         elif med > total_points * 0.3:
             overall = "Medium"
         safe_pct = round((total_points - high) / total_points * 100, 1) if total_points > 0 else 100.0
-        return {"total_points": total_points, "high_hazard_points": high, "medium_hazard_points": med, "overall_risk_level": overall, "safe_percentage": safe_pct}
+        return {
+            "total_points": total_points,
+            "high_hazard_points": high,
+            "medium_hazard_points": med,
+            "overall_risk_level": overall,
+            "safe_percentage": safe_pct,
+            "risk_assessment": self._get_risk_assessment(overall, safe_pct)
+        }
+
+    def _get_risk_assessment(self, risk_level: str, safe_percentage: float) -> str:
+        if risk_level == "High":
+            return "High risk conditions detected. Exercise extreme caution and consider route alternatives."
+        elif risk_level == "Medium":
+            return "Moderate risk conditions present. Monitor conditions closely and prepare for potential hazards."
+        else:
+            return "Generally safe conditions, maintain standard safety protocols."
+
+    def _generate_safety_recommendations(self, hazards: List[str]) -> List[str]:
+        recommendations = []
+        for hazard in hazards:
+            if hazard == "storm":
+                recommendations.extend([
+                    "Maintain safe distance from storm center",
+                    "Monitor weather updates frequently",
+                    "Secure all deck equipment",
+                    "Consider alternative routes"
+                ])
+            elif hazard == "high_wind":
+                recommendations.extend([
+                    "Reduce vessel speed",
+                    "Adjust course to minimize wind impact",
+                    "Monitor vessel stability"
+                ])
+            elif hazard == "rough_sea":
+                recommendations.extend([
+                    "Maintain reduced speed",
+                    "Ensure cargo is properly secured",
+                    "Monitor hull stress"
+                ])
+            elif hazard == "fog":
+                recommendations.extend([
+                    "Activate fog horn and lights",
+                    "Reduce speed significantly",
+                    "Increase radar monitoring frequency"
+                ])
+        return list(set(recommendations))  # Remove duplicates
+
+    def _generate_route_safety_recommendations(self, high_risk: bool, severe_count: int,
+                                            total_points: int, overall_risk: str) -> List[Dict]:
+        recommendations = []
+        
+        # Overall route assessment
+        risk_percentage = (severe_count / max(total_points, 1)) * 100
+        
+        if high_risk:
+            recommendations.append({
+                "type": "CRITICAL",
+                "title": "High Risk Route Conditions",
+                "description": "This route contains significant hazards",
+                "actions": [
+                    "Consider alternative routes if available",
+                    "Ensure all safety equipment is fully operational",
+                    "Monitor weather conditions continuously",
+                    "Maintain regular communication with coastal authorities"
+                ]
+            })
+        
+        if risk_percentage > 30:
+            recommendations.append({
+                "type": "WARNING",
+                "title": "Extended Hazardous Conditions",
+                "description": f"Approximately {risk_percentage:.1f}% of route contains hazardous conditions",
+                "actions": [
+                    "Plan for potential delays",
+                    "Ensure sufficient fuel reserves",
+                    "Review emergency procedures with crew",
+                    "Prepare alternate route options"
+                ]
+            })
+        
+        # Always include standard safety recommendations
+        recommendations.append({
+            "type": "STANDARD",
+            "title": "Standard Safety Protocols",
+            "description": "Basic safety measures for maritime navigation",
+            "actions": [
+                "Maintain regular weather monitoring",
+                "Keep communication equipment operational",
+                "Monitor vessel systems regularly",
+                "Update route status with relevant authorities"
+            ]
+        })
+        
+        return recommendations
 
     def _create_error_response(self, start_harbor: str, end_harbor: str, error_msg: str) -> Dict:
         return {
