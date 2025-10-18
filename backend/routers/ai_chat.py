@@ -122,7 +122,8 @@ async def get_chat_history(
             "id": chat.id,
             "message": chat.message,
             "response": chat.response,
-            "created_at": chat.created_at
+            "created_at": chat.created_at,
+            "model_used": chat.model_used if hasattr(chat, 'model_used') else 'advanced'
         }
         for chat in chat_history
     ]

@@ -159,10 +159,11 @@ const AIChat = () => {
       })).concat(response.data.map(item => ({
         id: `${item.id}-response`,
         type: 'assistant',
-        content: item.response,
+        content: item.response, // Store original full response
         timestamp: item.created_at,
         agentType: item.agent_type || 'communication_manager',
-        confidence: item.confidence || 0.8
+        confidence: item.confidence || 0.8,
+        modelUsed: item.model_used || 'advanced' // Track which model was used (default to advanced for old messages)
       }))).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       
       setMessages(formattedMessages);
@@ -262,9 +263,10 @@ const AIChat = () => {
   };
 
   // Helper function to simplify Basic GPT responses
-  const simplifyBasicGPTResponse = (response) => {
+  // modelUsed parameter: which model was used when the message was created ('basic' or 'advanced')
+  const simplifyBasicGPTResponse = (response, modelUsed = 'advanced') => {
     // For Advanced model, just fix any contradictory safety headers
-    if (selectedModel !== 'basic') {
+    if (modelUsed !== 'basic') {
       // Fix contradictory safety status in Advanced model responses
       if (response.includes('Safety Status: ❌ UNSAFE') || response.includes('Risk Level: HIGH')) {
         // Remove any misleading "SAFE" header if the actual analysis shows unsafe
@@ -391,20 +393,36 @@ ${speed ? `- Speed Analysis: ${speed}` : ''}`.trim();
     }
 
     // Simplify country safety queries (is it safe to go to X)
-    if (response.match(/(?:safe|safety).*?(?:to go|travel|visit)/i) || response.includes('Risk Level:')) {
-      // Check for NOT SAFE indicators first (higher priority)
+    if (response.match(/(?:safe|safety).*?(?:to go|travel|visit)/i) || response.includes('Risk Level:') || response.includes('INTELLIGENT SAFETY ANALYSIS')) {
+      // Extract the main safety verdict from the AI's response (look at the beginning)
+      const mainSafetyVerdict = response.match(/^(✅|⚠️|❌)\s*(SAFE|NOT SAFE|UNSAFE)\s*-\s*(High|Medium|Low)\s*Risk/i);
+      
+      if (mainSafetyVerdict) {
+        const icon = mainSafetyVerdict[1];
+        const verdict = mainSafetyVerdict[2].toUpperCase();
+        const riskLevel = mainSafetyVerdict[3];
+        
+        // Return the main verdict
+        if (icon === '⚠️' || icon === '❌' || verdict.includes('NOT') || verdict.includes('UNSAFE')) {
+          return `⚠️ NOT SAFE - ${riskLevel} Risk for Travel`;
+        } else {
+          return `✅ SAFE - ${riskLevel} Risk for Travel`;
+        }
+      }
+      
+      // Fallback: Check for explicit risk level indicators
       const hasHighRisk = response.match(/Risk Level:\s*HIGH/i);
-      const hasDisasters = response.match(/AFFECTING DISASTERS|currently assessed as unsafe|avoid travel|do not recommend/i);
-      const hasActiveHazards = response.match(/active earthquakes|active typhoons|active floods|active disasters/i);
-      
-      // Check if SAFE indicators
+      const hasMediumRisk = response.match(/Risk Level:\s*MEDIUM/i);
       const hasLowRisk = response.match(/Risk Level:\s*LOW/i);
-      const isSafeToTravel = response.match(/safe to travel|safe for travel|low risk for travel/i) && !hasHighRisk && !hasDisasters;
       
-      // Determine safety - prioritize danger signals
-      if (hasHighRisk || hasDisasters || hasActiveHazards) {
+      // Check for explicit unsafe warnings
+      const explicitlyUnsafe = response.match(/currently assessed as unsafe|avoid travel|do not recommend travel/i);
+      
+      if (explicitlyUnsafe || hasHighRisk) {
         return '⚠️ NOT SAFE - High Risk for Travel';
-      } else if (hasLowRisk || isSafeToTravel) {
+      } else if (hasMediumRisk) {
+        return '⚠️ SAFE - Medium Risk for Travel (Exercise Caution)';
+      } else if (hasLowRisk) {
         return '✅ SAFE - Low Risk for Travel';
       }
     }
@@ -445,23 +463,23 @@ ${speed ? `- Speed Analysis: ${speed}` : ''}`.trim();
         message: message,
         weather_data: contextData.weather_data,
         route_data: contextData.route_data,
-        location: locationData
+        location: locationData,
+        model_used: selectedModel // Send which model is being used
       };
 
       // Use dedicated AI Chat endpoint with Google Custom Search & real-time data
       const response = await axios.post('/api/enhanced-chat/chat-with-location', requestData);
 
-      // Simplify response if using Basic GPT
-      const processedResponse = simplifyBasicGPTResponse(response.data.response);
-
+      // Store the original response and track which model was used
       const assistantMessage = {
         id: Date.now() + 1,
         type: 'assistant',
-        content: processedResponse,
+        content: response.data.response, // Store original full response
         timestamp: new Date().toISOString(),
         agentType: response.data.agent_type,
         confidence: response.data.confidence,
-        suggestions: response.data.suggestions
+        suggestions: response.data.suggestions,
+        modelUsed: selectedModel // Track which model was used for this message
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -943,14 +961,17 @@ ${speed ? `- Speed Analysis: ${speed}` : ''}`.trim();
                           <div className="whitespace-pre-wrap text-sm leading-relaxed">
                             {message.type === 'assistant' && message.content && message.content.length > 800 && !expandedMessageIds.has(message.id) ? (
                               <>
-                                {message.content.slice(0, 800)}...
+                                {(() => {
+                                  const displayContent = message.type === 'assistant' ? simplifyBasicGPTResponse(message.content, message.modelUsed) : message.content;
+                                  return displayContent.slice(0, 800);
+                                })()}...
                                 <button
                                   onClick={() => setExpandedMessageIds(prev => { const s = new Set(prev); s.add(message.id); return s; })}
                                   className="text-xs text-blue-600 ml-2"
                                 >Show more</button>
                               </>
                             ) : (
-                              message.content
+                              message.type === 'assistant' ? simplifyBasicGPTResponse(message.content, message.modelUsed) : message.content
                             )}
                           </div>
                           

@@ -92,15 +92,19 @@ async def chat_with_location_context(
             "user_plan": current_user.plan
         }
         
+        # Get the model used (basic or advanced)
+        model_used = request.get("model_used", "advanced")
+        
         # Process with enhanced service
         response_data = await process_chat_message(message, context_data)
         
-        # Store chat history
+        # Store chat history with model_used
         db_chat = ChatHistory(
             user_id=current_user.id,
             message=message,
             response=response_data["response"],
-            context_data=response_data.get("real_time_data", {})
+            context_data=response_data.get("real_time_data", {}),
+            model_used=model_used
         )
         db.add(db_chat)
         db.commit()
