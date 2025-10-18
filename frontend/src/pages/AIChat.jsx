@@ -394,37 +394,79 @@ ${speed ? `- Speed Analysis: ${speed}` : ''}`.trim();
 
     // Simplify country safety queries (is it safe to go to X)
     if (response.match(/(?:safe|safety).*?(?:to go|travel|visit)/i) || response.includes('Risk Level:') || response.includes('INTELLIGENT SAFETY ANALYSIS')) {
-      // Extract the main safety verdict from the AI's response (look at the beginning)
-      const mainSafetyVerdict = response.match(/^(✅|⚠️|❌)\s*(SAFE|NOT SAFE|UNSAFE)\s*-\s*(High|Medium|Low)\s*Risk/i);
+
+      // PRIORITY CHECK: Look for active disasters FIRST (most important)
+      const hasActiveDisasters = response.match(/AFFECTING DISASTERS.*?\((\d+)\s+total\)/i);
+      const disasterCount = hasActiveDisasters ? parseInt(hasActiveDisasters[1]) : 0;
+      const explicitlyUnsafe = response.match(/NOT RECOMMENDED|avoid travel|do not recommend|currently assessed as unsafe|exercise caution and avoid/i);
+
+      // If there are active disasters or explicit warnings, it's UNSAFE - override any other verdict
+      if (disasterCount > 0) {
+        return `❌ UNSAFE - ${disasterCount} active disaster(s) affecting this location`;
+      }
+
+      if (explicitlyUnsafe) {
+        return '❌ UNSAFE - Travel not recommended';
+      }
+
+      // STEP 1: Extract the main safety verdict from the beginning of the response
+      const mainSafetyVerdict = response.match(/^(✅|⚠️|❌)\s*(SAFE|NOT SAFE|UNSAFE)\s*-\s*/i);
       
       if (mainSafetyVerdict) {
         const icon = mainSafetyVerdict[1];
         const verdict = mainSafetyVerdict[2].toUpperCase();
-        const riskLevel = mainSafetyVerdict[3];
-        
-        // Return the main verdict
-        if (icon === '⚠️' || icon === '❌' || verdict.includes('NOT') || verdict.includes('UNSAFE')) {
-          return `⚠️ NOT SAFE - ${riskLevel} Risk for Travel`;
+
+        // Return the main verdict - respect the original icon and verdict
+        if (icon === '❌' || verdict.includes('UNSAFE')) {
+          return `❌ UNSAFE - Travel to this location`;
+        } else if (icon === '⚠️' || verdict.includes('NOT SAFE')) {
+          return `⚠️ NOT SAFE - Exercise caution`;
         } else {
-          return `✅ SAFE - ${riskLevel} Risk for Travel`;
+          return `✅ SAFE - Low Risk for Travel`;
         }
       }
-      
-      // Fallback: Check for explicit risk level indicators
+
+      // STEP 3: Check risk level indicators
       const hasHighRisk = response.match(/Risk Level:\s*HIGH/i);
       const hasMediumRisk = response.match(/Risk Level:\s*MEDIUM/i);
       const hasLowRisk = response.match(/Risk Level:\s*LOW/i);
-      
-      // Check for explicit unsafe warnings
-      const explicitlyUnsafe = response.match(/currently assessed as unsafe|avoid travel|do not recommend travel/i);
-      
-      if (explicitlyUnsafe || hasHighRisk) {
-        return '⚠️ NOT SAFE - High Risk for Travel';
+
+      if (hasHighRisk) {
+        return '❌ UNSAFE - High Risk for Travel';
       } else if (hasMediumRisk) {
-        return '⚠️ SAFE - Medium Risk for Travel (Exercise Caution)';
+        // Check if medium risk is combined with disaster keywords
+        const hasDisasterKeywords = response.match(/Earthquake|Storm|Typhoon|Tsunami|Flood|Hurricane/i);
+        if (hasDisasterKeywords) {
+          return '⚠️ NOT SAFE - Medium risk with active hazards';
+        }
+        return '⚠️ SAFE - Medium Risk (Exercise Caution)';
       } else if (hasLowRisk) {
         return '✅ SAFE - Low Risk for Travel';
       }
+
+      // STEP 4: Fallback - analyze response content for safety keywords
+      const responseLower = response.toLowerCase();
+
+      // Check for negative safety indicators
+      if (responseLower.includes('earthquake') && responseLower.match(/magnitude|m \d+\.\d+/i)) {
+        return '❌ UNSAFE - Active earthquake reported';
+      }
+      if (responseLower.match(/storm|typhoon|hurricane|cyclone/i) && !responseLower.includes('no active storm')) {
+        return '❌ UNSAFE - Active storm/typhoon reported';
+      }
+      if (responseLower.match(/flood|tsunami/i) && !responseLower.includes('no flood')) {
+        return '⚠️ NOT SAFE - Active flood/water hazard reported';
+      }
+
+      // Check for positive safety indicators
+      if (responseLower.match(/no (earthquake|disaster|storm|flood|typhoon|hazard)/i) ||
+          responseLower.includes('safe to') ||
+          responseLower.includes('currently safe')) {
+        return '✅ SAFE - Low Risk for Travel';
+      }
+
+      // STEP 5: If still unclear, return a neutral message with the original response
+      return `ℹ️⚠️ Safety assessment unclear - please review details:\n\n${response.slice(0, 300)}...`;
     }
 
     // If no specific pattern matched, return original response

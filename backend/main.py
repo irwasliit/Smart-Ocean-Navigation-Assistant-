@@ -80,7 +80,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={
-            "error": exc.detail,
+            "detail": exc.detail,  # Use 'detail' to match FastAPI standard
+            "error": exc.detail,    # Keep 'error' for backward compatibility
             "status_code": exc.status_code,
             "type": "http_error"
         }

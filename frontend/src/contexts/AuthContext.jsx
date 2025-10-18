@@ -54,7 +54,9 @@ export const AuthProvider = ({ children }) => {
       toast.success('Login successful!');
       return true;
     } catch (error) {
-      const message = error.response?.data?.detail || 'Login failed';
+      // Handle different error response formats
+      const errorData = error.response?.data;
+      const message = errorData?.detail || errorData?.error || errorData?.message || 'Login failed';
       toast.error(message);
       return false;
     }
@@ -62,16 +64,28 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (email, password, fullName) => {
     try {
-      await axios.post('/api/auth/register', {
+      console.log('🔍 Registration attempt:', { email, password: '***', fullName });
+      const payload = {
         email,
         password,
         full_name: fullName,
-      });
+      };
+      console.log('📤 Sending payload:', payload);
       
+      const response = await axios.post('/api/auth/register', payload);
+      console.log('✅ Registration response:', response.data);
+
       toast.success('Registration successful! Please login.');
       return true;
     } catch (error) {
-      const message = error.response?.data?.detail || 'Registration failed';
+      console.error('❌ Registration error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      // Handle different error response formats
+      const errorData = error.response?.data;
+      const message = errorData?.detail || errorData?.error || errorData?.message || 'Registration failed';
+      
       toast.error(message);
       return false;
     }
