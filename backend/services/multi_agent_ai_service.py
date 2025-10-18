@@ -178,7 +178,7 @@ class WeatherAnalystAgent:
         # Visibility severity
         visibility = current.get('visibility', 10000)
         if visibility < 1000: severity += 2
-        elif visibility < 5000: severity += 1
+        elif visibility < 5011: severity += 1
         
         # Pressure trend
         if len(forecast) >= 2:
@@ -450,7 +450,7 @@ class HazardDetectorAgent:
         visibility = current.get('visibility', 10000)
         if visibility < 2000:
             hazards['poor_visibility'] = {'probability': 0.9, 'severity': 'high'}
-        elif visibility < 5000:
+        elif visibility < 5011:
             hazards['reduced_visibility'] = {'probability': 0.7, 'severity': 'medium'}
         
         return hazards

@@ -313,7 +313,7 @@ class WeatherService:
             return "Strong Wind"
         elif visibility < 1000:
             return "Fog"
-        elif visibility < 5000:
+        elif visibility < 5011:
             return "Poor Visibility"
         else:
             return "Clear"
