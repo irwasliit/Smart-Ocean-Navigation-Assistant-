@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
@@ -105,15 +105,13 @@ const Upgrade = () => {
       description: 'Perfect for getting started with marine weather basics',
       features: [
         '10 AI chat messages per day',
-        'Basic weather reports',
-        'Simple route suggestions',
-        'Standard hazard alerts',
+        'weather reports',
+        'route suggestions',
+        'hazard alerts',
+        'Bacic Gpt '
         
       ],
-      limitations: [
-        'Limited chat interactions',
-        
-      ],
+        limitations: [],
       popular: false
     },
     {
@@ -123,13 +121,14 @@ const Upgrade = () => {
       period: '/month',
       description: 'Enhanced features for professional mariners and enthusiasts',
       features: [
+        'Bacis GPT +Hugging Face AI chat',
         '50 AI chat messages per day',
         'save 5 location for weather',
-        'save 5 location for Alerts'
+        'save 5 Alerts only'
        
       ],
       limitations: [
-        'Daily chat limit applies'
+        
       ],
       popular: true
     },
@@ -142,7 +141,7 @@ const Upgrade = () => {
       features: [
         'Unlimited AI chat messages',
         'Unlimited Weather Location Save',
-        'Unlimited Alert Location Save'
+        'Unlimited Alert Save',
        
       ],
       limitations: [],
