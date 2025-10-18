@@ -102,6 +102,7 @@ class ChatHistory(Base):
     message = Column(Text, nullable=False)
     response = Column(Text, nullable=False)
     context_data = Column(JSON)  # Weather data used for response
+    model_used = Column(String(20), default='advanced')  # 'basic' or 'advanced' - track which model was used
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
