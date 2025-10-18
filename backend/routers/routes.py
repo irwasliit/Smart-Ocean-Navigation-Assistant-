@@ -27,24 +27,86 @@ async def analyze_route(
         
         # Use harbor names if provided, otherwise find nearest harbors by coordinates
         if route.start_harbor and route.end_harbor:
-            route_data = await route_service.calculate_route(
-                start_harbor_name=route.start_harbor,
-                end_harbor_name=route.end_harbor,
-                vessel_speed_knots=vessel_speed
-            )
+            try:
+                route_data = await route_service.calculate_route(
+                    start_harbor_name=route.start_harbor,
+                    end_harbor_name=route.end_harbor,
+                    vessel_speed_knots=vessel_speed
+                )
+            except Exception as e:
+                print(f"Error calculating route with harbor names: {str(e)}")
+                route_data = {"route_found": False}
         else:
-            # Find nearest harbors based on coordinates
-            start_harbor = route_service.find_nearest_harbor(route.start_latitude, route.start_longitude)
-            end_harbor = route_service.find_nearest_harbor(route.end_latitude, route.end_longitude)
-            
-            route_data = await route_service.calculate_route(
-                start_harbor_name=start_harbor,
-                end_harbor_name=end_harbor,
-                vessel_speed_knots=vessel_speed
-            )
+            try:
+                # Find nearest harbors based on coordinates
+                start_harbor = route_service.find_nearest_harbor(route.start_latitude, route.start_longitude)
+                end_harbor = route_service.find_nearest_harbor(route.end_latitude, route.end_longitude)
+                
+                route_data = await route_service.calculate_route(
+                    start_harbor_name=start_harbor,
+                    end_harbor_name=end_harbor,
+                    vessel_speed_knots=vessel_speed
+                )
+            except Exception as e:
+                print(f"Error calculating route with coordinates: {str(e)}")
+                route_data = {"route_found": False}
+
+            if not route_data.get("route_found", False):
+                # Generate a route even if it's not predefined
+                start_coords = {"lat": route.start_latitude, "lng": route.start_longitude}
+                end_coords = {"lat": route.end_latitude, "lng": route.end_longitude}
+                
+                route_points = route_service._generate_oceanic_route(
+                    start_coords["lat"],
+                    start_coords["lng"],
+                    end_coords["lat"],
+                    end_coords["lng"]
+                )
+                
+                if route_points:
+                    route_data = {
+                        "route_found": True,
+                        "route_points": route_points,
+                        "start_point": start_coords,
+                        "end_point": end_coords,
+                        "distance_km": route_service._calculate_total_distance(route_points),
+                        "is_predefined": False,
+                        "generated_route": True
+                    }
+                    
+                    # Calculate additional metrics
+                    distance_nm = route_data["distance_km"] * 0.539957
+                    route_data.update({
+                        "distance_nm": distance_nm,
+                        "estimated_time_hours": distance_nm / vessel_speed,
+                        "estimated_fuel_consumption": route_data["distance_km"] * 0.3,
+                        "bearing": route_service._calculate_bearing(
+                            start_coords["lat"],
+                            start_coords["lng"],
+                            end_coords["lat"],
+                            end_coords["lng"]
+                        )
+                    })
         
-        # Get weather data for each point along the route
-        weather_analysis = await route_service.analyze_route_weather(route_data["sample_points"])
+        try:
+            # Get weather data for each point along the route
+            if route_data.get("sample_points"):
+                weather_analysis = await route_service.analyze_route_weather(route_data["sample_points"])
+            else:
+                weather_analysis = {
+                    "points": [],
+                    "hazard_summary": {"overall_risk_level": "Unknown"},
+                    "risk_zones": [],
+                    "weather_forecast": []
+                }
+        except Exception as e:
+            print(f"Error analyzing weather: {str(e)}")
+            weather_analysis = {
+                "points": [],
+                "hazard_summary": {"overall_risk_level": "Unknown"},
+                "risk_zones": [],
+                "weather_forecast": []
+            }
         
         # Generate comprehensive route analysis using hardcoded maritime data
         start_harbor_info = route_data.get('start_harbor', {})
