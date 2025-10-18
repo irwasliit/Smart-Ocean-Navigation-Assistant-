@@ -105,15 +105,13 @@ const Upgrade = () => {
       description: 'Perfect for getting started with marine weather basics',
       features: [
         '10 AI chat messages per day',
-        'Basic weather reports',
-        'Simple route suggestions',
-        'Standard hazard alerts',
+        'weather reports',
+        'route suggestions',
+        'hazard alerts',
+        'Basic Gpt '
         
       ],
-      limitations: [
-        'Limited chat interactions',
-        
-      ],
+        limitations: [],
       popular: false
     },
     {
@@ -123,13 +121,15 @@ const Upgrade = () => {
       period: '/month',
       description: 'Enhanced features for professional mariners and enthusiasts',
       features: [
+                'All Free plan features ',
+        'Advanced GPT +Hugging Face AI chat',
         '50 AI chat messages per day',
         'save 5 location for weather',
-        'save 5 location for Alerts'
+        'save 5 Alerts only'
        
       ],
       limitations: [
-        'Daily chat limit applies'
+        
       ],
       popular: true
     },
@@ -140,9 +140,14 @@ const Upgrade = () => {
       period: '/month',
       description: 'Complete marine intelligence solution for professionals',
       features: [
+
+        'All Free plan features ',
+                       
+        'Advanced GPT +Hugging Face AI chat',
+                        
         'Unlimited AI chat messages',
         'Unlimited Weather Location Save',
-        'Unlimited Alert Location Save'
+        'Unlimited Alert Save',
        
       ],
       limitations: [],
