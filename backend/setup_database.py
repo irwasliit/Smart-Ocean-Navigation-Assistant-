@@ -17,7 +17,7 @@ def create_database():
     try:
         # For SQLite, the database file will be created automatically
         # when we create the engine, so no need for manual database creation
-        database_url = os.getenv('DATABASE_URL', 'sqlite:///marine_weather.db')
+        database_url = os.getenv('DATABASE_URL', 'sqlite:///./marine_weather.db')
         print(f"Using database: {database_url}")
         
         # Create the engine - this will create the SQLite file if it doesn't exist
@@ -35,7 +35,9 @@ def create_tables():
     """Create all tables using SQLAlchemy"""
     try:
         from models import Base
-        from database import engine
+        # Use the database URL from environment or default to SQLite
+        database_url = os.getenv('DATABASE_URL', 'sqlite:///./marine_weather.db')
+        engine = create_engine(database_url)
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
