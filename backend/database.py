@@ -6,10 +6,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Database configuration
+# Database configuration - using SQLite for easier setup
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "mysql+pymysql://root:@localhost:3306/marine_weather"
+    "sqlite:///./marine_weather.db"
 )
 
 engine = create_engine(DATABASE_URL, echo=True)

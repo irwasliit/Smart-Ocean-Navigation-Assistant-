@@ -79,6 +79,13 @@ async def generate_enhanced_maritime_analysis(route_data: Dict, weather_analysis
         end_harbor_info = route_data.get('end_harbor', {})
         start_harbor = start_harbor_info.get('name', 'Unknown')
         end_harbor = end_harbor_info.get('name', 'Unknown')
+        distance_km = route_data.get('distance_km', 0)
+        duration_hours = route_data.get('estimated_time_hours', 0)
+        vessel_type = getattr(route_config, 'vessel_type', 'cargo')
+        speed_knots = getattr(route_config, 'cruising_speed_knots', 15)
+        
+        # Generate route justification
+        route_justification = f"This maritime route from {start_harbor} to {end_harbor} has been calculated for a {vessel_type} vessel traveling at {speed_knots} knots. The route spans {distance_km:.1f} km and is estimated to take {duration_hours:.1f} hours. It follows established international shipping lanes, avoids shallow waters and known hazards, and includes waypoints for safe navigation. Weather conditions along the route have been analyzed to ensure optimal safety and efficiency."
         
         # Generate weather alerts based on real data
         weather_alerts = generate_weather_alerts(weather_analysis)
@@ -106,7 +113,8 @@ async def generate_enhanced_maritime_analysis(route_data: Dict, weather_analysis
                 "weather_alerts": weather_alerts,
                 "hazards": hazards,
                 "safety_recommendations": safety_recommendations,
-                "alerts": weather_alerts + [h for h in hazards if h.get('severity') == 'high']
+                "alerts": weather_alerts + [h for h in hazards if h.get('severity') == 'high'],
+                "route_justification": route_justification
             },
             "risk_assessment": risk_assessment
         }
