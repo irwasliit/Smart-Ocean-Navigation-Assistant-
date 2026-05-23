@@ -1,4 +1,4 @@
-# 🌊 IRWA Marine Project
+# 🌊 Smart Ocean Navigation Assistant 
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/irwasliit/IRWA_MARINE_PROJECT)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
